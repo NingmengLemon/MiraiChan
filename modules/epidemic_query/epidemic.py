@@ -1,4 +1,4 @@
-from . import requester
+from .. import requester
 #import requester
 import json
 import time
@@ -7,9 +7,9 @@ from loguru import logger
 import os
 import re
 
-__all__ = ['query_text','query_data']
+__all__ = ['query_text','query_data','fetch','afetch']
 
-api_domestic = 'https://view.inews.qq.com/g2/getOnsInfo?name=disease_h5'
+api_domestic = 'https://api.inews.qq.com/newsqa/v1/query/inner/publish/modules/list?modules=diseaseh5Shelf'
 api_foreign = 'https://api.tianapi.com/ncovabroad/index?key=9336c2e9e1be9dbda6c22d641c2a9f06'
 cache_domestic = None
 cache_foreign = None
@@ -20,21 +20,20 @@ def timestamp_to_time(ts):
 def fetch():
     global cache_domestic
     global cache_foreign
-    data_do = json.loads(json.loads(requester.get_content_str(api_domestic))['data'])
+    data_do = json.loads(requester.get_content_str(api_domestic))['data']['diseaseh5Shelf']
     data_fo = json.loads(requester.get_content_str(api_foreign))['newslist']
     
     cache_domestic = data_do
     cache_foreign = data_fo
 
-    logger.info('Fetch epidemic data')
-              
-def fetch_thread():
-    while True:
-        try:
-            fetch()
-        except Exception as e:
-            logger.error('Unable to sync epidemic data: '+str(e))
-        time.sleep(1800)
+async def afetch():
+    global cache_domestic
+    global cache_foreign
+
+    org_json_do = await requester.aget_content_str(api_domestic)
+    cache_domestic = json.loads(org_json_do)['data']['diseaseh5Shelf']
+    org_json_fo = await requester.aget_content_str(api_foreign)
+    cache_foreign = json.loads(org_json_fo)['newslist']
 
 def province_data_handler(data,parent,timestr):
     return {
@@ -161,5 +160,3 @@ def query_text(area=None):
         return f'后台数据未加载'
     else:
         return f'没有名为 {area} 的地区，或该地区没有数据'
-
-threading.Thread(target=fetch_thread,daemon=True).start()

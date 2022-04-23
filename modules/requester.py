@@ -10,6 +10,7 @@ from loguru import logger
 import copy
 import time
 import functools
+import aiohttp
 import asyncio
 
 import brotli
@@ -31,6 +32,7 @@ fake_headers_post = {
 
 timeout = 15
 retry_time = 3
+asynchttp_session = None
 
 def auto_retry(retry_time=3):
     def retry_decorator(func):
@@ -148,6 +150,24 @@ def get_content_bytes(url, headers=fake_headers_get):
     content = _get_response(url, headers=headers).data
     return content
 
+def get_redirect_url(url,headers=fake_headers_get):
+    return _get_response(url=url, headers=headers).geturl()
+
+#Download Operation
+def download_common(url,tofile,headers=fake_headers_get):
+    opener = make_opener()
+    chunk_size = 1024
+    with opener.open(request.Request(url,headers=headers),timeout=timeout) as response:
+        with open(tofile,'wb+') as f:
+            while True:
+                data = response.read(chunk_size)
+                if data:
+                    f.write(data)
+                else:
+                    break
+    logger.debug('Download file from {} to {}.'.format(url,tofile))
+            
+
 def convert_size(size):#单位:Byte
     if size < 1024:
         return '%.2f B'%size
@@ -159,3 +179,34 @@ def convert_size(size):#单位:Byte
         return '%.2f MB'%size
     size /= 1024
     return '%.2f GB'%size
+
+#Async Operation
+async def aget_content_bytes(url,headers=fake_headers_get):
+    if asynchttp_session:
+        async with asynchttp_session.get(url=url) as response:
+            content = await response.read()
+            return content
+    else:
+        async with aiohttp.ClientSession(headers=headers,timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+            async with session.get(url=url) as response:
+                content = await response.read()
+                return content
+
+async def apost_data_bytes(url,data,headers=fake_headers_post):
+    if asynchttp_session:
+        async with asynchttp_session.post(url=url,data=data) as response:
+            content = await response.read()
+            return content
+    else:
+        async with aiohttp.ClientSession(headers=headers,timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+            async with session.post(url=url,data=data) as response:
+                content = await response.read()
+                return content
+
+async def aget_content_str(url,headers=fake_headers_get,encoding='utf-8'):
+    content = await aget_content_bytes(url,headers=headers)
+    return content.decode(encoding, 'ignore')
+
+async def apost_data_str(url,data,headers=fake_headers_post,encoding='utf-8'):
+    content = await aget_content_bytes(url,data=data,headers=headers)
+    return content.decode(encoding, 'ignore')
