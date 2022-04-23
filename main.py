@@ -33,6 +33,6 @@ saya.install_behaviours(
 
 with saya.module_context():
     saya.require("modules.epidemic_query")
-    saya.require('modules.bilibili_dynamic')
+    saya.require('modules.bili_dynamic_listener')
 
 app.launch_blocking()
