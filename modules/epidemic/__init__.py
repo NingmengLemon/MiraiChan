@@ -41,4 +41,5 @@ async def background_task():
    except Exception as e:
       logger.error('Unable to fetch epidemic data: '+str(e))
    else:
-      logger.info('Fetched epidemic data')
+      #logger.info('Fetched epidemic data')
+      pass

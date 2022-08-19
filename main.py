@@ -32,7 +32,8 @@ saya.install_behaviours(
 )
 
 with saya.module_context():
-    saya.require("modules.epidemic_query")
-    saya.require('modules.bili_dynamic_listener')
+    saya.require("modules.epidemic")
+    saya.require("modules.weather")
+    saya.require('modules.bilibili_dynamic')
 
 app.launch_blocking()
