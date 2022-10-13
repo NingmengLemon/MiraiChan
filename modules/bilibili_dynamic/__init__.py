@@ -35,7 +35,9 @@ config = {
     'auto_announce':{}, # 群号(str):{(要监听的B站用户uid(str)):(上一次fetch到的动态id们(list[int]))}
     # 要不是json保存时会自动把不是字符串的键改成字符串......
     'update_sleep':300, # second
-    'shielded_words':[] # 列表套字符串
+    'shielded_words':[], # 列表套字符串
+    'owner':None, #主人 
+    'nicknames':{} # 用户uid(str):用户昵称(str)
     }
 
 @atexit.register
@@ -91,15 +93,17 @@ async def init_target(target_uid:int,group_ids:list):
                 config['auto_announce'][str(gid)][str(target_uid)] = [i['dynamic_id'] for i in rd]
         return user_data,rd
 
+#match_pattern = re.compile('#(绑定uid|解绑uid|已绑uid|显示屏蔽词|重载配置文件|转发姬帮助)\s*([0-9]+)?$',re.I)
+
 @channel.use(ListenerSchema(listening_events=[GroupMessage]))
 async def add_and_remove_target(app: Ariadne, group: Group, message: MessageChain, member: Member):
     global config
     gid = str(group.id)
-    if At(app.account) in message:
+    if 1==1:#At(app.account) in message:
         msg = str(message.include(Plain)).strip().lower()
-        if msg.startswith('bilidynamiclistener'): #指令前缀警觉
-            if member.permission.value in config['edit_permit']: #权限判断
-                args = re.findall(r'^BiliDynamicListener\s+((add|remove)\s+([0-9]+)|(list|help|showShieldedWords|reloadConfig))\s*$',msg,re.I) #提取指令信息
+        if msg.startswith('#listener'): #指令前缀警觉
+            if member.permission.value in config['edit_permit'] or member.id == int(config['owner']): #权限判断
+                args = re.findall(r'^#Listener\s+((add|remove)\s+([0-9]+)|(list|help|showShieldedWords|reloadConfig))\s*$',msg,re.I) #提取指令信息
                 if args:
                     _,opt,uid,anzopt = args[0]
                     if opt == 'add':
@@ -123,6 +127,7 @@ async def add_and_remove_target(app: Ariadne, group: Group, message: MessageChai
                                     raise
                             else:
                                 uname = ud['name']
+                                config['nicknames'][str(uid)] = uname
                                 await app.sendMessage(
                                     group,
                                     MessageChain.create(f'目标 {uid}（{uname}） 已添加')
@@ -135,16 +140,29 @@ async def add_and_remove_target(app: Ariadne, group: Group, message: MessageChai
                                 MessageChain.create(f'目标 {uid} 还未被添加')
                                 )
                         else:
-                            await app.sendMessage(
-                                group,
-                                MessageChain.create(f'目标 {uid} 已移除')
-                                )
+                            if str(uid) in config['nicknames']:
+                                uname = config['nicknames'][str(uid)]
+                                await app.sendMessage(
+                                    group,
+                                    MessageChain.create(f'目标 {uid}（{uname}）已移除')
+                                    )
+                            else:
+                                await app.sendMessage(
+                                    group,
+                                    MessageChain.create(f'目标 {uid} 已移除')
+                                    )
                     elif anzopt == 'list':
                         if gid in config['auto_announce']:
                             if config['auto_announce'][gid]:
+                                text = ''
+                                for tgt in config['auto_announce'][gid].keys():
+                                    if tgt in config['nicknames']:
+                                        text += '{}（{}）\n'.format(tgt,config['nicknames'][tgt])
+                                    else:
+                                        text += tgt+'\n'
                                 await app.sendMessage(
                                     group,
-                                    MessageChain.create(f'当前的目标如下：\n'+'\n'.join(list(config['auto_announce'][gid].keys())))
+                                    MessageChain.create(f'当前的目标如下：\n'+text)
                                     )
                             else:
                                 await app.sendMessage(
@@ -159,12 +177,13 @@ async def add_and_remove_target(app: Ariadne, group: Group, message: MessageChai
                     elif anzopt == 'help':
                         await app.sendMessage(
                             group,
-                            MessageChain.create('指令说明：\n根指令：bilidynamiclistener\n操作：add/remove <uid>'\
+                            MessageChain.create('指令说明：\n根指令：#listener\n操作：add/remove <uid>'\
                                                     '\n查看正在追踪：list'\
                                                     '\n显示此条信息：help'\
                                                     '\n查看当前屏蔽词：showshieldedwords'\
                                                     '\n重新加载设置文件：reloadconfig'\
-                                                    '\n权限/屏蔽词修改去配置文件')
+                                                    '\n权限/屏蔽词修改去配置文件'\
+                                                    '\n举例：#listener add 114514 （添加114514这个uid）')
                             )
                     elif anzopt == 'showshieldedwords':
                         await app.sendMessage(
@@ -280,7 +299,7 @@ async def background_task(app: Ariadne):
                         else:
                             logger.info('Skip dynamic {did} of user {uid} (due to shielded words)'.format(did=dyn['dynamic_id'],uid=uid))
                     else:
-                        logger.info('Skip dynamic {did} of user {uid}'.format(did=dyn['dynamic_id'],uid=uid))
+                        logger.info('Skip dynamic {did} of user {uid} (due to expiration)'.format(did=dyn['dynamic_id'],uid=uid))
                 config['auto_announce'][group][uid] = remove_repeat(config['auto_announce'][group][uid]+[i['dynamic_id'] for i in data[uid]])
             else:
                 pass
@@ -306,7 +325,7 @@ async def init_fetched_list(app: Ariadne):
                 else:
                     logger.debug(f'Successfully fetched dynamic info of user {uid}.')
             if data[uid]:
-                config['auto_announce'][group][uid] = remove_repeat(config['auto_announce'][group][uid]+[i['dynamic_id'] for i in data[uid]])
+                config['auto_announce'][group][uid] = [i['dynamic_id'] for i in data[uid]]
             else:
                 pass
             await asyncio.sleep(1)
