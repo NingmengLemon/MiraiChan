@@ -16,18 +16,24 @@ from . import epidemic
 
 from loguru import logger
 
+import re
+
 channel = Channel.current()
 
 channel.name("COVID-19 Epidemic Info Reply")
 channel.description("新冠疫情播报姬")
 channel.author("NingmengLemon")
 
+match_pattern = re.compile('([\u4e00-\u9fa5]+?)\s*疫情$')
+
 @channel.use(ListenerSchema(listening_events=[GroupMessage]))
 async def epidemic_info_reply(app: Ariadne, group: Group, message: MessageChain):
-   if At(app.account) in message:
-      msg = str(message.include(Plain)).strip().lower()
-      if msg.endswith('疫情'):
-         area = msg.replace('疫情','').strip()
+   msg = str(message.include(Plain)).strip().lower()
+   if msg.startswith('#'):#At(app.account) in message:
+      msg = msg[1:]
+      mobj = match_pattern.match(msg)
+      if mobj:
+         area = mobj.groups()[0]
          await app.sendMessage(
             group,
             MessageChain.create(epidemic.query_text(area=area))

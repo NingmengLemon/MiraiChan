@@ -26,16 +26,17 @@ channel.name("Weather Info Reply")
 channel.description("天气播报姬")
 channel.author("NingmengLemon")
 
-match_pattern = re.compile(r'^([\u4e00-\u9fa5]+?)\s*((\d+|[一二三四五六七八九十]+)[日号]|逐[天日]|([昨今明后])[天日]|(星期|周|礼拜)(\d+|[一二三四五六七日]+))\s*天气(预报)?$')
+match_pattern = re.compile(r'^([\u4e00-\u9fa5]+?)\s*((\d+|[一二三四五六七八九十]+)[日号]|逐[天日]|([昨今明后])[天日]|(星期|周|礼拜)(\d+|[一二三四五六七日]+))?\s*天气(预报)?$')
 
 @channel.use(ListenerSchema(listening_events=[GroupMessage]))
 async def weather_reply(app: Ariadne, group: Group, message: MessageChain):
-    if At(app.account) in message:
-        msg = str(message.include(Plain)).strip().lower()
+    msg = str(message.include(Plain)).strip().lower()
+    if msg.startswith('#'):#At(app.account) in message:
+        msg = msg[1:]
         mobj = match_pattern.match(msg)
         if mobj:
             area,dbd,date,rd,_,week,_ = mobj.groups()
-            if dbd.startswith('逐'):
+            if str(dbd).startswith('逐'):
                 await app.sendMessage(
                     group,
                     MessageChain.create(await weather.query_weather(area,-1))
@@ -69,6 +70,10 @@ async def weather_reply(app: Ariadne, group: Group, message: MessageChain):
                     group,
                     MessageChain.create('暂不支持按星期索引awa')
                     )
-            
+            else:
+                await app.sendMessage(
+                group,
+                MessageChain.create(await weather.query_weather(area,0))
+                )
 
           
