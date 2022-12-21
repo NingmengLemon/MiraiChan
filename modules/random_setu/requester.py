@@ -14,13 +14,9 @@ import aiohttp
 import asyncio
 
 import brotli
-from graia.ariadne.app import Ariadne
-
-aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False))
 
 filter_emoji = False
 user_name = os.getlogin()
-asynchttp_session = None
 
 fake_headers_get = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',  # noqa
@@ -36,7 +32,7 @@ fake_headers_post = {
 
 timeout = 15
 retry_time = 3
-
+asynchttp_session = None
 
 def auto_retry(retry_time=3):
     def retry_decorator(func):
@@ -191,7 +187,7 @@ async def aget_content_bytes(url,headers=fake_headers_get):
             content = await response.read()
             return content
     else:
-        async with aiohttp.ClientSession(headers=headers,timeout=aiohttp.ClientTimeout(total=timeout),connector=aiohttp.TCPConnector(ssl=False)) as session:
+        async with aiohttp.ClientSession(headers=headers,timeout=aiohttp.ClientTimeout(total=timeout)) as session:
             async with session.get(url=url) as response:
                 content = await response.read()
                 return content
@@ -202,7 +198,7 @@ async def apost_data_bytes(url,data,headers=fake_headers_post):
             content = await response.read()
             return content
     else:
-        async with aiohttp.ClientSession(headers=headers,timeout=aiohttp.ClientTimeout(total=timeout),connector=aiohttp.TCPConnector(ssl=False)) as session:
+        async with aiohttp.ClientSession(headers=headers,timeout=aiohttp.ClientTimeout(total=timeout)) as session:
             async with session.post(url=url,data=data) as response:
                 content = await response.read()
                 return content

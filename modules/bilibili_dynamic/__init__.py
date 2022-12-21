@@ -288,7 +288,7 @@ async def background_task(app: Ariadne):
                     #logger.debug(f'Successfully fetched dynamic info of user {uid}.')
             if data[uid]:
                 for dyn in check_update(data[uid],group,uid):
-                    if time.time() - dyn['timestamp'] <= config['update_sleep']:
+                    if time.time() - dyn['timestamp'] <= config['update_sleep']+60:
                         msgchain = await make_msgchain(dyn)
                         if sum([i in str(msgchain) for i in config['shielded_words']]) == 0:
                             await app.sendGroupMessage(
