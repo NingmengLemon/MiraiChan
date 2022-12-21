@@ -9,6 +9,7 @@ from graia.saya.builtins.broadcast import BroadcastBehaviour
 from graia.scheduler.saya.behaviour import GraiaSchedulerBehaviour, SchedulerSchema
 
 import os
+from modules import requester
 
 config_path = './config/'
 if not os.path.exists(config_path):
@@ -32,8 +33,9 @@ saya.install_behaviours(
 )
 
 with saya.module_context():
-    saya.require("modules.epidemic")
+    #saya.require("modules.epidemic")
     saya.require("modules.weather")
     saya.require('modules.bilibili_dynamic')
+    saya.require('modules.random_setu')
 
 app.launch_blocking()
