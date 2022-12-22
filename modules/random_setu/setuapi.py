@@ -34,7 +34,7 @@ async def iw233_api(n=5):#max=100
 
 async def lolicon_api(n=5):#max=20
     #https://api.lolicon.app/#/setu
-    api = f'https://api.lolicon.app/setu/v2?r18=0&num={n}&tag=%E8%90%9D%E8%8E%89|%E5%B0%91%E5%A5%B3&exclueAI=true'
+    api = f'https://api.lolicon.app/setu/v2?r18=0&num={n}'#&tag=%E8%90%9D%E8%8E%89|%E5%B0%91%E5%A5%B3&exclueAI=true'
     data = json.loads(await requester.aget_content_str(api))
     assert not bool(data['error']),data['error']
     return data['data']
@@ -58,7 +58,7 @@ urls	object	包含了所有指定size的图片地址
 
 async def lolisuki_api(n=5):#max=5
     #https://lolisuki.cc/#/setu
-    api = f'https://lolisuki.cc/api/setu/v1?r18=0&num={n}&level=0-2&taste=1,2'
+    api = f'https://lolisuki.cc/api/setu/v1?r18=0&num={n}&level=0-3&taste=0'
     data = json.loads(await requester.aget_content_str(api))
     assert data['code']==0,data['error']
     return data['data']
@@ -116,16 +116,17 @@ async def get():
         return None,'后台数据库为空，请等待后台刷新，然后重新找咱要涩图(´;ω;`)'
     data = cache.pop(len(cache)-1)
     if type(data) == str:
-        return data,f'图源：{data}\n没有附加信息'
+        return data,f'图源：{data}\n没有附加信息\nTechnical support by iw233'
     elif 'taste' in data:
-        return data['urls']['original'],'''URL：{urls[original]}
+        return data['urls']['original'],'''URL：（略）
 PixivID：{pid}
+Lv.{level}
 Author：{uid}（{author}）
 Size：{width}x{height}
-Tags：\n#'''.format(**data)+'# #'.join(data['tags'])+'#'
+Tags：\n#'''.format(**data)+'# #'.join(data['tags'])+'#\nTechnical support by Lolisuki'
     else:
-        return data['urls']['original'],'''URL：{urls[original]}
+        return data['urls']['original'],'''URL：（略）
 PixivID：{pid}
 Author：{uid}（{author}）
 Size：{width}x{height}
-Tags：\n#'''.format(**data)+'# #'.join(data['tags'])+'#'
+Tags：\n#'''.format(**data)+'# #'.join(data['tags'])+'#\nTechnical support by Lolicon'
