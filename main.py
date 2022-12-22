@@ -33,9 +33,9 @@ saya.install_behaviours(
 )
 
 with saya.module_context():
-    #saya.require("modules.epidemic")
     saya.require("modules.weather")
     saya.require('modules.bilibili_dynamic')
     saya.require('modules.random_setu')
+    saya.require('modules.draw_moe')
 
 app.launch_blocking()

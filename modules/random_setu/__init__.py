@@ -22,6 +22,7 @@ from . import setuapi
 import time
 import atexit
 from loguru import logger
+import random
 
 channel = Channel.current()
 
@@ -35,6 +36,11 @@ if not os.path.exists(img_save_path):
     os.makedirs(img_save_path,exist_ok=True)
 
 match_pattern = re.compile(r'^#?[发来整]点[涩色瑟美]图$')
+
+shielded_words = ['r18','r-18','裸体','尻神样','淫纹','骆驼趾',
+                  '魅惑的乳沟','巨乳','丁字裤','胖次','极小比基尼',
+                  '即将脱掉的胸罩','骑乘位','射精','精液','插入',
+                  '中出']
 
 async def get_and_save(url):
     filename = url.split('/')[-1]
@@ -59,23 +65,35 @@ async def add_and_remove_target(app: Ariadne, group: Group, message: MessageChai
     if re.match(match_pattern,msg):
         await app.sendMessage(
             group,
-            MessageChain.create('咱找找，等一下嗷...')
+            MessageChain.create(random.choice([
+                '咱找找，等一下嗷...','让咱找找...','少女翻找中...','在找了在找了...'
+                ]),'\nTips：若Mirai酱太久没回复，则消息可能被tx吞了（悲）')
             )
         url,text = await setuapi.get()
         if url:
-            try:
-                file = await get_and_save(url)
+            if sum([i in text.lower() for i in shielded_words]) == 0:
+                try:
+                    file = await get_and_save(url)
+                    await app.sendMessage(
+                        group,
+                        MessageChain.create(Image(path=file),text)
+                        )
+                except Exception as e:
+                    logger.error('Unable to send setu: '+str(e))
+                    await app.sendMessage(
+                        group,
+                        MessageChain.create('您的涩图在路上出事叻（悲）\n原因是'+str(e))
+                        )
+                    #raise e
+            else:
+                try:
+                    file = await get_and_save(url)
+                except Exception as e:
+                    logger.error('Failed to save file: '+url)
                 await app.sendMessage(
                     group,
-                    MessageChain.create(Image(path=file),text)
+                    MessageChain.create('您的涩图被咱吃掉叻！但是咱给自己存了一份(〃∀〃)\n可以透露的消息：\n'+text)
                     )
-            except Exception as e:
-                logger.error('Unable to send setu: '+str(e))
-                await app.sendMessage(
-                    group,
-                    MessageChain.create('您的涩图在路上出事力（悲）\n原因是'+str(e))
-                    )
-                #raise e
         else:
             await app.sendMessage(
                 group,
