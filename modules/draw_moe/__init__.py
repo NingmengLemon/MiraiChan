@@ -28,6 +28,7 @@ channel.name("MoeAttribute Drawer")
 channel.description("萌属性抽签姬")
 channel.author("NingmengLemon")
 
+owner = 1435439745
 match_pattern = re.compile(r'^#?抽(签|萌?属性|设定|人设)$')
 cache = {} # 用户QQ号(str):数据包(obj)
 cache_path = './cache/moedrawer_cache.json'
@@ -74,9 +75,17 @@ async def reply(app: Ariadne, group: Group, message: MessageChain, member: Membe
             )
         cache[uid] = data
         return
-    if msg = '#moeattrs reload':
-        moe_attrs.load_attrs()
-        await app.sendMessage(
-            group,
-            MessageChain.create('重新加载了MoeAttrs资料库')
-            )
+    if msg == '#moeattrs reload':
+        if member.permission.value in [MemberPerm.Owner.value,MemberPerm.Administrator.value] or\
+           member.id == owner:
+            moe_attrs.load_attrs()
+            await app.sendMessage(
+                group,
+                MessageChain.create('重新加载了MoeAttrs资料库')
+                )
+        else:
+            moe_attrs.load_attrs()
+            await app.sendMessage(
+                group,
+                MessageChain.create('您没有权限')
+                )

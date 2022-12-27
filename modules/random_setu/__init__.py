@@ -23,6 +23,8 @@ import time
 import atexit
 from loguru import logger
 import random
+import traceback
+import asyncio
 
 channel = Channel.current()
 
@@ -30,21 +32,26 @@ channel.name("Setu Sender")
 channel.description("涩图（并不）发送姬")
 channel.author("NingmengLemon")
 
+cd = {}
+cd_time = 5
+# 涩图冷却
+# uid(str):timestamp(float)(上次请求涩图的时间)
 
 img_save_path = './data/setu_history/images/'
 if not os.path.exists(img_save_path):
     os.makedirs(img_save_path,exist_ok=True)
 
-match_pattern = re.compile(r'^#?[发来整]点[涩色瑟美]图$')
+match_pattern = re.compile(r'^#?[发来整][点张单份][涩色瑟]图$')
 
-shielded_words = ['r18','r-18','裸体','尻神样','淫纹','骆驼趾',
-                  '魅惑的乳沟','巨乳','丁字裤','胖次','极小比基尼',
+shielded_words = ['r18','r-18','r-15','r15','裸体','淫纹','骆驼趾',
+                  '丁字裤','胖次','比基尼',
                   '即将脱掉的胸罩','骑乘位','射精','精液','插入',
-                  '中出']
+                  '中出','创可贴','援助交配']
 
 async def get_and_save(url):
     filename = url.split('/')[-1]
     path = os.path.normpath(os.path.abspath(os.path.join(img_save_path,filename)))
+    logger.debug('Saving url {} to file {}.'.format(url,path))
     if os.path.exists(path):
         return path
     else:
@@ -54,7 +61,7 @@ async def get_and_save(url):
 
 @channel.use(ListenerSchema(listening_events=[ApplicationLaunched]))
 async def initialize(app: Ariadne):
-    if len(setuapi.cache) < 8:
+    if len(setuapi.cache) < 10:
         await setuapi.fetch()
     logger.debug('Setu Sender Initialized.')
     
@@ -63,6 +70,15 @@ async def initialize(app: Ariadne):
 async def add_and_remove_target(app: Ariadne, group: Group, message: MessageChain, member: Member):
     msg = str(message.include(Plain)).strip().lower()
     if re.match(match_pattern,msg):
+        if str(member.id) in cd:
+            delta = time.time()-cd[str(member.id)]
+            if delta <= cd_time:
+                await app.sendMessage(
+                    group,
+                    MessageChain.create(At(member.id),' 涩图冷却ing，剩余 {} 秒'.format(cd_time-delta))
+                    )
+                return
+        cd[str(member.id)] = time.time()
         await app.sendMessage(
             group,
             MessageChain.create(random.choice([
@@ -82,9 +98,9 @@ async def add_and_remove_target(app: Ariadne, group: Group, message: MessageChai
                     logger.error('Unable to send setu: '+str(e))
                     await app.sendMessage(
                         group,
-                        MessageChain.create('您的涩图在路上出事叻（悲）\n原因是'+str(e))
+                        MessageChain.create('您的涩图在路上出事叻（悲）\n'+traceback.format_exc())
                         )
-                    #raise e
+                    raise e
             else:
                 try:
                     file = await get_and_save(url)
@@ -100,6 +116,6 @@ async def add_and_remove_target(app: Ariadne, group: Group, message: MessageChai
                 MessageChain.create(text)
                 )
             await setuapi.fetch()
-    if len(setuapi.cache) < 8:
+    if len(setuapi.cache) < 10:
         await setuapi.fetch()
             

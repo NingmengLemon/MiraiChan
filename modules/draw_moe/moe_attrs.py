@@ -2,6 +2,7 @@ import random
 import time
 import json
 import os
+from loguru import logger
 
 #moe_attrs_path = './data/moe_attrs.json'
 moe_attrs_path = './moe_attrs.json'
@@ -19,6 +20,7 @@ def load_attrs(path=moe_attrs_path):
             detail_moe_attrs = data['detail_moe_attrs']
         else:
             detail_moe_attrs = {}
+        logger.debug('MoeAttrs Data File loaded from '+path)
     else:
         raise RuntimeError('MoeAttrs Data File not found.')
 load_attrs()
