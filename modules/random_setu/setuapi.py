@@ -32,7 +32,7 @@ async def iw233_api(n=5):#max=100
 
 #返回的直接就是图片url数组，图床是sinaimg.cn
 
-async def lolicon_api(n=5):#max=20
+async def lolicon_api(n=10):#max=20
     #https://api.lolicon.app/#/setu
     api = f'https://api.lolicon.app/setu/v2?r18=0&num={n}'#&tag=%E8%90%9D%E8%8E%89|%E5%B0%91%E5%A5%B3&exclueAI=true'
     data = json.loads(await requester.aget_content_str(api))
@@ -108,7 +108,7 @@ async def fetch():
         data = await lolisuki_api()
     json.dump(data,open(os.path.join(history_path_req,filename),'w+',encoding='utf-8',errors='ignore'))
     cache += data
-    logger.debug('Fetched setu data from '+flag)
+    logger.debug('Fetched setu data from {}, {} left in lib'.format(flag,len(cache)))
 
 async def get():
     global cache
