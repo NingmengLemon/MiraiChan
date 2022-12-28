@@ -6,6 +6,7 @@ import time
 import os
 from loguru import logger
 import atexit
+import re
 
 cache = []
 cache_file = './cache/setu_cache.json'
@@ -18,18 +19,18 @@ history_path_req = './data/setu_history/jsons/'
 if not os.path.exists(history_path_req):
     os.makedirs(history_path_req,exist_ok=True)
 
+#弃用
 #https://dev.iw233.cn/API/index.php
 async def iw233_api(n=5):#max=100
     api = random.choice([
         'https://iw233.cn/api.php?sort=iw233&type=json&num={n}',
         'http://ap1.iw233.cn/api.php?sort=iw233&type=json&num={n}',
-        'http://api.iw233.cn/api.php?sort=iw233&type=json&num={n}'#,
-        #'https://dev.iw233.cn/api.php?sort=iw233&type=json&num={n}'
+        'http://api.iw233.cn/api.php?sort=iw233&type=json&num={n}',
+        'https://dev.iw233.cn/api.php?sort=iw233&type=json&num={n}'
         ]).format(n=n)
-    #经ping测试，dev.iw233.cn 无法连接
+    #经ping测试，没有一个可以连接
     data = json.loads(await requester.aget_content_str(api))
     return data['pic']
-
 #返回的直接就是图片url数组，图床是sinaimg.cn
 
 async def lolicon_api(n=10):#max=20
@@ -58,7 +59,7 @@ urls	object	包含了所有指定size的图片地址
 
 async def lolisuki_api(n=5):#max=5
     #https://lolisuki.cc/#/setu
-    api = f'https://lolisuki.cc/api/setu/v1?r18=0&num={n}&level=0-3&taste=0'
+    api = f'https://lolisuki.cc/api/setu/v1?r18=0&num={n}&level=0-2&taste=0'
     data = json.loads(await requester.aget_content_str(api))
     assert data['code']==0,data['error']
     return data['data']
@@ -93,16 +94,17 @@ def save_cache():
 
 async def fetch():
     global cache
-    rc = random.randint(1,3)
-    flag = {1:'iw233',
+    rc = random.randint(2,3)
+    flag = {#1:'iw233',
             2:'lolicon',
             3:'lolisuki'
             }[rc]
     
     filename = str(time.time())+'_'+flag+'.json'
-    if rc == 1:
-        data = await iw233_api()
-    elif rc == 2:
+    #if rc == 1:
+    #    data = await iw233_api()
+    #el
+    if rc == 2:
         data = await lolicon_api()
     else:
         data = await lolisuki_api()
@@ -115,18 +117,21 @@ async def get():
     if not cache:
         return None,'后台数据库为空，请等待后台刷新，然后重新找咱要涩图(´;ω;`)'
     data = cache.pop(len(cache)-1)
-    if type(data) == str:
-        return data,f'图源：{data}\n没有附加信息\nTechnical support by iw233'
-    elif 'taste' in data:
-        return data['urls']['original'],'''URL：（略）
+    #if type(data) == str:
+    #    return data,f'图源：{data}\n没有附加信息\nTechnical support by iw233'
+    #el
+    url = data['urls']['original']
+    url_cut = '/'+url.split('/',3)[-1]
+    if 'taste' in data: #taste字段为lolisuki api特有，故以此区分
+        return url,'''URL：{url}
 PixivID：{pid}
 Lv.{level}
 Author：{uid}（{author}）
 Size：{width}x{height}
-Tags：\n#'''.format(**data)+'# #'.join(data['tags'])+'#\nTechnical support by Lolisuki'
+Tags：\n#'''.format(**data,url=url_cut)+'# #'.join(data['tags'])+'#\nTechnical support by Lolisuki'
     else:
-        return data['urls']['original'],'''URL：（略）
+        return url,'''URL：{url}
 PixivID：{pid}
 Author：{uid}（{author}）
 Size：{width}x{height}
-Tags：\n#'''.format(**data)+'# #'.join(data['tags'])+'#\nTechnical support by Lolicon'
+Tags：\n#'''.format(**data,url=url_cut)+'# #'.join(data['tags'])+'#\nTechnical support by Lolicon'

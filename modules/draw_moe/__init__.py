@@ -84,7 +84,6 @@ async def reply(app: Ariadne, group: Group, message: MessageChain, member: Membe
                 MessageChain.create('重新加载了MoeAttrs资料库')
                 )
         else:
-            moe_attrs.load_attrs()
             await app.sendMessage(
                 group,
                 MessageChain.create('您没有权限')
