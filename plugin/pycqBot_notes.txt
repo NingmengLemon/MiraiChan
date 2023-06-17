@@ -1,0 +1,32 @@
+cqHttpApi.add_task(coroutine)
+用cqApi内置的协程管理器创建协程任务
+
+cqBot.timing(func,task_name,config(dict))
+创建定时任务
+config中需要包含timeSleep键值
+
+定时任务真正启动调用的是
+timing_jobs_start事件,接收job,run_count参数
+其中job参数应该是字典, 有个键叫name, 对应timing里的参数
+
+cqHttpApi.link(url)
+异步请求网址
+实际上调用的是 socketApp.asyncHttp.link
+定义：async def link(self, url, mod="get", data={}, json=True, allow_redirects=False, proxy=None, headers={}, encoding=None):
+
+cqapi._asynclink('./指令',data={参数})
+cqapi.指令(参数) 的异步版本
+
+Plugin继承自cqEvent, 编辑触发事件时重写对应的函数即可
+
+bot.command(func,command,options=None)
+绑定QQ账号接收到的指令和函数，函数将接收到commandData,message两个对象
+commandData事个数组，里面是指令后面用空格分隔的参数
+options接收一个字典，其中可包含help键，对应一个数组，其中包含该指令的帮助信息
+options中还可包含type键，对应一个字符串，可以是group,private,all，指定这个指令的适用范围（默认group）
+还可包含user键，对应一个字符串，可以是all(包括匿名),nall(不包括匿名),owner(群主),admin(管理员),member(群员),及用半角逗号分割的多个上述值，用以指定这个指令的权限组
+还可包含admin键，对应一个布尔值，用来决定是否只有cqBot.admin中规定的管理员才能执行命令
+（与上面的user键共同起作用）
+还可包含ban键，用来指定不允许执行此命令的用户（应该是）
+
+cqBot对象里有个admin数组，包含管理员的QQ号，用来指定管理员，在用消息call command的时候起过滤作用

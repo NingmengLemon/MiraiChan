@@ -1,41 +1,29 @@
-from graia.ariadne.app import Ariadne
-from graia.ariadne.event.message import GroupMessage
-from graia.ariadne.message.chain import MessageChain
-from graia.ariadne.model import Group, Friend, MiraiSession
-from graia.scheduler import GraiaScheduler
-
-from graia.saya import Saya
-from graia.saya.builtins.broadcast import BroadcastBehaviour
-from graia.scheduler.saya.behaviour import GraiaSchedulerBehaviour, SchedulerSchema
-
+from pycqBot import cqHttpApi, cqLog
+import logging
+import sys
 import os
-from modules import requester
+import colorama
 
-config_path = './config/'
-if not os.path.exists(config_path):
-    os.mkdir(config_path)
+colorama.init(autoreset=True)
 
-app = Ariadne(
-    MiraiSession(
-        host="http://localhost:8080",
-        verify_key="NeneAyachi",
-        account=1956986009,
-        # 此处的内容请按照你的 MAH 配置来填写
-    ),
-)
-broadcast = app.broadcast
-scheduler = GraiaScheduler(loop=broadcast.loop, broadcast=broadcast)
+if not os.path.exists('./plugin_configs/'):
+    os.mkdir('./plugin_configs/')
+#不是很想使用pycqBot官方提供的plugin_config.yml
 
-saya = app.create(Saya)
-saya.install_behaviours(
-    app.create(BroadcastBehaviour),
-    GraiaSchedulerBehaviour(scheduler)
-)
+# 启用日志 默认日志等级 DEBUG
+cqLog()
+sys.stdout.reconfigure(encoding='utf-8')
 
-with saya.module_context():
-    saya.require("modules.weather")
-    saya.require('modules.bilibili_dynamic')
-    saya.require('modules.random_setu')
-    saya.require('modules.draw_moe')
+cqapi = cqHttpApi()
+bot = cqapi.create_bot()
 
-app.launch_blocking()
+bot.plugin_load([
+    "MoeAttriLottery",
+    "BiliDynamicListener",
+    "EroPicSender"
+    ])
+
+bot.admin = [1435439745]
+bot.start(start_go_cqhttp=False)
+
+# 成功启动可以使用 指令标识符+help 使用内置指令 help

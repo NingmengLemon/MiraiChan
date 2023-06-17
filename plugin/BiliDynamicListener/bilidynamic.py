@@ -1,14 +1,53 @@
-from .. import requester
-#import requester
-from loguru import logger
+import logging
 import json
+import urllib.parse
+from . import bilicodes
+from . import wbi
+from pycqBot.socketApp import asyncHttp
 
-async def get_user_info(uid):
+fake_headers = {
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',  # noqa
+    'Accept-Charset': 'UTF-8,*;q=0.5',
+    'Accept-Encoding': 'gzip,deflate,sdch',
+    'Accept-Language': 'en-US,en;q=0.8',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.74 Safari/537.36 Edg/79.0.309.43',  # noqa
+    'Referer':'https://www.bilibili.com/'
+}
+
+class BiliApiError(Exception):
+    def __init__(self,code,msg=None):
+        self.code = code
+        self._msg = 'BiliError %s'%code
+        if msg:
+            pass
+        else:
+            msg = bilicodes.error_code[code] if code in bilicodes.error_code else None
+        if msg:
+            self._msg += ': '+str(msg)
+        self.msg = msg
+
+    def __str__(self):
+        return self._msg
+
+def error_raiser(code:int,msg:str=None):
+    if code != 0:
+        raise BiliApiError(code,msg)
+
+async def request(reqer:asyncHttp, url:str, **options):
+    '''
+    可用的options:
+    mod:str="get", data:dict={}, json:bool=True,
+    allow_redirects:bool=False, proxy:dict=None,
+    headers:dict={}, encoding:str=None
+    '''
+    return await reqer.link(url,**options)
+# cqHttpApi 继承自 asyncHttp, 故有link函数
+
+# 接口已停用
+async def _get_user_info(reqer:asyncHttp, uid:int):
     api = "https://api.bilibili.com/x/space/acc/info?mid=%s"%uid
-    data = await requester.aget_content_str(api)
-    #data = requester.get_content_str(api)
-    data = json.loads(data)
-    assert data["code"]==0,data["code"]
+    data = await request(reqer, api, mod='get', json=True, headers=fake_headers)
+    error_raiser(data['code'],data['message'])
     data = data["data"]
     res = {
         "uid":data["mid"],
@@ -24,12 +63,36 @@ async def get_user_info(uid):
         }
     return res
 
-async def get_recent(uid):
+async def get_user_info(reqer:asyncHttp, uid: int):
+    api = 'https://api.bilibili.com/x/space/wbi/acc/info'
+    #进行WBI签名
+    params = {
+        'mid':uid
+        }
+    signed_params = await wbi.sign(params, reqer)
+    api += '?'+urllib.parse.urlencode(signed_params)
+    data = await request(reqer, api, mod='get', json=True, headers=fake_headers)
+    error_raiser(data['code'],data['message'])
+    data = data['data']
+    res = {
+        "uid":data["mid"],
+        "name":data["name"],
+        "coin":data["coins"],
+        "level":data["level"],
+        "face":data["face"],
+        "sign":data["sign"],
+        "birthday":data["birthday"],
+        "head_img":data["top_photo"],
+        "sex":data["sex"],
+        "vip_type":{0:"非大会员",1:"月度大会员",2:"年度及以上大会员"}[data["vip"]["type"]]
+        }
+    return res
+
+async def get_recent(reqer:asyncHttp, uid:int):
     api = "https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?"\
           "host_uid={uid}&need_top=0&platform=web".format(uid=uid)
-    data = json.loads(await requester.aget_content_str(api))
-    #data = json.loads(requester.get_content_str(api))
-    assert data["code"]==0,data["code"]
+    data = await request(reqer, api, mod='get', json=True, headers=fake_headers)
+    error_raiser(data['code'],data['msg'])
     data = data["data"]
     if "cards" in data: #是否发过动态
         items = [_dynamic_handler(desc=i["desc"],card=json.loads(i["card"])) for i in data["cards"]]
@@ -37,17 +100,10 @@ async def get_recent(uid):
     else:
         return []
 
-async def get_newest(uid):
-    api = "https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?"\
-          "host_uid={uid}&need_top=0&platform=web".format(uid=uid)
-    data = json.loads(await requester.aget_content_str(api))
-    assert data["code"]==0,data["code"]
-    data = data["data"]
-    if "cards" in data: #是否发过动态
-        item = data["cards"][0]
-        card = json.loads(item["card"])
-        desc = item["desc"]
-        return _dynamic_handler(desc=desc,card=card)
+async def get_newest(reqer:asyncHttp, uid:int):
+    data = await get_recent(reqer,uid)
+    if data:
+        return data
     else:
         return None
 
@@ -122,17 +178,22 @@ def _common_card_handler(card):
         }
 
 def _forward_card_handler(card):
-    return {
+    res = {
         "content":card["item"]["content"],
         "images":[],
         "origin":{
             "dynamic_id":card["item"]["orig_dy_id"],
-            "card":_card_handler(card=json.loads(card["origin"]),
-                                 dtype=card["item"]["orig_type"]),
+            "card":None,
             "user":card["origin_user"]["info"] #uid,uname,face
             },
         "type":"forward"
         }
+    if "origin" in card:
+        res['origin']['card'] = _card_handler(
+            card=json.loads(card["origin"]),
+            dtype=card["item"]["orig_type"]
+            )
+    return res
 
 def _video_card_handler(card):
     stat = card["stat"]
@@ -153,8 +214,8 @@ def _video_card_handler(card):
                 "like":stat["like"],
                 "reply":stat["reply"],
                 "share":stat["share"]
-                },
-            "shortlink":card["short_link"]
+                }#,
+            #"shortlink":card["short_link"]
             },
         "type":"video"
         }
