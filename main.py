@@ -23,7 +23,7 @@ bot.plugin_load([
     "EroPicSender"
     ])
 
-bot.admin = [1435439745]
+bot.admin = []
 bot.start(start_go_cqhttp=False)
 
 # 成功启动可以使用 指令标识符+help 使用内置指令 help
