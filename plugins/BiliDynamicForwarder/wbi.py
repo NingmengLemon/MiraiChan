@@ -5,7 +5,6 @@ import time
 from hashlib import md5
 import urllib.parse
 from . import bilicodes
-from pycqBot.socketApp import asyncHttp
 
 img_key = None
 sub_key = None
@@ -20,15 +19,8 @@ fake_headers = {
     'Referer':'https://www.bilibili.com/'
 }
 
-async def request(reqer:asyncHttp, url:str, **options):
-    '''
-    可用的options:
-    mod:str="get", data:dict={}, json:bool=True,
-    allow_redirects:bool=False, proxy:dict=None,
-    headers:dict={}, encoding:str=None
-    '''
-    return await reqer.link(url,**options)
-# cqHttpApi 继承自 asyncHttp, 故有link函数
+# 等待依赖注入
+request = None
 
 # from bilibili-API-collect, 有修改
 
@@ -60,22 +52,22 @@ def encWbi(params: dict, img_key: str, sub_key: str):
     params['w_rid'] = wbi_sign
     return params
 
-async def getWbiKeys(reqer: asyncHttp):# -> tuple[str, str]:
+async def getWbiKeys():# -> tuple[str, str]:
     '获取最新的 img_key 和 sub_key'
     api = 'https://api.bilibili.com/x/web-interface/nav'
-    json_content = await request(reqer, api, mod='get', json=True, headers=fake_headers)
+    json_content = await request(api, mod='get', return_type="json", headers=fake_headers)
     img_url: str = json_content['data']['wbi_img']['img_url']
     sub_url: str = json_content['data']['wbi_img']['sub_url']
     img_key = img_url.rsplit('/', 1)[1].split('.')[0]
     sub_key = sub_url.rsplit('/', 1)[1].split('.')[0]
     return img_key, sub_key
 
-async def sign(params, reqer: asyncHttp):
+async def sign(params):
     global img_key
     global sub_key
     global last_fetch
     if (not img_key or not sub_key) or time.time()-last_fetch>60*60*24:
-        img_key, sub_key = await getWbiKeys(reqer)
+        img_key, sub_key = await getWbiKeys()
     signed_params = encWbi(
         params=params,
         img_key=img_key,

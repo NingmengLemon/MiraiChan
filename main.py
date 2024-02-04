@@ -1,29 +1,59 @@
-from pycqBot import cqHttpApi, cqLog
+import lemonyBot
+from plugins.BiliDynamicForwarder import BiliDynamicForwarder
+
 import logging
-import sys
 import os
+from typing import Any
+import copy
+import json
+import importlib
+
 import colorama
 
-colorama.init(autoreset=True)
+ConfigDict = dict[str, dict | list | int | float | str]
+DEFAULT_CONFIG: ConfigDict = {
+    "admins": [],
+    "ws_host": "127.0.0.1:5700",
+    "http_host": "127.0.0.1:8000",
+    "authkey": None,
+}
+config_file: str = "./config.json"
+config: ConfigDict = None
 
-if not os.path.exists('./plugin_configs/'):
-    os.mkdir('./plugin_configs/')
-#不是很想使用pycqBot官方提供的plugin_config.yml
 
-# 启用日志 默认日志等级 DEBUG
-cqLog()
-sys.stdout.reconfigure(encoding='utf-8')
+def load_config():
+    if os.path.exists(config_file):
+        return json.load(open(config_file, "r", encoding="utf-8"))
+    else:
+        json.dump(DEFAULT_CONFIG, open(config_file, "w+", encoding="utf-8"), indent=4)
+        logging.warning("config file not found, generated and using default config!")
+        return copy.deepcopy(DEFAULT_CONFIG)
 
-cqapi = cqHttpApi()
-bot = cqapi.create_bot()
 
-bot.plugin_load([
-    "MoeAttriLottery",
-    "BiliDynamicListener",
-    "EroPicSender"
-    ])
+LOGLEVEL_COLOR_DICT = {
+    logging.DEBUG: colorama.Fore.BLUE + "{}" + colorama.Fore.RESET,
+    logging.INFO: colorama.Fore.GREEN + "{}" + colorama.Fore.RESET,
+    logging.WARNING: colorama.Fore.YELLOW + "{}" + colorama.Fore.RESET,
+    logging.ERROR: colorama.Fore.RED + "{}" + colorama.Fore.RESET,
+    logging.CRITICAL: colorama.Fore.LIGHTRED_EX + "{}" + colorama.Fore.RESET,
+}
 
-bot.admin = []
-bot.start(start_go_cqhttp=False)
 
-# 成功启动可以使用 指令标识符+help 使用内置指令 help
+def colored_filter(record: logging.LogRecord) -> bool:
+    record.levelname = LOGLEVEL_COLOR_DICT[record.levelno].format(record.levelname)
+    return True
+
+
+logging.getLogger().addFilter(colored_filter)
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.DEBUG,
+)
+
+
+config = load_config()
+bot = lemonyBot.Bot(**config)
+bot.set_config(admins=config["admins"])
+bot.load_plugin(BiliDynamicForwarder(bot))
+bot.start()
