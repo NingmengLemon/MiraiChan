@@ -1,4 +1,0 @@
-pyyaml
-ruamel.yaml
-colorama
-pycqBot
