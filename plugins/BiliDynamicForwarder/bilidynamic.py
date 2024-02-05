@@ -1,6 +1,8 @@
 import logging
 import json
 import urllib.parse
+from typing import Callable
+
 from . import bilicodes
 from . import wbi
 
@@ -14,7 +16,7 @@ fake_headers = {
 }
 
 # 等待依赖注入
-request = None
+request: Callable = None
 
 
 class BiliApiError(Exception):
@@ -49,7 +51,9 @@ async def _get_user_info(uid: int):
         "birthday": data["birthday"],
         "head_img": data["top_photo"],
         "sex": data["sex"],
-        "vip_type": {0: "非大会员", 1: "月度大会员", 2: "年度及以上大会员"}[data["vip"]["type"]],
+        "vip_type": {0: "非大会员", 1: "月度大会员", 2: "年度及以上大会员"}[
+            data["vip"]["type"]
+        ],
     }
     return res
 
@@ -73,7 +77,9 @@ async def get_user_info(uid: int):
         "birthday": data["birthday"],
         "head_img": data["top_photo"],
         "sex": data["sex"],
-        "vip_type": {0: "非大会员", 1: "月度大会员", 2: "年度及以上大会员"}[data["vip"]["type"]],
+        "vip_type": {0: "非大会员", 1: "月度大会员", 2: "年度及以上大会员"}[
+            data["vip"]["type"]
+        ],
     }
     return res
 
@@ -111,7 +117,7 @@ def _dynamic_handler(desc, card):
         "stat": {
             "view": desc["view"],
             "like": desc["like"],
-            "forward": desc["repost"]
+            "forward": desc["repost"],
             # "reply":desc["comment"]
         },
         "user": desc["user_profile"]["info"],  # face,uid,uname
@@ -171,7 +177,7 @@ def _common_card_handler(card):
 
 def _forward_card_handler(card):
     if "origin_user" in card:
-        user = card["origin_user"]["info"] # uid, face, uname
+        user = card["origin_user"]["info"]  # uid, face, uname
     else:
         user = None
     res = {
@@ -180,7 +186,7 @@ def _forward_card_handler(card):
         "origin": {
             "dynamic_id": card["item"]["orig_dy_id"],
             "card": None,
-            "user": user, 
+            "user": user,
         },
         "type": "forward",
     }
@@ -210,7 +216,7 @@ def _video_card_handler(card):
                 "like": stat["like"],
                 "reply": stat["reply"],
                 "share": stat["share"],
-            }  # ,
+            },  # ,
             # "shortlink":card["short_link"]
         },
         "type": "video",

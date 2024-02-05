@@ -1,7 +1,7 @@
 from lemonyBot import Bot, Plugin, cqcode
 from . import bilicodes, bilidynamic, wbi
 
-from typing import Callable, Union
+from typing import Callable, Union, Any
 import os
 import json
 import copy
@@ -14,7 +14,8 @@ import re
 import yaml
 
 # 等待注入
-request: Callable = None
+request = None
+download_multi = None
 
 config: dict = None
 config_file = "./plugin_configs/bilidynforw.json"
@@ -178,7 +179,7 @@ def query_nickname_nowait(uid):
         return None
 
 
-def generate_msg(data):
+async def generate_msg(data):
     card = data["card"]
     dtype = card["type"]
     # 正文
@@ -196,42 +197,44 @@ def generate_msg(data):
         )
     )
     # 图片
-    for i in range(len(card["images"])):
-        url = card["images"][i]
-        msg += cqcode.image(url.split("/")[-1], url)
+    if card["images"]:
+        images: dict = await download_multi(*card["images"], return_type="base64")
+        for url, b64 in images.items():
+            msg += cqcode.image(url.split("/")[-1], url="base64://"+b64)
     # 附加内容
-    if dtype == "forward":
-        if not card["origin"]["user"]:
-            msg += """
+    match dtype:
+        case "forward":
+            if not card["origin"]["user"]:
+                msg += """
 此动态为转发动态 原动态已被删除"""
-        else:
-            msg += """
+            else:
+                msg += """
 此动态为转发动态
 原动态：https://t.bilibili.com/{dynamic_id}
 发布者：{user[uname]}
 {card[content]}""".format(
-                **card["origin"]
-            )
-    elif dtype == "video":
-        msg += """
+                    **card["origin"]
+                )
+        case "video":
+            msg += """
 包含视频：https://www.bilibili.com/video/av{avid}
 《{title}》（{length}秒）""".format(
-            **card["video"]
-        )
-    elif dtype == "article":
-        msg += """
+                **card["video"]
+            )
+        case "article":
+            msg += """
 包含专栏：https://www.bilibili.com/read/cv{cvid}
 《{title}》（{words}字）""".format(
-            **card["article"]
-        )
-    elif dtype == "audio":
-        msg += """
+                **card["article"]
+            )
+        case "audio":
+            msg += """
 包含音频：https://www.bilibili.com/audio/au{auid}
 {author} - 《{title}》""".format(
-            **card["audio"]
-        )
-    else:
-        pass
+                **card["audio"]
+            )
+        case _:
+            pass
     return msg
 
 
@@ -245,13 +248,16 @@ class BiliDynamicForwarder(Plugin):
 
     def __init__(self, bot: Bot):
         super().__init__(bot)
+        self.bot: Bot
         self.__inject()
         self.bot.add_task(self.process())
 
     def __inject(self):
         # 依 赖 注 入
         global request
+        global download_multi
         request = bilidynamic.request = wbi.request = self.bot.request
+        download_multi = self.bot.download_multi
 
     async def process(self):
         logging.info("initialize dynamic list in 5s")
@@ -282,7 +288,7 @@ class BiliDynamicForwarder(Plugin):
                     dynamic_cache_new[target] = data
         return dynamic_cache_new
 
-    async def check_dynamic_update(self) -> dict[str, list[str]]:
+    async def check_dynamic_update(self) -> dict[str, list[dict[str, Any]]]:
         global dynamic_cache
         logging.info("start to pull dynamic lists")
         try:
@@ -315,7 +321,7 @@ class BiliDynamicForwarder(Plugin):
                             or new[offset]["timestamp"] <= time.time() - 60 * 60 * 1
                         ):  # 备用, 阻止过于久远的动态被发出
                             break
-                    need_to_be_sent[uid] = [generate_msg(i) for i in new[:offset]]
+                    need_to_be_sent[uid] = new[:offset]
         except Exception as e:
             logging.exception(e)
             return None
@@ -323,34 +329,22 @@ class BiliDynamicForwarder(Plugin):
             dynamic_cache = cache_new
             return need_to_be_sent
 
-    def send_msgs(self, msg_list: dict[str, list[str]]):
+    def send_msgs(self, msg_list: dict[str, list[dict[str, Any]]]):
         config_copy = copy.deepcopy(config)
         for group_id, rules in config_copy.items():
             targets = rules["targets"]
-            whites = rules["whitewords"]
-            blacks = rules["blackwords"]
             for uid in targets:
                 if uid not in msg_list:
                     continue
                 for msg in msg_list[uid]:
-                    flag = True
-                    msg_lower = msg.lower()
-                    if sum([b in msg_lower for b in blacks]):
-                        flag = False
-                    if sum([w in msg_lower for w in whites]):
-                        flag = True
-                    if flag:
-                        self.bot.add_task(self.send_msg(group_id=group_id, msg=msg))
-                        logging.info(
-                            "tried forwarding dynamic of %s(%s) to %s" % (uid,query_nickname_nowait(uid), group_id)
-                        )
-                    else:
-                        logging.info(
-                            "skipped a msg of %s(%s) due to blacklist"
-                            % (uid, query_nickname_nowait(uid))
-                        )
+                    self.bot.add_task(self.send_msg(group_id=group_id, msg=msg))
+                    logging.info(
+                        "tried forwarding dynamic of %s(%s) to %s"
+                        % (uid, query_nickname_nowait(uid), group_id)
+                    )
 
-    async def send_msg(self, group_id, msg):
+    async def send_msg(self, group_id, msg: dict):
+        msg = await generate_msg(msg)
         data = {"group_id": group_id, "message": msg, "auto_escape": False}
         rv = await self.send_group_msg_async(data)
         if rv["retcode"] != 0:

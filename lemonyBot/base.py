@@ -7,6 +7,8 @@ import time
 import asyncio
 import queue
 import copy
+import io
+import base64
 
 import websockets
 import aiohttp
@@ -66,7 +68,7 @@ class SocketBase:
 
 
 class HttpBase:
-    default_headers = {
+    DEFAULT_HEADERS = {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Charset": "UTF-8,*;q=0.5",
         "Accept-Encoding": "gzip,deflate,sdch",
@@ -92,11 +94,11 @@ class HttpBase:
         asyncio.run_coroutine_threadsafe(coro=coro, loop=self._loop)
 
     async def request(
-        self, url, mod="get", data=None, return_type="str",req_type="dict", headers=None, **kwargs
+        self, url, mod="get", data=None, return_type="str", headers=None, **kwargs
     ) -> str | dict | bytes:
         result = None
         if headers is None:
-            headers = copy.deepcopy(HttpBase.default_headers)
+            headers = copy.deepcopy(HttpBase.DEFAULT_HEADERS)
         # if data is None:
         #     data = {}
         # data = json.dumps(data)
@@ -133,6 +135,45 @@ class HttpBase:
             self.event_download_failed(e)
         else:
             self.event_download_ok(url)
+
+    async def download_multi(
+        self, *urls, return_type="base64"
+    ) -> dict[str, io.BytesIO | bytes | str | None]:
+        recv_queue = queue.Queue()
+        error_queue = queue.Queue()
+        result = {}
+        logging.debug("ready to download %d files"%len(urls))
+
+        async def task(url):
+            try:
+                data = await self.request(url, mod="get", return_type="bytes")
+                match return_type.strip().lower():
+                    case "bytes":
+                        recv_queue.put((url, data))
+                    case "base64":
+                        recv_queue.put(
+                            (url, base64.b64encode(data).decode())
+                        )
+                    case _:
+                        recv_queue.put((url, io.BytesIO(data)))
+            except Exception as e:
+                logging.exception(e)
+                error_queue.put(url)
+
+        for u in urls:
+            self.add_task(task(url=u))
+        while True:
+            if recv_queue.empty():
+                await asyncio.sleep(0.1)
+            else:
+                url, data = recv_queue.get()
+                result[url] = data
+            if not error_queue.empty():
+                result[error_queue.get()] = None
+            if len(urls) == len(result):
+                break
+
+        return result
 
     # 以下是留给用户重写的方法
 
