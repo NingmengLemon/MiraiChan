@@ -125,11 +125,11 @@ def remove_words(group_id, black=None, white=None):
 def dump_config(override_with_default: bool = False):
     with open(config_file, "w+", encoding="utf-8") as f:
         if override_with_default:
-            json.dump(DEFAULT_CONFIG, f)
+            json.dump(DEFAULT_CONFIG, f, indent=4)
         elif config:
-            json.dump(config, f)
+            json.dump(config, f, indent=4)
         else:
-            json.dump({}, f)
+            json.dump({}, f, indent=4)
 
 
 def load_config():
@@ -200,7 +200,8 @@ async def generate_msg(data):
     if card["images"]:
         images: dict = await download_multi(*card["images"], return_type="base64")
         for url, b64 in images.items():
-            msg += cqcode.image(url.split("/")[-1], url="base64://"+b64)
+            # msg += cqcode.image(url.split("/")[-1], url="base64://"+b64)
+            msg += cqcode.image("base64://" + b64)
     # 附加内容
     match dtype:
         case "forward":
@@ -300,6 +301,8 @@ class BiliDynamicForwarder(Plugin):
                 if uid not in cache:
                     continue
                 old = cache[uid]
+                if not new:
+                    continue
                 # 比对最新一条动态
                 if new[0]["timestamp"] == old[0]["timestamp"]:
                     continue
@@ -339,14 +342,39 @@ class BiliDynamicForwarder(Plugin):
                 for msg in msg_list[uid]:
                     self.bot.add_task(self.send_msg(group_id=group_id, msg=msg))
                     logging.info(
-                        "tried forwarding dynamic of %s(%s) to %s"
+                        "start to forward dynamic of %s(%s) to %s"
                         % (uid, query_nickname_nowait(uid), group_id)
                     )
 
     async def send_msg(self, group_id, msg: dict):
+        # 过滤消息
+        content_ck = (
+            msg["card"].get("content", "")
+            + msg.get("origin", {}).get("card", {}).get("content", "")
+        ).lower()
+        flag = True
+        if sum(
+            [
+                b.lower() in content_ck
+                for b in config.get(group_id, {}).get("blackwords", [])
+            ]
+        ):
+            flag = False
+        if sum(
+            [
+                w.lower() in content_ck
+                for w in config.get(group_id, {}).get("whitewords", [])
+            ]
+        ):
+            flag = True
+        if not flag:
+            logging.info("filtered a dynamic of uid{uid}({name})".format(**msg["user"]))
+            return
+        # 正式发送
         msg = await generate_msg(msg)
         data = {"group_id": group_id, "message": msg, "auto_escape": False}
         rv = await self.send_group_msg_async(data)
+        # 检查被 tx 拦截的情况
         if rv["retcode"] != 0:
             logging.error("failed to send, server msg: " + str(rv))
             # 移除图片
@@ -363,10 +391,10 @@ class BiliDynamicForwarder(Plugin):
         sender: dict = event["sender"]
 
         # 判定指令
-        if not msg.startswith("/bilidynamicforwarder "):
+        if not msg.lower().startswith("/bilidynamicforwarder"):
             return
         # 鉴权
-        if sender.get("user_id") in self.bot.config.get("admins") or sender.get(
+        if sender.get("user_id") in self.bot.config.get("admins", []) or sender.get(
             "role"
         ) in ["admin", "owner"]:
             self.parse_command(event)
@@ -406,7 +434,7 @@ class BiliDynamicForwarder(Plugin):
                     "auto_escape": False,
                 }
             )
-        elif params := re.findall(BiliDynamicForwarder.REGEX_SHOW, command, re.I):
+        elif re.findall(BiliDynamicForwarder.REGEX_SHOW, command, re.I):
             self.send_group_msg_func(
                 {
                     "group_id": group_id,
@@ -419,20 +447,28 @@ class BiliDynamicForwarder(Plugin):
                             allow_unicode=True,
                         ),
                         yaml.dump(
-                            nickname_map, default_flow_style=False, allow_unicode=True
+                            {
+                                k: v
+                                for k, v in nickname_map.items()
+                                if k in config.get(str(group_id), {}).get("targets", [])
+                            },
+                            default_flow_style=False,
+                            allow_unicode=True,
                         ),
                     ),
                     "auto_escape": False,
                 }
             )
-        elif params := re.findall(BiliDynamicForwarder.REGEX_HELP, command, re.I):
+        elif re.findall(BiliDynamicForwarder.REGEX_HELP, command, re.I):
             self.send_group_msg_func(
                 {
                     "group_id": group_id,
                     "message": cqcode.reply(msg_id=event["message_id"])
                     + """帮助信息:
-                    // 还在做
-                    """,
+/bilidynamicforwarder target add/remove (B站用户uid) - 增/减监听的用户
+/bilidynamicforwarder kwlist white/black add/remove (关键词) - 增/减 黑/白关键词
+/bilidynamicforwarder show - 展示本群当前的配置
+(包含白关键词的消息会被保留, 优先级>黑关键词)""",
                     "auto_escape": False,
                 }
             )

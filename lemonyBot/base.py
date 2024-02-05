@@ -141,8 +141,9 @@ class HttpBase:
     ) -> dict[str, io.BytesIO | bytes | str | None]:
         recv_queue = queue.Queue()
         error_queue = queue.Queue()
-        result = {}
-        logging.debug("ready to download %d files"%len(urls))
+        result = {k: None for k in urls}  # 为了保持顺序
+        count = 0
+        logging.debug("ready to download %d files" % len(urls))
 
         async def task(url):
             try:
@@ -151,14 +152,14 @@ class HttpBase:
                     case "bytes":
                         recv_queue.put((url, data))
                     case "base64":
-                        recv_queue.put(
-                            (url, base64.b64encode(data).decode())
-                        )
+                        recv_queue.put((url, base64.b64encode(data).decode()))
                     case _:
                         recv_queue.put((url, io.BytesIO(data)))
             except Exception as e:
                 logging.exception(e)
                 error_queue.put(url)
+            else:
+                logging.debug("multi download done: %s" % url)
 
         for u in urls:
             self.add_task(task(url=u))
@@ -168,9 +169,11 @@ class HttpBase:
             else:
                 url, data = recv_queue.get()
                 result[url] = data
+                count += 1
             if not error_queue.empty():
                 result[error_queue.get()] = None
-            if len(urls) == len(result):
+                count += 1
+            if len(urls) == count:
                 break
 
         return result
