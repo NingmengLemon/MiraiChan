@@ -1,32 +1,38 @@
 import asyncio
+from collections.abc import Callable, Iterable, Mapping
 import threading
-import queue
-import base64
-import io
-from typing import Callable
+from typing import Any, Callable
 import logging
 
-import aiohttp
+class Thread_with_return(threading.Thread):
+    def __init__(
+        self,
+        group: None = None,
+        target: Callable[..., object] | None = None,
+        name: str | None = None,
+        args: Iterable[Any] = ...,
+        kwargs: Mapping[str, Any] | None = None,
+        *,
+        daemon: bool | None = None,
+    ) -> None:
+        super().__init__(group, target, name, args, kwargs, daemon=daemon)
+        self.return_value = None
+        self.exception = None
 
-async def multi_downloader(request, *urls, runner=asyncio.run, return_type="base64"):
-    recv_queue = queue.Queue()
-    error_queue = queue.Queue()
-    async def task(url):
+    def run(self) -> None:
         try:
-            async with request(url) as f:
-                f: aiohttp.ClientResponse
-                match return_type.strip().lower():
-                    case "bytes":
-                        recv_queue.put(await f.read())
-                    case "base64":
-                        bio = io.BytesIO(await f.read())
-                        recv_queue.put(base64.b64encode(bio).decode())
-                    case _:
-                        recv_queue.put(bio)
+            self.return_value = self._target(*self._args, **self._kwargs)
         except Exception as e:
-            logging.exception(e)
-            error_queue.put(url)
-    for u in urls:
-        runner(task(url=u))
-    while True:
-        await asyncio.sleep(0.2)
+            self.exception = e
+        finally:
+            del self._target, self._args, self._kwargs
+
+
+async def async_adapter(func, *args, **kwargs):
+    thread = Thread_with_return(target=func, args=args, kwargs=kwargs, daemon=True)
+    thread.start()
+    while thread.is_alive():
+        await asyncio.sleep(0.1)
+    if e := thread.exception:
+        raise e
+    return thread.return_value
