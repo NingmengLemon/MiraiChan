@@ -1,5 +1,6 @@
 import lemonyBot
 from plugins.BiliDynamicForwarder import BiliDynamicForwarder
+from plugins.EroPicSender import EroPicSender
 
 import logging
 import os
@@ -56,4 +57,5 @@ config = load_config()
 bot = lemonyBot.Bot(**config)
 bot.set_config(admins=config["admins"])
 bot.load_plugin(BiliDynamicForwarder(bot))
+bot.load_plugin(EroPicSender(bot))
 bot.start()
