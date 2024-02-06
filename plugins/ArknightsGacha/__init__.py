@@ -1,0 +1,1 @@
+from .gacha_plugin import ArknightsGacha

@@ -1,1 +1,1 @@
-from .plugin_itself import BiliDynamicForwarder
+from .bili_plugin import BiliDynamicForwarder
