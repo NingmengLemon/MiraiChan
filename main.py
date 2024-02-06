@@ -1,6 +1,8 @@
 import lemonyBot
 from plugins.BiliDynamicForwarder import BiliDynamicForwarder
 from plugins.EroPicSender import EroPicSender
+from plugins.MoeAttriLottery import MoeAttriLottery
+from plugins.ArknightsGacha import ArknightsGacha
 
 import logging
 import os
@@ -58,4 +60,6 @@ bot = lemonyBot.Bot(**config)
 bot.set_config(admins=config["admins"])
 bot.load_plugin(BiliDynamicForwarder(bot))
 bot.load_plugin(EroPicSender(bot))
+bot.load_plugin(MoeAttriLottery(bot))
+bot.load_plugin(ArknightsGacha(bot))
 bot.start()

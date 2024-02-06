@@ -236,9 +236,7 @@ class EroPicSender(Plugin):
                 )
 
     async def status_sender(self, event, status):
-        msg_id: int = event["message_id"]
         group_id: int = event["group_id"]
-        sender: dict = event["sender"]
         if str(group_id) in stat:
             stat_text = ["统计:"]
             for id, counter in stat[str(group_id)].items():
@@ -308,11 +306,14 @@ class EroPicSender(Plugin):
                 result = await reply(
                     "%s\n%s" % (cqcode.image(file="base64://" + img_b64), text)
                 )
-                if result["retcode"] != 0:
+                if result["retcode"] == 0:
+                    self.bot.add_task(self.auto_withdraw(result["data"]["message_id"]))
+                else:
                     await reply(
                         "涩图发送失败! \n服务器消息: "
                         + result.get("wording", "")
                         + result.get("data", {}).get("error", "")
+                        + result.get("message", "")
                         + "\n元数据如下: \n"
                         + text
                     )
@@ -324,3 +325,12 @@ class EroPicSender(Plugin):
         else:
             await reply(text)
             await self.check_setuassets()
+
+    async def auto_withdraw(self, msg_id: int):
+        if not msg_id:
+            return
+        await asyncio.sleep(60)
+        try:
+            await self.delete_msg_async({"message_id": msg_id})
+        except Exception as e:
+            logging.exception(e)
