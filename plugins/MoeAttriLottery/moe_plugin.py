@@ -242,7 +242,7 @@ class MoeAttriLottery(Plugin):
         sender: dict = event["sender"]
         uid: int = sender["user_id"]
         admins: list = self.bot.config.get("admins", [])
-        if not (uid in admins or config["enable"][str(group_id)]):
+        if not (uid in admins or config["enable"].get(str(group_id), False)):
             self.send_group_msg_func(
                 {
                     "group_id": group_id,

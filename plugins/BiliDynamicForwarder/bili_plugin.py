@@ -84,8 +84,8 @@ def remove_target(bili_uid, group_id):
         return 1
     not_found = []
     for uid in bili_uid:
-        if uid in config["targets"]:
-            config["targets"].remove(uid)
+        if uid in config[group_id]["targets"]:
+            config[group_id]["targets"].remove(uid)
         else:
             not_found += [uid]
     dump_config()
@@ -261,8 +261,8 @@ class BiliDynamicForwarder(Plugin):
         download_multi = self.bot.download_multi
 
     async def process(self):
-        logging.info("initialize dynamic list in 5s")
-        await asyncio.sleep(5)
+        logging.info("initialize dynamic list in 2s")
+        await asyncio.sleep(2)
         await self.check_dynamic_update()
         await asyncio.sleep(listen_sleep)
         while True:
