@@ -7,6 +7,7 @@ import atexit
 import copy
 import logging
 import asyncio
+import traceback
 
 import yaml
 
@@ -85,8 +86,8 @@ class ArknightsGacha(Plugin):
         request = operator_lib.request = self.bot.request
 
     async def init(self):
-        logging.info("load operator library in 5s")
-        await asyncio.sleep(5)
+        logging.info("load operator library in 2s")
+        await asyncio.sleep(2)
         gacha.init()
         logging.info("operator library loaded ok")
 
@@ -165,7 +166,9 @@ class ArknightsGacha(Plugin):
         global config
         group_id: int = event["group_id"]
         status = config["enable"].get(str(group_id), False)
-        reply = lambda t: self.send_group_msg_async(
+        sender: dict = event["sender"]
+        uid: int = sender["user_id"]
+        reply = lambda t: self.send_group_msg_func(
             {
                 "group_id": group_id,
                 "message": cqcode.reply(msg_id=event["message_id"]) + t,
@@ -212,8 +215,89 @@ class ArknightsGacha(Plugin):
 /arkgacha refresh - 更新到最新的干员列表"""
                 )
             case "astat":
-                send("待做")
+                self.bot.add_task(self.show_all_stat(event))
             case "pstat":
-                send("待做")
+                self.bot.add_task(self.show_personal_stat(event))
             case "refresh":
-                send("待做")
+                if uid not in self.admins:
+                    reply("permisson denied")
+                else:
+                    reply("正在刷新干员列表...")
+                    self.bot.add_task(self.refresh_list(event))
+
+    async def show_all_stat(self, event):
+        group_id: int = event["group_id"]
+        total = {k: 0 for k in range(3, 6 + 1)}
+        for d in stat.values():
+            for star, counter in d.items():
+                total[star] += counter
+        self.send_group_msg_func(
+            {
+                "group_id": group_id,
+                "message": """抽卡模块状态
+在此群的开关状态: %s
+总共产出了 %d 抽, 其中: \n%s"""
+                % (
+                    config["enable"].get(str(group_id), False),
+                    sum([i for i in total.values()]),
+                    "\n".join(["%d 星: %d 个" % (k, v) for k, v in total.items()]),
+                ),
+                "auto_escape": False,
+            }
+        )
+
+    async def show_personal_stat(self, event):
+        group_id: int = event["group_id"]
+        sender: dict = event["sender"]
+        uid: int = sender["user_id"]
+        if str(uid) not in stat:
+            self.send_group_msg_func(
+                {
+                    "group_id": group_id,
+                    "message": cqcode.reply(msg_id=event["message_id"])
+                    + "还没有你的抽卡数据噢",
+                    "auto_escape": False,
+                }
+            )
+            return
+        self.send_group_msg_func(
+            {
+                "group_id": group_id,
+                "message": cqcode.reply(msg_id=event["message_id"])
+                + "你抽到过: \n"
+                + "\n".join(
+                    ["%d 星: %d 个" % (k, v) for k, v in stat.get(str(uid), {}).items()]
+                ),
+                "auto_escape": False,
+            }
+        )
+
+    async def refresh_list(self, event: dict):
+        group_id: int = event["group_id"]
+        try:
+            data = await operator_lib.fetch()
+        except Exception as e:
+            logging.exception(e)
+            self.send_group_msg_func(
+                {
+                    "group_id": group_id,
+                    "message": cqcode.reply(msg_id=event["message_id"])
+                    + "刷新失败: \n"
+                    + traceback.format_exc(),
+                    "auto_escape": False,
+                }
+            )
+        else:
+            old_length = len(operator_lib.operator_lib)
+            operator_lib.operator_lib = data
+            operator_lib.save_lib()
+            gacha.init()
+            self.send_group_msg_func(
+                {
+                    "group_id": group_id,
+                    "message": cqcode.reply(msg_id=event["message_id"])
+                    + "刷新完成，新增了 %d 个干员的数据"
+                    % (len(operator_lib.operator_lib) - old_length),
+                    "auto_escape": False,
+                }
+            )
