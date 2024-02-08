@@ -126,7 +126,7 @@ class ArknightsGacha(Plugin):
         if str(uid) not in gacha_combo:
             gacha_combo[str(uid)] = {}
         if pool not in gacha_combo[str(uid)]:
-            gacha_combo[str(uid)][pool] = 0
+            gacha_combo[str(uid)][pool] = 1
         combo = gacha_combo[str(uid)][pool]
         # 选池子
         gacha_gen = {
@@ -138,7 +138,7 @@ class ArknightsGacha(Plugin):
         for i in range(amount):
             pack = gacha_gen(combo)
             if pack["star"] == 6:
-                combo = 0
+                combo = 1
             result += [pack]
         gacha_combo[str(uid)][pool] = combo
         # 汇报

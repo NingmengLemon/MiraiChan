@@ -36,20 +36,24 @@ def random_with_weight(data_dict):
         if ra_wt <= cur_wt:
             return key
 
-
-def gacha(combo: int = 0):
+def gacha(combo: int = 1):
     probas = {
-        #
         3: 0.4,
         4: 0.5,
         5: 0.08,
         6: 0.02,
     }
-    if combo > 50:
-        offset = 0.02
-        probas[6] += (combo - 51) * offset
-        probas.update({i: probas[i] * (1 - probas[6]) for i in probas.keys() if i != 6})
-    return random_with_weight(probas)  #
+    if combo > 50 and combo < 100:
+        offset = 0.02 * (combo - 50)
+        offset = min(probas[6] + offset, 1) - probas[6]
+        probas[6] += offset
+        decrease_per_star = offset / 3
+        for star in [3, 4, 5]:
+            probas[star] -= decrease_per_star
+            probas[star] = max(probas[star], 0)
+    elif combo >= 100:
+        return 6
+    return random_with_weight(probas)
 
 
 def gacha_standard(combo: int = 0):
