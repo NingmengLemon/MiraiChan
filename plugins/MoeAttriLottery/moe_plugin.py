@@ -58,7 +58,7 @@ def record_stat(uid, data: dict):
             stat[uid][keyw] += 1
         else:
             stat[uid][keyw] = 1
-    stat[uid].pop("普通")
+    stat[uid].pop("普通", None)
 
 
 def get_stat(uid):
@@ -83,6 +83,9 @@ def get_stat_most(uid):
 def save_all():
     json.dump(
         stat, open(stat_file, "w+", encoding="utf-8"), indent=4, ensure_ascii=False
+    )
+    json.dump(
+        config, open(config_file, "w+", encoding="utf-8"), indent=4, ensure_ascii=False
     )
 
 

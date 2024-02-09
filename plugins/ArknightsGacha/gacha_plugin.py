@@ -52,6 +52,8 @@ def load_all():
 
 @atexit.register
 def save_all():
+    # stat = copy.deepcopy(stat)
+    # config = copy.deepcopy(config)
     yaml.dump(
         stat,
         open(stat_file, "w+", encoding="utf-8"),
@@ -161,6 +163,7 @@ class ArknightsGacha(Plugin):
             stat[str(uid)] = {k: 0 for k in range(3, 6 + 1)}
         for pack in result:
             stat[str(uid)][pack["star"]] += 1
+        save_all()
 
     def command_trigger(self, event: dict, command: str):
         global config
@@ -228,6 +231,7 @@ class ArknightsGacha(Plugin):
     async def show_all_stat(self, event):
         group_id: int = event["group_id"]
         total = {k: 0 for k in range(3, 6 + 1)}
+        # stat = copy.deepcopy(stat)
         for d in stat.values():
             for star, counter in d.items():
                 total[star] += counter
@@ -250,6 +254,7 @@ class ArknightsGacha(Plugin):
         group_id: int = event["group_id"]
         sender: dict = event["sender"]
         uid: int = sender["user_id"]
+        # stat = copy.deepcopy(stat)
         if str(uid) not in stat:
             self.send_group_msg_func(
                 {
@@ -260,14 +265,21 @@ class ArknightsGacha(Plugin):
                 }
             )
             return
+        total = max(sum([i for i in stat[str(uid)].values()]), 1)
+        text = (
+            "你抽到过: \n"
+            + "\n".join(
+                [
+                    "%d 星: %d 个 (%.2f%%)" % (k, v, v / total * 100)
+                    for k, v in stat.get(str(uid), {}).items()
+                ]
+            )
+            + "\n共计 %d 抽, 相当于 %d 合成玉" % (total, total * 600)
+        )
         self.send_group_msg_func(
             {
                 "group_id": group_id,
-                "message": cqcode.reply(msg_id=event["message_id"])
-                + "你抽到过: \n"
-                + "\n".join(
-                    ["%d 星: %d 个" % (k, v) for k, v in stat.get(str(uid), {}).items()]
-                ),
+                "message": cqcode.reply(msg_id=event["message_id"]) + text,
                 "auto_escape": False,
             }
         )
