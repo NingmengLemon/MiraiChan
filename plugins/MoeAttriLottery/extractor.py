@@ -28,6 +28,7 @@ def load_attrs(path=moe_attrs_path):
     else:
         raise RuntimeError("MoeAttrs Data File not found.")
 
+
 # https://www.jb51.net/article/268877.htm
 def random_with_weight(data_dict):
     sum_wt = sum(data_dict.values())  # 计算权重和 sum_wt
@@ -49,5 +50,8 @@ def generate():
                 res[attr_type] = random_with_weight(
                     detailed_moe_attrs[attr_type][req_attr]
                 )
+    for k, v in set(res.items()):
+        if v == "普通":
+            res.pop(k)
     res["time"] = time.time()
     return res

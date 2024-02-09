@@ -58,6 +58,7 @@ def record_stat(uid, data: dict):
             stat[uid][keyw] += 1
         else:
             stat[uid][keyw] = 1
+    stat[uid].pop("普通")
 
 
 def get_stat(uid):
@@ -80,7 +81,9 @@ def get_stat_most(uid):
 
 @atexit.register
 def save_all():
-    json.dump(stat, open(stat_file, "w+", encoding="utf-8"), indent=4)
+    json.dump(
+        stat, open(stat_file, "w+", encoding="utf-8"), indent=4, ensure_ascii=False
+    )
 
 
 class MoeAttriLottery(Plugin):
@@ -106,12 +109,12 @@ class MoeAttriLottery(Plugin):
             self.parse_command(event, command)
         elif msg.lower().startswith("/draw "):
             self.send_group_msg_func(
-                    {
-                        "group_id": event["group_id"],
-                        "message": "unknown command branch",
-                        "auto_escape": False,
-                    }
-                )
+                {
+                    "group_id": event["group_id"],
+                    "message": "unknown command branch",
+                    "auto_escape": False,
+                }
+            )
 
     def parse_command(self, event: dict, command: str):
         admins: list = self.bot.config.get("admins", [])
@@ -204,8 +207,7 @@ class MoeAttriLottery(Plugin):
                 self.send_group_msg_func(
                     {
                         "group_id": group_id,
-                        "message": cqcode.reply(msg_id=msg_id)
-                        + "unknown sub command",
+                        "message": cqcode.reply(msg_id=msg_id) + "unknown sub command",
                         "auto_escape": False,
                     }
                 )

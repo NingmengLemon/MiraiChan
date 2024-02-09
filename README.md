@@ -14,3 +14,5 @@
 完成后会尝试部署在我的服务器上
 
 （此仓库不包含个人配置文件）
+
+详见：[讲讲我的Mirai酱](https://blog.lemonyaweb.top/2024/02/08/Try-to-introduce-my-MiraiChan/)
