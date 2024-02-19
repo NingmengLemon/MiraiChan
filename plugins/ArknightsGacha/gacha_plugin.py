@@ -108,6 +108,7 @@ class ArknightsGacha(Plugin):
             self.gacha_trigger(amount, pool, event)
 
     def gacha_trigger(self, amount: int, pool: str, event: dict):
+        global gacha_combo
         msg_id: int = event["message_id"]
         group_id: int = event["group_id"]
         sender: dict = event["sender"]
@@ -141,6 +142,8 @@ class ArknightsGacha(Plugin):
             pack = gacha_gen(combo)
             if pack["star"] == 6:
                 combo = 1
+            else:
+                combo += 1
             result += [pack]
         gacha_combo[str(uid)][pool] = combo
         # 汇报
