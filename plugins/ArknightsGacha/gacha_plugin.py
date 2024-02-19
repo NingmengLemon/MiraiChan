@@ -282,17 +282,28 @@ class ArknightsGacha(Plugin):
 
     async def show_all_stat(self, event):
         group_id: int = event["group_id"]
+        total = sum([i for i in stat_total.values()])
+        text = """抽卡模块状态
+在此群的开关状态: %s
+""" % (
+            config["enable"].get(str(group_id), False)
+        )
+        if total:
+            text += """总共产出了 %d 抽, 其中: \n%s""" % (
+                total,
+                "\n".join(
+                    [
+                        "%d 星: %d 个 (%.2f%%)" % (k, v, v / total * 100)
+                        for k, v in stat_total.items()
+                    ]
+                ),
+            )
+        else:
+            text += "还没有产出记录"
         self.send_group_msg_func(
             {
                 "group_id": group_id,
-                "message": """抽卡模块状态
-在此群的开关状态: %s
-总共产出了 %d 抽, 其中: \n%s"""
-                % (
-                    config["enable"].get(str(group_id), False),
-                    sum([i for i in stat_total.values()]),
-                    "\n".join(["%d 星: %d 个" % (k, v) for k, v in stat_total.items()]),
-                ),
+                "message": text,
                 "auto_escape": False,
             }
         )
@@ -321,7 +332,7 @@ class ArknightsGacha(Plugin):
                     for k, v in stat.get(str(uid), {}).items()
                 ]
             )
-            + "\n共计 %d 抽, 相当于 %d 合成玉" % (total, total * 600)
+            + "\n共计 %d 抽, 相当于 %g 合成玉" % (total, total * 600)
         )
         self.send_group_msg_func(
             {
