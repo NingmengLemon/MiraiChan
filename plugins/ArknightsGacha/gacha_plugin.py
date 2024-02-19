@@ -74,7 +74,7 @@ load_all()
 
 
 class ArknightsGacha(Plugin):
-    COMMAND_REGEX = r"^\/arkgacha\s+(on|off|help|pstat|astat|refresh)\s*$"
+    COMMAND_REGEX = r"^\/arkgacha\s+(on|off|help|pstat|astat|refresh|clear)\s*$"
     GACHA_REGEX = r"^(\/arkgacha(\s*10)?|((明日)?方)?舟\s*(标准池?|常驻池?|中坚池?)?\s*(十连抽?|单抽|抽卡))\s*$"
 
     def __init__(self, bot: Bot):
@@ -218,7 +218,9 @@ class ArknightsGacha(Plugin):
 直接发送 /arkgacha 或 明日方舟十连/抽卡 以抽卡
 /arkgacha on/off - 在本群开启/关闭本模块
 /arkgacha astat/pstat - 查看全体/个人统计
-/arkgacha refresh - 更新到最新的干员列表"""
+/arkgacha refresh - 更新到最新的干员列表
+/arkgacha clear - 清除自己的抽卡统计和连续抽卡次数
+*每次重启的时候连续抽卡次数会重置"""
                 )
             case "astat":
                 self.bot.add_task(self.show_all_stat(event))
@@ -230,6 +232,28 @@ class ArknightsGacha(Plugin):
                 else:
                     reply("正在刷新干员列表...")
                     self.bot.add_task(self.refresh_list(event))
+            case "clear":
+                self.bot.add_task(self.clear_stat_combo(event))
+
+    async def clear_stat_combo(self, event):
+        global stat
+        global gacha_combo
+        group_id: int = event["group_id"]
+        sender: dict = event["sender"]
+        uid: int = sender["user_id"]\
+        
+        stat.pop(str(uid), None)
+        gacha_combo.pop(str(uid), None)
+
+        self.send_group_msg_func(
+            {
+                "group_id": group_id,
+                "message": cqcode.reply(msg_id=event["message_id"]) + "success",
+                "auto_escape": False,
+            }
+        )
+
+        save_all()
 
     async def show_all_stat(self, event):
         group_id: int = event["group_id"]
