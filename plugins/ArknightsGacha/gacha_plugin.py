@@ -25,6 +25,9 @@ config_file = "./plugin_configs/arkgacha.yaml"
 stat: dict = None  # uid: {star: counter}
 stat_file = "./data/arkgacha_stat.yaml"
 
+stat_total: dict = None  # star: counter
+stat_total_file = "./data/arkgacha_stat_total.yaml"
+
 gacha_combo = {
     # uid: {pool: counter}
 }
@@ -33,10 +36,24 @@ gacha_combo = {
 def load_all():
     global config
     global stat
+    global stat_total
     if os.path.exists(stat_file):
         stat = yaml.load(open(stat_file, "r", encoding="utf-8"), yaml.SafeLoader)
     else:
         stat = {}
+    if os.path.exists(stat_total_file):
+        stat_total = yaml.load(
+            open(stat_total_file, "r", encoding="utf-8"), yaml.SafeLoader
+        )
+    elif stat:
+        total = {k: 0 for k in range(3, 6 + 1)}
+        # stat = copy.deepcopy(stat)
+        for d in stat.values():
+            for star, counter in d.items():
+                total[star] += counter
+        stat_total = total
+    else:
+        stat_total = {k: 0 for k in range(3, 6 + 1)}
     if os.path.exists(config_file):
         config = yaml.load(open(config_file, "r", encoding="utf-8"), yaml.SafeLoader)
     else:
@@ -57,6 +74,13 @@ def save_all():
     yaml.dump(
         stat,
         open(stat_file, "w+", encoding="utf-8"),
+        yaml.SafeDumper,
+        default_flow_style=False,
+        allow_unicode=True,
+    )
+    yaml.dump(
+        stat_total,
+        open(stat_total_file, "w+", encoding="utf-8"),
         yaml.SafeDumper,
         default_flow_style=False,
         allow_unicode=True,
@@ -166,6 +190,8 @@ class ArknightsGacha(Plugin):
             stat[str(uid)] = {k: 0 for k in range(3, 6 + 1)}
         for pack in result:
             stat[str(uid)][pack["star"]] += 1
+            stat_total[pack["star"]] += 1
+
         save_all()
 
     def command_trigger(self, event: dict, command: str):
@@ -240,8 +266,7 @@ class ArknightsGacha(Plugin):
         global gacha_combo
         group_id: int = event["group_id"]
         sender: dict = event["sender"]
-        uid: int = sender["user_id"]\
-        
+        uid: int = sender["user_id"]
         stat.pop(str(uid), None)
         gacha_combo.pop(str(uid), None)
 
@@ -257,11 +282,6 @@ class ArknightsGacha(Plugin):
 
     async def show_all_stat(self, event):
         group_id: int = event["group_id"]
-        total = {k: 0 for k in range(3, 6 + 1)}
-        # stat = copy.deepcopy(stat)
-        for d in stat.values():
-            for star, counter in d.items():
-                total[star] += counter
         self.send_group_msg_func(
             {
                 "group_id": group_id,
@@ -270,8 +290,8 @@ class ArknightsGacha(Plugin):
 总共产出了 %d 抽, 其中: \n%s"""
                 % (
                     config["enable"].get(str(group_id), False),
-                    sum([i for i in total.values()]),
-                    "\n".join(["%d 星: %d 个" % (k, v) for k, v in total.items()]),
+                    sum([i for i in stat_total.values()]),
+                    "\n".join(["%d 星: %d 个" % (k, v) for k, v in stat_total.items()]),
                 ),
                 "auto_escape": False,
             }
