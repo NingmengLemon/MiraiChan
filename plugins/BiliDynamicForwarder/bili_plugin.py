@@ -39,6 +39,8 @@ nickname_map_file = "./data/biliuser_nickname_map.json"
 
 dynamic_cache: dict[str, list] = {}
 
+init_flag = True
+
 timestamp_to_time = lambda ts: time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
 
 
@@ -225,7 +227,7 @@ async def generate_msg(data):
         case "article":
             msg += """
 包含专栏：https://www.bilibili.com/read/cv{cvid}
-《{title}》（{words}字）""".format(
+《{title}》""".format(
                 **card["article"]
             )
         case "audio":
@@ -263,6 +265,7 @@ class BiliDynamicForwarder(Plugin):
     async def process(self):
         logging.info("initialize dynamic list in 2s")
         await asyncio.sleep(2)
+        await request("https://www.bilibili.com/", mod="get")  # 为了产生 cookie
         await self.check_dynamic_update()
         await asyncio.sleep(listen_sleep)
         while True:
@@ -284,14 +287,29 @@ class BiliDynamicForwarder(Plugin):
                 except Exception as e:
                     logging.exception(e)
                 else:
-                    nickname_map[target] = data[0]["user"]["uname"]
+                    try:
+                        nickname_map[target] = data[0]["user"]["uname"]
+                    except:
+                        pass
                     logging.info("uid <%s> pulled, <%d> items" % (target, len(data)))
                     dynamic_cache_new[target] = data
         return dynamic_cache_new
 
     async def check_dynamic_update(self) -> dict[str, list[dict[str, Any]]]:
         global dynamic_cache
-        logging.info("start to pull dynamic lists")
+        global init_flag
+        if (
+            await request(
+                "https://api.bilibili.com/x/web-interface/nav",
+                mod="get",
+                return_type="dict",
+            )
+        ).get("code", -1) != 0:
+            init_flag = True
+            logging.warning("not logged in, skip forward")
+            return []
+        else:
+            logging.info("start to pull dynamic lists")
         try:
             cache_new = await self.scan_dynamics()
             cache = dynamic_cache
@@ -327,10 +345,14 @@ class BiliDynamicForwarder(Plugin):
                     need_to_be_sent[uid] = new[:offset]
         except Exception as e:
             logging.exception(e)
-            return None
+            return []
         else:
             dynamic_cache = cache_new
-            return need_to_be_sent
+            if init_flag:
+                init_flag = False
+                return []
+            else:
+                return need_to_be_sent
 
     def send_msgs(self, msg_list: dict[str, list[dict[str, Any]]]):
         config_copy = copy.deepcopy(config)

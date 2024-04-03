@@ -2,6 +2,7 @@ import random
 import time
 import json
 import os
+import signal
 
 # from loguru import logging
 import logging
@@ -51,7 +52,7 @@ def generate():
                     detailed_moe_attrs[attr_type][req_attr]
                 )
     for k, v in set(res.items()):
-        if v == "普通":
+        if v in ["普通","/","无"]:
             res.pop(k)
     res["time"] = time.time()
     return res

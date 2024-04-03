@@ -90,9 +90,9 @@ async def get_recent(uid: int):
         "host_uid={uid}&need_top=0&platform=web".format(uid=uid)
     )
     data = await request(api, mod="get", return_type="json", headers=fake_headers)
-    error_raiser(data["code"], data["msg"])
+    error_raiser(data["code"], data.get("msg", data.get("message", "")))
     data = data["data"]
-    if "cards" in data:  # 是否发过动态
+    if data.get("cards"):  # 是否发过动态
         items = [
             _dynamic_handler(desc=i["desc"], card=json.loads(i["card"]))
             for i in data["cards"]
@@ -114,12 +114,12 @@ def _dynamic_handler(desc, card):
     res = {
         "dynamic_id": int(desc["dynamic_id_str"]),
         "timestamp": desc["timestamp"],
-        "stat": {
-            "view": desc["view"],
-            "like": desc["like"],
-            "forward": desc["repost"],
-            # "reply":desc["comment"]
-        },
+        # "stat": {
+        #     "view": desc["view"],
+        #     "like": desc["like"],
+        #     "forward": desc["repost"],
+        # "reply":desc["comment"]
+        # },
         "user": desc["user_profile"]["info"],  # face,uid,uname
         "card": _card_handler(card=card, dtype=desc["type"]),
         "type": desc["type"],
@@ -176,8 +176,8 @@ def _common_card_handler(card):
 
 
 def _forward_card_handler(card):
-    if "origin_user" in card:
-        user = card["origin_user"]["info"]  # uid, face, uname
+    if card.get("origin_user"):
+        user = card.get("origin_user").get("info")
     else:
         user = None
     res = {
@@ -190,7 +190,7 @@ def _forward_card_handler(card):
         },
         "type": "forward",
     }
-    if "origin" in card:
+    if isinstance(card.get("origin"), dict):
         res["origin"]["card"] = _card_handler(
             card=json.loads(card["origin"]), dtype=card["item"]["orig_type"]
         )
@@ -227,7 +227,7 @@ def _article_card_handler(card):
     stat = card["stats"]
     return {
         "content": card["title"],
-        "images": [card["banner_url"]],
+        "images": [],  # [card["banner_url"]],
         "article": {
             "cvid": card["id"],
             "title": card["title"],
@@ -237,15 +237,15 @@ def _article_card_handler(card):
                 "uname": card["author"]["name"],
                 "face": card["author"]["face"],
             },
-            "stat": {
-                "view": stat["view"],
-                "collect": stat["favorite"],
-                "like": stat["like"],
-                "reply": stat["reply"],
-                "coin": stat["coin"],
-                "share": stat["share"],
-            },
-            "words": card["words"],  # 字数
+            ##            "stat": {
+            ##                "view": stat["view"],
+            ##                "collect": stat["favorite"],
+            ##                "like": stat["like"],
+            ##                "reply": stat["reply"],
+            ##                "coin": stat["coin"],
+            ##                "share": stat["share"],
+            ##            },
+            # "words": card["words"],  # 字数
         },
         "type": "article",
     }

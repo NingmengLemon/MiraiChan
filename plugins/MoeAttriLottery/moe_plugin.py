@@ -59,6 +59,8 @@ def record_stat(uid, data: dict):
         else:
             stat[uid][keyw] = 1
     stat[uid].pop("普通", None)
+    stat[uid].pop("/", None)
+    stat[uid].pop("无", None)
 
 
 def get_stat(uid):

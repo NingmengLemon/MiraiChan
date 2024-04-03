@@ -1,8 +1,23 @@
 import asyncio
 from collections.abc import Callable, Iterable, Mapping
 import threading
+from io import BytesIO
 from typing import Any, Callable
 import logging
+import base64
+
+from PIL.Image import Image
+import qrcode
+
+
+def make_qrcode(data) -> bytes:
+    qr = qrcode.QRCode()
+    qr.add_data(data)
+    img: Image = qr.make_image()
+    a = BytesIO()
+    img.save(a, "jpeg")
+    return a.getvalue()
+
 
 class Thread_with_return(threading.Thread):
     def __init__(
