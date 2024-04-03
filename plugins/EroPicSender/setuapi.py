@@ -64,7 +64,7 @@ def get_msg():
     global cache
     if cache:
         data = get_datapack()
-        url = data["urls"]["original"]
+        url = data["urls"]["original"]#.replace("i.pixiv.re","pixrev.lemonyaweb.top")
         url_cut = "/" + url.split("/", 3)[-1]
         msg = "URL: " + url_cut
         msg += """

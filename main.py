@@ -3,6 +3,7 @@ from plugins.BiliDynamicForwarder import BiliDynamicForwarder
 from plugins.EroPicSender import EroPicSender
 from plugins.MoeAttriLottery import MoeAttriLottery
 from plugins.ArknightsGacha import ArknightsGacha
+from plugins.BiliLogin import BiliLogin
 
 import logging
 import os
@@ -10,6 +11,7 @@ from typing import Any
 import copy
 import json
 import importlib
+import sys
 
 import colorama
 
@@ -51,13 +53,14 @@ logging.getLogger().addFilter(colored_filter)
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.DEBUG,
+    level=logging.DEBUG,#{True:logging.DEBUG,False:logging.WARNING}['--debug' in sys.argv],
 )
 
 
 config = load_config()
 bot = lemonyBot.Bot(**config)
 bot.set_config(admins=config["admins"])
+bot.load_plugin(BiliLogin(bot))
 bot.load_plugin(BiliDynamicForwarder(bot))
 bot.load_plugin(EroPicSender(bot))
 bot.load_plugin(MoeAttriLottery(bot))

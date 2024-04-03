@@ -9,10 +9,13 @@ import queue
 import copy
 import io
 import base64
+import atexit
+from typing import Literal, Optional
 
 import websockets
 import aiohttp
 import aiofiles
+import yarl
 
 
 class SocketBase:
@@ -53,6 +56,8 @@ class SocketBase:
                             self.recv(await ws.recv())
                         except Exception as e:
                             self.error(e)
+                            await asyncio.sleep(0.1)
+                            break
             except websockets.ConnectionClosed as e:
                 logging.error("ws session closed: %s" % e)
                 await asyncio.sleep(2)
@@ -61,7 +66,7 @@ class SocketBase:
             except Exception as e:
                 logging.exception(e)
                 logging.error("Error while interacting: %s" % e)
-                await asyncio.sleep(1)
+                await asyncio.sleep(2)
 
     def start(self):
         asyncio.run(self.__ws_recv_loop())
@@ -76,9 +81,14 @@ class HttpBase:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.74 Safari/537.36 Edg/79.0.309.43",
     }
 
-    def __init__(self):
+    def __init__(self, cookie_file: Optional[str] = None):
+        self._cookie_file = cookie_file if cookie_file else "./cookies.pick"
+
         self._loop = asyncio.new_event_loop()
         self._session = aiohttp.ClientSession(loop=self._loop)
+        self._load_cookies()
+        atexit.register(self.save_cookies)
+        
         self.__run_async_loop()
 
     def __async_loop(self):
@@ -90,12 +100,72 @@ class HttpBase:
         thread.setDaemon(True)
         thread.start()
 
+    def save_cookies(self):
+        # cookie_list = []
+        # for cookie in self._session.cookie_jar:
+        #     c = {
+        #         "name": cookie.key,
+        #         "value": cookie.value,
+        #     }
+        #     c.update(cookie.copy())
+        #     cookie_list.append(c)
+        # with open(self._cookie_file, "w+", encoding="utf-8") as f:
+        #     f.write(json.dumps(cookie_list))
+        self._session._cookie_jar.save(self._cookie_file)
+
+    def _load_cookies(self):
+        # if not os.path.isfile(self._cookie_file):
+        #     return
+        # with open(self._cookie_file, "r", encoding="utf-8") as f:
+        #     cookies: list = json.load(f)
+        #     for cookie in cookies:
+        #         url = yarl.URL.build(
+        #             scheme="http", host=cookie["domain"], path=cookie["path"]
+        #         )
+        #         self._session.cookie_jar.update_cookies(
+        #             {cookie["name"]: cookie["value"]}, url
+        #         )
+        #         logging.debug("cookie loaded: %s=%s"%(cookie["name"], cookie["value"]))
+        if os.path.isfile(self._cookie_file):
+            self._session._cookie_jar.load(self._cookie_file)
+
     def add_task(self, coro):
         asyncio.run_coroutine_threadsafe(coro=coro, loop=self._loop)
 
+    @property
+    def aiosession(self):
+        return self._session
+    
+    @property
+    def get(self):
+        return self._session.get
+
+    @property
+    def post(self):
+        return self._session.post
+
+    @property
+    def request(self):
+        return self._session.request
+
+    @property
+    def head(self):
+        return self._session.head
+
+    @property
+    def options(self):
+        return self._session.options
+
     async def request(
-        self, url, mod="get", data=None, return_type="str", headers=None, **kwargs
+        self,
+        url: str,
+        mod: Literal["get", "post", "head"] = "get",
+        data=None,
+        return_type: Literal["str", "json", "dict", "bytes"] = "str",
+        headers: Optional[dict] = None,
+        **kwargs,
     ) -> str | dict | bytes:
+        logging.debug("%sing %s, return=%s" % (mod, url, return_type))
         result = None
         if headers is None:
             headers = copy.deepcopy(HttpBase.DEFAULT_HEADERS)
