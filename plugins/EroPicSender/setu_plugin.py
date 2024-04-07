@@ -144,14 +144,14 @@ class EroPicSender(Plugin):
         add_record(group_id, uid)
         # 检查开关
         if not (config.get("enable", {}).get(str(group_id), False) or uid in admins):
-            self.send_group_msg_func(
-                {
-                    "group_id": group_id,
-                    "message": cqcode.reply(msg_id=msg_id)
-                    + "本群的涩图模块已被管理员关闭 :(",
-                    "auto_escape": False,
-                }
-            )
+            # self.send_group_msg_func(
+            #     {
+            #         "group_id": group_id,
+            #         "message": cqcode.reply(msg_id=msg_id)
+            #         + "本群的涩图模块已被管理员关闭 :(",
+            #         "auto_escape": False,
+            #     }
+            # )
             return
         if uid in cold_down and uid not in admins:
             if (time_pass := (time.time() - cold_down.get(uid))) < config["cold_time"]:
@@ -232,7 +232,7 @@ class EroPicSender(Plugin):
             case _:
                 send(
                     cqcode.reply(msg_id=msg_id)
-                    + "你可能不小心进入了一个不存在的页面..."
+                    + "你可能不小心进入了一个不存在的指令分支..."
                 )
 
     async def status_sender(self, event, status):

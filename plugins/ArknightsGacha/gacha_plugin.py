@@ -139,15 +139,15 @@ class ArknightsGacha(Plugin):
         uid: int = sender["user_id"]
         admins: list = self.bot.config.get("admins", [])
         # 检查开关
-        if not (config.get("enable", {}).get(str(group_id), False) or uid in admins):
-            self.send_group_msg_func(
-                {
-                    "group_id": group_id,
-                    "message": cqcode.reply(msg_id=msg_id)
-                    + "本群的方舟抽卡模块已被管理员关闭 :(",
-                    "auto_escape": False,
-                }
-            )
+        if not (config.get("enable", {}).get(str(group_id), False)) or uid in admins:
+            # self.send_group_msg_func(
+            #     {
+            #         "group_id": group_id,
+            #         "message": cqcode.reply(msg_id=msg_id)
+            #         + "本群的方舟抽卡模块已被管理员关闭 :(",
+            #         "auto_escape": False,
+            #     }
+            # )
             return
         # 读取计数器
         if str(uid) not in gacha_combo:
@@ -230,8 +230,14 @@ class ArknightsGacha(Plugin):
                 "auto_escape": False,
             }
         )
+        check_perm = lambda sender_: sender_.get("user_id") in self.bot.config.get(
+            "admins", []
+        ) or sender_.get("role") in ["admin", "owner"]
         match command:
             case "on" | "off":
+                if not check_perm(sender):
+                    reply("permisson denied")
+                    return
                 new_status = not status
                 if status == {"on": True, "off": False}[command]:
                     skipp_reply(status)
@@ -283,13 +289,13 @@ class ArknightsGacha(Plugin):
     async def show_all_stat(self, event):
         group_id: int = event["group_id"]
         total = sum([i for i in stat_total.values()])
-        text = """抽卡模块状态
+        text = """明日方舟抽卡模块状态
 在此群的开关状态: %s
 """ % (
             config["enable"].get(str(group_id), False)
         )
         if total:
-            text += """总共产出了 %d 抽, 其中: \n%s""" % (
+            text += """Bot 总共产出了 %d 抽, 其中: \n%s""" % (
                 total,
                 "\n".join(
                     [
