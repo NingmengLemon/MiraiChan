@@ -127,6 +127,9 @@ class MoeAttriLottery(Plugin):
         sender: dict = event["sender"]
         uid: int = sender["user_id"]
         group_id: int = event["group_id"]
+        check_perm = lambda sender_: sender_.get("user_id") in self.bot.config.get(
+            "admins", []
+        ) or sender_.get("role") in ["admin", "owner"]
         if str(group_id) not in config["enable"]:
             config["enable"][str(group_id)] = False
         match command:
@@ -156,8 +159,8 @@ class MoeAttriLottery(Plugin):
                     }
                 )
             case "on" | "off":
-                new_status = {"on": True, "off": False}[command]
-                if uid in admins:
+                if check_perm(sender):
+                    new_status = {"on": True, "off": False}[command]
                     if new_status == config["enable"].get(str(group_id), False):
                         self.send_group_msg_func(
                             {
@@ -186,6 +189,8 @@ class MoeAttriLottery(Plugin):
                         }
                     )
             case "state":
+                if not (uid in admins or config["enable"].get(str(group_id), False)):
+                    return
                 self.send_group_msg_func(
                     {
                         "group_id": group_id,
@@ -198,6 +203,8 @@ class MoeAttriLottery(Plugin):
                     }
                 )
             case "stati":
+                if not (uid in admins or config["enable"].get(str(group_id), False)):
+                    return
                 most, total = get_stat_most(uid)
                 self.send_group_msg_func(
                     {
@@ -250,14 +257,14 @@ class MoeAttriLottery(Plugin):
         uid: int = sender["user_id"]
         admins: list = self.bot.config.get("admins", [])
         if not (uid in admins or config["enable"].get(str(group_id), False)):
-            self.send_group_msg_func(
-                {
-                    "group_id": group_id,
-                    "message": cqcode.reply(msg_id=msg_id)
-                    + "本群的抽签模块已被管理员关闭 :(",
-                    "auto_escape": False,
-                }
-            )
+            # self.send_group_msg_func(
+            #     {
+            #         "group_id": group_id,
+            #         "message": cqcode.reply(msg_id=msg_id)
+            #         + "本群的抽签模块已被管理员关闭 :(",
+            #         "auto_escape": False,
+            #     }
+            # )
             return
         if uid in cache:
             last_draw_date = time.strftime(
