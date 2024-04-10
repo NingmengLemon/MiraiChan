@@ -139,7 +139,7 @@ class ArknightsGacha(Plugin):
         uid: int = sender["user_id"]
         admins: list = self.bot.config.get("admins", [])
         # 检查开关
-        if not (config.get("enable", {}).get(str(group_id), False)) or uid in admins:
+        if not ((config.get("enable", {}).get(str(group_id), False)) or uid in admins):
             # self.send_group_msg_func(
             #     {
             #         "group_id": group_id,
