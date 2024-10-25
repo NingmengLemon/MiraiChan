@@ -1,0 +1,18 @@
+[project]
+name = "MiraiChan"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com"},
+]
+dependencies = [
+    "melobot[onebot]>=3.0.0rc12",
+    "pypinyin>=0.53.0",
+]
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
