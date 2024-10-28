@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:5d502d3ac0270059f05f7362f9c78f062761b90bae745eb8a7a477fa3147d086"
+content_hash = "sha256:bf92cbc9f9e50964a7496f3f8853d94d2e2fd1b83cd2b240dfd562cab78c74d4"
 
 [[metadata.targets]]
 requires_python = "==3.12.*"
@@ -454,7 +454,7 @@ files = [
 
 [[package]]
 name = "melobot"
-version = "3.0.0rc13"
+version = "3.0.0rc14"
 requires_python = ">=3.10"
 summary = "A bot framework with much high level features."
 groups = ["default"]
@@ -466,26 +466,26 @@ dependencies = [
     "typing-extensions>=4.10.0",
 ]
 files = [
-    {file = "melobot-3.0.0rc13-py3-none-any.whl", hash = "sha256:695f287145cb071435b9158e76ff8f0446e5604bc6d45b85ee69740b6dd05868"},
-    {file = "melobot-3.0.0rc13.tar.gz", hash = "sha256:939bc238ec321e3b8f311e1e4b3f1008653c70b2043443acb3663f6f7fe86d65"},
+    {file = "melobot-3.0.0rc14-py3-none-any.whl", hash = "sha256:73f0a9dcd6b2eda18c51bad6db683bec54ed996e60b3a1cf59f0c94ca65dbe65"},
+    {file = "melobot-3.0.0rc14.tar.gz", hash = "sha256:e77ee72396504b08e9ae8831ce0392ec679a11860185891148ef4e20685b38b7"},
 ]
 
 [[package]]
 name = "melobot"
-version = "3.0.0rc13"
+version = "3.0.0rc14"
 extras = ["onebot"]
 requires_python = ">=3.10"
 summary = "A bot framework with much high level features."
 groups = ["default"]
 dependencies = [
     "aiohttp>=3.10.10",
-    "melobot==3.0.0rc13",
+    "melobot==3.0.0rc14",
     "pydantic>=2.9.2",
     "websockets>=13.1",
 ]
 files = [
-    {file = "melobot-3.0.0rc13-py3-none-any.whl", hash = "sha256:695f287145cb071435b9158e76ff8f0446e5604bc6d45b85ee69740b6dd05868"},
-    {file = "melobot-3.0.0rc13.tar.gz", hash = "sha256:939bc238ec321e3b8f311e1e4b3f1008653c70b2043443acb3663f6f7fe86d65"},
+    {file = "melobot-3.0.0rc14-py3-none-any.whl", hash = "sha256:73f0a9dcd6b2eda18c51bad6db683bec54ed996e60b3a1cf59f0c94ca65dbe65"},
+    {file = "melobot-3.0.0rc14.tar.gz", hash = "sha256:e77ee72396504b08e9ae8831ce0392ec679a11860185891148ef4e20685b38b7"},
 ]
 
 [[package]]
