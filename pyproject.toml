@@ -9,6 +9,7 @@ dependencies = [
     "melobot[onebot]>=3.0.0rc12",
     "pypinyin>=0.53.0",
     "aiofiles>=24.1.0",
+    "aiohttp>=3.10.10",
 ]
 requires-python = "==3.12.*"
 readme = "README.md"
@@ -16,7 +17,7 @@ license = {text = "MIT"}
 
 [tool.pdm.scripts]
 start = {cmd = ["python", "bot.py"]}
-dev = {cmd = ["watchfiles", "--filter", "python", "--target-type", "command", "pdm run start --debug"]}
+dev = {cmd = ["pdm", "run", "start", "--debug"]}
 
 
 [tool.pdm]
