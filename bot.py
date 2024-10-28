@@ -18,6 +18,7 @@ class GlobalConfigModel(BaseModel):
     forwwsio: ForwWsIOConfigModel
     debug: bool = False
     plugins: list[str] = []
+    load_depth: int = 2
 
 
 with open("./config.json", "rb") as fp:
@@ -35,5 +36,5 @@ if __name__ == "__main__":
         .add_io(ForwardWebSocketIO(**cfg.forwwsio.model_dump()))
         .add_adapter(Adapter())
     )
-    bot.load_plugins(cfg.plugins)
+    bot.load_plugins(cfg.plugins, load_depth=cfg.load_depth)
     bot.run(debug=debug)

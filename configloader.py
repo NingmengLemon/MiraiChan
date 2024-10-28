@@ -5,6 +5,12 @@ from typing import Type
 from pydantic import BaseModel
 
 # 十分甚至九分简陋的配置文件加载器（逃
+__all__ = (
+    "ConfigLoader",
+    "ConfigLoaderMetadata",
+    "load_config",
+    "save_config",
+)
 
 
 @dataclass(kw_only=True)
