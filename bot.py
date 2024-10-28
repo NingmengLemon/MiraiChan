@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 class ForwWsIOConfigModel(BaseModel):
     url: str
-    access_token: str | None
+    access_token: str | None = None
 
 
 class GlobalConfigModel(BaseModel):
