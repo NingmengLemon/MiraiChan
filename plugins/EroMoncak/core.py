@@ -35,7 +35,6 @@ logger = get_logger()
 bot = get_bot()
 config = ConfigLoader[EroMoncakConfigDef]()
 
-
 get_pinyin = functools.partial(pypinyin.lazy_pinyin, style=pypinyin.Style.TONE3)
 
 
@@ -47,7 +46,7 @@ def match_pinyin(hanss: str, pins: Sequence[str]):
     hanssf = list(filter(is_hans, hanss))
     if len(hanssf) != len(pins):
         return False
-    return get_pinyin(hanssf) == list(pins)
+    return get_pinyin(hanssf) == (pins if isinstance(pins, list) else list(pins))
 
 
 @bot.on_loaded

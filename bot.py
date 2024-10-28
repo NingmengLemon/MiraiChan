@@ -20,14 +20,13 @@ class GlobalConfigModel(BaseModel):
     plugins: list[str] = []
 
 
-debug = "--debug" in sys.argv
-
 with open("./config.json", "rb") as fp:
     cfg = GlobalConfigModel.model_validate_json(fp.read())
-if debug:
-    print("config content:", cfg.model_dump_json(indent=4))
 
 if __name__ == "__main__":
+    debug = "--debug" in sys.argv or cfg.debug
+    if debug:
+        print("config content:", cfg.model_dump_json(indent=4))
     bot = (
         Bot(
             "MiraiChan",
