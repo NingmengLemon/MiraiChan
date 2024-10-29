@@ -1,14 +1,14 @@
-from os import listdir as _0x671fd5741
-from pathlib import Path as _0x671fd5742
-from typing import Any as _0x671fd5743
+from os import listdir as _0x6720bc971
+from pathlib import Path as _0x6720bc972
+from typing import Any as _0x6720bc973
 
-from melobot.plugin.load import plugin_get_attr as _0x671fd5744
+from melobot.plugin.load import plugin_get_attr as _0x6720bc974
 
-_0x671fd5745 = _0x671fd5742(__file__).parent
-_0x671fd5746 = set(fname.split(".")[0] for fname in _0x671fd5741(_0x671fd5745))
+_0x6720bc975 = _0x6720bc972(__file__).parent
+_0x6720bc976 = set(fname.split(".")[0] for fname in _0x6720bc971(_0x6720bc975))
 
 
-def __getattr__(name: str) -> _0x671fd5743:
-    if name in _0x671fd5746 or name.startswith("_"):
+def __getattr__(name: str) -> _0x6720bc973:
+    if name in _0x6720bc976 or name.startswith("_"):
         raise AttributeError
-    return _0x671fd5744(_0x671fd5745.parts[-1], name)
+    return _0x6720bc974(_0x6720bc975.parts[-1], name)

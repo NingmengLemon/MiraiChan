@@ -37,7 +37,7 @@ async def cmd_set_alias(
         await adapter.send_reply(f"已将你的别称设为 「{alias}」 ！")
     else:
         await del_alias(event.user_id)
-        await adapter.send_reply("已将你的别称删除w")
+        await adapter.send_reply("已经将你的别称删除了ww")
 
 
 async def get_alias(uid: int):
