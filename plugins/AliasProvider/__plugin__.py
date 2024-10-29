@@ -31,12 +31,12 @@ async def cmd_set_alias(
     adapter: Adapter,
 ):
     text = event.text.strip()
-    if len((args := text.split(maxsplit=1))) == 2 and (uid := event.user_id):
+    if len((args := text.split(maxsplit=1))) == 2 and event.user_id:
         alias = args[1]
-        await set_alias(uid, alias)
-        await adapter.send_reply(f"已将你的别称设为 {alias} ！")
+        await set_alias(event.user_id, alias)
+        await adapter.send_reply(f"已将你的别称设为 「{alias}」 ！")
     else:
-        await del_alias(uid)
+        await del_alias(event.user_id)
         await adapter.send_reply("已将你的别称删除w")
 
 
