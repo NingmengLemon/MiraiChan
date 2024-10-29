@@ -76,6 +76,8 @@ def save_config[T: BaseModel](metadata: ConfigLoaderMetadata[T], config: T):
 
 
 def load_config[T: BaseModel](metadata: ConfigLoaderMetadata[T]):
+    if not os.path.exists(metadata.location):
+        os.makedirs(metadata.location, exist_ok=True)
     filepath = os.path.join(metadata.location, metadata.filename)
     if os.path.isfile(filepath):
         with open(filepath, "rb") as fp:
