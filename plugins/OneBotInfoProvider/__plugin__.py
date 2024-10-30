@@ -4,8 +4,14 @@ import json
 from melobot import Plugin, get_bot, get_logger, GenericLogger
 from melobot.plugin import SyncShare
 from melobot.utils import RWContext
-from melobot.protocols.onebot.v11 import Adapter, EchoRequireCtx, on_message, on_command
-from melobot.protocols.onebot.v11.adapter.event import MessageEvent
+from melobot.protocols.onebot.v11 import (
+    Adapter,
+    EchoRequireCtx,
+    on_message,
+    on_command,
+    on_meta,
+)
+from melobot.protocols.onebot.v11.adapter.event import MessageEvent, HeartBeatMetaEvent
 from melobot.protocols.onebot.v11.utils import LevelRole
 
 import checker_factory
@@ -56,6 +62,13 @@ async def update_info(adapter: Adapter):
     await get_onebot_login_info(adapter)
 
 
+@on_meta(lambda e: e.is_heartbeat())
+async def auto_update_meta(event: HeartBeatMetaEvent):
+    async with rwlock.write():
+        store["status"] = event.status.raw.copy()
+        store["time"] = event.time
+
+
 @on_command(
     ".", " ", "botinfo", checker=lambda e: e.sender.user_id == checker_factory.owner
 )
@@ -73,4 +86,4 @@ class OneBotInfoProvider(Plugin):
     version = "0.1.0"
     author = "LemonyNingmeng"
     funcs = (get_info, get_all_info, update_info)
-    flows = (echo_info,)
+    flows = (auto_update_meta, echo_info)
