@@ -2,7 +2,7 @@ from aiohttp import ClientSession
 from http import cookiejar
 import time
 
-from lemony_utils import async_reqtemplate
+from lemony_utils.templates import async_reqtemplate
 
 
 @async_reqtemplate()

@@ -61,8 +61,10 @@ async def run_as_async[
     return thread.result
 
 
-def run_as_async_decorator(daemon: bool = True, check_delay: Union[float, int] = 0.1):
-    def decorator(func):
+def run_as_async_decorator[
+    T
+](daemon: bool = True, check_delay: Union[float, int] = 0.1):
+    def decorator(func: Callable[..., T]):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             return run_as_async(

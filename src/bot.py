@@ -1,12 +1,21 @@
-import json
+import os
 import sys
 from typing import Any
+import asyncio
 
 from melobot import Bot
 from melobot.log import Logger, LogLevel
 from melobot.protocols.onebot.v11 import Adapter, ForwardWebSocketIO
 
 from pydantic import BaseModel
+
+if "src" in os.listdir():
+    sys.path.insert(0, "src")
+
+if sys.platform != "win32":
+    import uvloop
+
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
 class ForwWsIOConfigModel(BaseModel):
