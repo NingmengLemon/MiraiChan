@@ -16,22 +16,31 @@ async def dummy_session_context(session: ClientSession):
 
 
 class _ReqTemplateDecoratedReturn(_RequestOptions):
-    url: str | URL
     method: NotRequired[Literal["get", "post"]]
+
+
+UrlStr = URL | str
 
 
 def async_reqtemplate(
     handle: Literal["json", "bytes", "str"] = "json",
 ):
-    def decorator(func: AsyncCallable[..., _ReqTemplateDecoratedReturn]):
+    def decorator(
+        func: AsyncCallable[..., tuple[UrlStr, _ReqTemplateDecoratedReturn] | UrlStr]
+    ):
         @functools.wraps(func)
         async def wrapper(session: ClientSession | None = None, **kwargs):
-            reqargs = await func(**kwargs)
+            if isinstance(_:= await func(**kwargs), tuple):
+                url, reqargs = _
+            else:
+                url, reqargs = _, {}
             reqargs.setdefault("method", "get")
             async with (
-                ClientSession() if session is None else dummy_session_context(session)
+                ClientSession(headers=http_headers)
+                if session is None
+                else dummy_session_context(session)
             ) as session:
-                async with session.request(**reqargs) as resp:
+                async with session.request(url=url, **reqargs) as resp:
                     match handle:
                         case "json":
                             return await resp.json()
