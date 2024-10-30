@@ -23,15 +23,16 @@ class GlobalConfigModel(BaseModel):
 
 with open("./config.json", "rb") as fp:
     cfg = GlobalConfigModel.model_validate_json(fp.read())
+debug = "--debug" in sys.argv or cfg.debug
+
+logger = Logger(level=LogLevel.DEBUG if debug else LogLevel.INFO)
+logger.debug("Config: " + cfg.model_dump_json(indent=4))
 
 if __name__ == "__main__":
-    debug = "--debug" in sys.argv or cfg.debug
-    if debug:
-        print("config content:", cfg.model_dump_json(indent=4))
     bot = (
         Bot(
             "MiraiChan",
-            logger=Logger(level=LogLevel.DEBUG if debug else LogLevel.INFO),
+            logger=logger,
         )
         .add_io(ForwardWebSocketIO(**cfg.forwwsio.model_dump()))
         .add_adapter(Adapter())
