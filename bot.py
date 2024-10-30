@@ -18,7 +18,7 @@ class GlobalConfigModel(BaseModel):
     forwwsio: ForwWsIOConfigModel
     debug: bool = False
     plugins: list[str] = []
-    load_depth: int = 2
+    load_depth: int = 3
 
 
 with open("./config.json", "rb") as fp:

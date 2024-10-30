@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:75a86639f884b5495df3b49345edd44dc3cdbc3f416932ca1bac84b7cfd41332"
+content_hash = "sha256:556ec39da0ed09567693b8effbecfa51c1677901cd43167c16b52450f1d366a6"
 
 [[metadata.targets]]
 requires_python = "==3.12.*"
@@ -315,17 +315,6 @@ files = [
 ]
 
 [[package]]
-name = "iniconfig"
-version = "2.0.0"
-requires_python = ">=3.7"
-summary = "brain-dead simple config-ini parsing"
-groups = ["dev"]
-files = [
-    {file = "iniconfig-2.0.0-py3-none-any.whl", hash = "sha256:b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374"},
-    {file = "iniconfig-2.0.0.tar.gz", hash = "sha256:2d91e135bf72d31a410b17c16da610a82cb55f6b0477d1a902134b24a455b8b3"},
-]
-
-[[package]]
 name = "ipykernel"
 version = "6.29.5"
 requires_python = ">=3.8"
@@ -465,7 +454,7 @@ files = [
 
 [[package]]
 name = "melobot"
-version = "3.0.0rc14"
+version = "3.0.0rc15"
 requires_python = ">=3.10"
 summary = "A bot framework with much high level features."
 groups = ["default"]
@@ -477,26 +466,26 @@ dependencies = [
     "typing-extensions>=4.10.0",
 ]
 files = [
-    {file = "melobot-3.0.0rc14-py3-none-any.whl", hash = "sha256:73f0a9dcd6b2eda18c51bad6db683bec54ed996e60b3a1cf59f0c94ca65dbe65"},
-    {file = "melobot-3.0.0rc14.tar.gz", hash = "sha256:e77ee72396504b08e9ae8831ce0392ec679a11860185891148ef4e20685b38b7"},
+    {file = "melobot-3.0.0rc15-py3-none-any.whl", hash = "sha256:cf1e8445f0a0d63bd465cb43fd81afd305e0561f2e19f79448d181235fa28dae"},
+    {file = "melobot-3.0.0rc15.tar.gz", hash = "sha256:ff8a2ddef382bb837972e9fb4811add35d3f6a6b4c29927e9d21f48c285f3f25"},
 ]
 
 [[package]]
 name = "melobot"
-version = "3.0.0rc14"
+version = "3.0.0rc15"
 extras = ["onebot"]
 requires_python = ">=3.10"
 summary = "A bot framework with much high level features."
 groups = ["default"]
 dependencies = [
     "aiohttp>=3.10.10",
-    "melobot==3.0.0rc14",
+    "melobot==3.0.0rc15",
     "pydantic>=2.9.2",
     "websockets>=13.1",
 ]
 files = [
-    {file = "melobot-3.0.0rc14-py3-none-any.whl", hash = "sha256:73f0a9dcd6b2eda18c51bad6db683bec54ed996e60b3a1cf59f0c94ca65dbe65"},
-    {file = "melobot-3.0.0rc14.tar.gz", hash = "sha256:e77ee72396504b08e9ae8831ce0392ec679a11860185891148ef4e20685b38b7"},
+    {file = "melobot-3.0.0rc15-py3-none-any.whl", hash = "sha256:cf1e8445f0a0d63bd465cb43fd81afd305e0561f2e19f79448d181235fa28dae"},
+    {file = "melobot-3.0.0rc15.tar.gz", hash = "sha256:ff8a2ddef382bb837972e9fb4811add35d3f6a6b4c29927e9d21f48c285f3f25"},
 ]
 
 [[package]]
@@ -605,17 +594,6 @@ groups = ["dev"]
 files = [
     {file = "platformdirs-4.3.6-py3-none-any.whl", hash = "sha256:73e575e1408ab8103900836b97580d5307456908a03e92031bab39e4554cc3fb"},
     {file = "platformdirs-4.3.6.tar.gz", hash = "sha256:357fb2acbc885b0419afd3ce3ed34564c13c9b95c89360cd9563f73aa5e2b907"},
-]
-
-[[package]]
-name = "pluggy"
-version = "1.5.0"
-requires_python = ">=3.8"
-summary = "plugin and hook calling mechanisms for python"
-groups = ["dev"]
-files = [
-    {file = "pluggy-1.5.0-py3-none-any.whl", hash = "sha256:44e1ad92c8ca002de6377e165f3e0f1be63266ab4d554740532335b9d75ea669"},
-    {file = "pluggy-1.5.0.tar.gz", hash = "sha256:2cffa88e94fdc978c4c574f15f9e59b7f4201d439195c3715ca9e2486f1d0cf1"},
 ]
 
 [[package]]
@@ -776,39 +754,6 @@ dependencies = [
 files = [
     {file = "pypinyin-0.53.0-py2.py3-none-any.whl", hash = "sha256:a906768919da3c31771f2c5e0e5a759214dc38d0087e15e6ff67649e03df8097"},
     {file = "pypinyin-0.53.0.tar.gz", hash = "sha256:a2d39ddc2bd31b55897bbb10d2e11a0c4d399988a97c00ad489c151afd9b106d"},
-]
-
-[[package]]
-name = "pytest"
-version = "8.3.3"
-requires_python = ">=3.8"
-summary = "pytest: simple powerful testing with Python"
-groups = ["dev"]
-dependencies = [
-    "colorama; sys_platform == \"win32\"",
-    "exceptiongroup>=1.0.0rc8; python_version < \"3.11\"",
-    "iniconfig",
-    "packaging",
-    "pluggy<2,>=1.5",
-    "tomli>=1; python_version < \"3.11\"",
-]
-files = [
-    {file = "pytest-8.3.3-py3-none-any.whl", hash = "sha256:a6853c7375b2663155079443d2e45de913a911a11d669df02a50814944db57b2"},
-    {file = "pytest-8.3.3.tar.gz", hash = "sha256:70b98107bd648308a7952b06e6ca9a50bc660be218d53c257cc1fc94fda10181"},
-]
-
-[[package]]
-name = "pytest-asyncio"
-version = "0.24.0"
-requires_python = ">=3.8"
-summary = "Pytest support for asyncio"
-groups = ["dev"]
-dependencies = [
-    "pytest<9,>=8.2",
-]
-files = [
-    {file = "pytest_asyncio-0.24.0-py3-none-any.whl", hash = "sha256:a811296ed596b69bf0b6f3dc40f83bcaf341b155a269052d82efa2b25ac7037b"},
-    {file = "pytest_asyncio-0.24.0.tar.gz", hash = "sha256:d081d828e576d85f875399194281e92bf8a68d60d72d1a2faf2feddb6c46b276"},
 ]
 
 [[package]]

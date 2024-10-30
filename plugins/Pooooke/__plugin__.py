@@ -4,25 +4,21 @@ from melobot.protocols.onebot.v11 import on_notice, Adapter
 from melobot.protocols.onebot.v11.adapter.segment import PokeSegment, Segment
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent, PokeNotifyEvent
 
-from .. import LagrExtActions
+from ...lagrange_extended_actions import GroupPokeAction, FriendPokeAction
 
 bot = get_bot()
 logger = get_logger()
 
 
-@on_notice(checker=lambda e: e.is_notify() and e.is_poke())
+@on_notice()
 async def poke_back(event: PokeNotifyEvent, adapter: Adapter):
     if event.self_id == event.target_id:
         if event.group_id:
             await adapter.call_output(
-                LagrExtActions.GroupPokeAction(
-                    user_id=event.user_id, group_id=event.group_id
-                )
+                GroupPokeAction(user_id=event.user_id, group_id=event.group_id)
             )
         else:
-            await adapter.call_output(
-                LagrExtActions.FriendPokeAction(user_id=event.user_id)
-            )
+            await adapter.call_output(FriendPokeAction(user_id=event.user_id))
 
 
 class Pooooke(Plugin):

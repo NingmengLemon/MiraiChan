@@ -30,6 +30,4 @@ dev = [
     "ipykernel>=6.29.5",
     "watchfiles>=0.24.0",
     "types-qrcode>=8.0.0.20241004",
-    "pytest>=8.3.3",
-    "pytest-asyncio>=0.24.0",
 ]
