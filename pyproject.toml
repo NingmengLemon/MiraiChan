@@ -3,23 +3,24 @@ name = "MiraiChan"
 version = "0.1.0"
 description = "Default template for PDM package"
 authors = [
-    {name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com"},
+    { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
 ]
 dependencies = [
-    "melobot[onebot]>=3.0.0rc12",
+    "melobot[onebot]>=3.0.0rc15",
     "pypinyin>=0.53.0",
     "aiofiles>=24.1.0",
     "aiohttp>=3.10.10",
     "pillow>=11.0.0",
     "qrcode>=8.0",
+    "uvloop>=0.21.0; sys_platform != 'win32'",
 ]
 requires-python = "==3.12.*"
 readme = "README.md"
-license = {text = "MIT"}
+license = { text = "MIT" }
 
 [tool.pdm.scripts]
-start = {cmd = ["python", "bot.py"]}
-dev = {cmd = ["pdm", "run", "start", "--debug"]}
+start = { cmd = ["python", "src/bot.py"] }
+dev = { cmd = ["pdm", "run", "start", "--debug"] }
 
 
 [tool.pdm]
