@@ -1,13 +1,36 @@
 import functools
-from typing import Callable, Literal, NotRequired
+from typing import Callable, Literal, NotRequired, AsyncGenerator, Optional
 from contextlib import asynccontextmanager
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientResponse
 from aiohttp.client import _RequestOptions
 from melobot.typ import AsyncCallable
 from yarl import URL
 
 from .consts import http_headers
+
+
+@asynccontextmanager
+async def async_http(
+    url: str,
+    method: Literal["get", "post"],
+    headers: Optional[dict] = None,
+    params: Optional[dict] = None,
+    data: Optional[dict] = None,
+    json: Optional[dict] = None,
+) -> AsyncGenerator[ClientResponse, None]:
+    async with ClientSession(headers=headers) as http_session:
+        kwargs = {}
+        if json:
+            kwargs["json"] = json
+        if params:
+            kwargs["params"] = params
+        if method == "get":
+            async with http_session.get(url, **kwargs) as resp:
+                yield resp
+        else:
+            async with http_session.post(url, data=data, **kwargs) as resp:
+                yield resp
 
 
 @asynccontextmanager
@@ -30,7 +53,7 @@ def async_reqtemplate(
     ):
         @functools.wraps(func)
         async def wrapper(session: ClientSession | None = None, **kwargs):
-            if isinstance(_:= await func(**kwargs), tuple):
+            if isinstance(_ := await func(**kwargs), tuple):
                 url, reqargs = _
             else:
                 url, reqargs = _, {}
