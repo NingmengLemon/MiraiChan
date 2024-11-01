@@ -49,7 +49,7 @@ def gen_reply(data: DrawResp):
     else:
         reply.append("这首歌")
     reply.append("！\n")
-    if album := data["album"]:
+    if (album := data["album"]) and (album != title):
         reply.append(f"出自专辑「{album}」\n")
     if dura := data["duration"]:
         reply.append(f"时长 {dura//60:.0f} 分 {dura%60:0>2.0f} 秒\n")
