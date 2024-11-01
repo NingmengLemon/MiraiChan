@@ -11,7 +11,7 @@ from configloader import ConfigLoader, ConfigLoaderMetadata
 
 class AliasProviderConfigModel(BaseModel):
     user_alias: dict[int, str] = {}
-    length_limit: 20
+    length_limit: int = 20
 
 
 logger = get_logger()
