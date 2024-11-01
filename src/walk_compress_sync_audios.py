@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 import os
 import shutil
-
-import psutil
+from concurrent.futures import as_completed, ThreadPoolExecutor
 
 from lemony_utils.media import convert_audio
 
@@ -38,6 +37,7 @@ class RevStat:
 def straight_sync(src: str, dst: str):
     src = os.path.normpath(os.path.abspath(src))
     dst = os.path.normpath(os.path.abspath(dst))
+    os.makedirs(dst, exist_ok=True)
     stat = StraiStat()
 
     for sroot, _, sfilenames in os.walk(src):
@@ -63,7 +63,7 @@ def straight_sync(src: str, dst: str):
                 stat.create += 1
             if not os.path.exists(droot):
                 os.makedirs(droot, exist_ok=True)
-            convert_audio(sfile, dfile, quality="128k")
+            yield (sfile, dfile), {"quality": "128k"}
     return stat
 
 
@@ -77,25 +77,53 @@ def reversed_sync(src: str, dst: str):
         if os.path.exists(droot) and not os.path.exists(sroot):
             shutil.rmtree(droot)
             stat.dfolder += 1
+            continue
         for dfilename in dfilenames:
-            if os.path.splitext(dfilename)[1].lower() not in EXPECTED_EXTS:
-                stat.ignore += 1
+            bare, ext = os.path.splitext(dfilename)
+            if ext.lower() not in EXPECTED_EXTS:
                 continue
-            dfile = os.path.join(sroot, dfilename)
+            dfile = os.path.join(droot, dfilename)
             if sum(((i in dfile) for i in IGNORE_KWLIST)):
                 stat.ignore += 1
                 continue
+            flag = 0
             for ext in EXPECTED_EXTS:
-                sfile = os.path.join(droot, ext)
+                sfile = os.path.join(sroot, (bare + ext))
                 if os.path.exists(sfile):
-                    continue
-            os.remove(dfile)
-            stat.dfile += 1
+                    flag = 1
+                    break
+            if flag == 0:
+                os.remove(dfile)
+                stat.dfile += 1
     return stat
 
 
 if __name__ == "__main__":
     srcdir = input("src:")
     dstdir = input("dst:")
-    print(straight_sync(srcdir, dstdir))
+    counter = 0
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        futures = []
+        gen = straight_sync(srcdir, dstdir)
+        ret = None
+        while True:
+            try:
+                args, kwargs = next(gen)
+                futures.append(
+                    executor.submit(
+                        lambda *args_, **kwargs_: (
+                            convert_audio(*args_, **kwargs_),
+                            *args_,
+                        ),
+                        *args,
+                        **kwargs,
+                        check=False,
+                    )
+                )
+            except StopIteration as e:
+                ret = e.value
+                break
+        for future in as_completed(futures):
+            print(counter := counter + 1, ", code =", *future.result(), sep="\t")
+        print(ret)
     print(reversed_sync(srcdir, dstdir))

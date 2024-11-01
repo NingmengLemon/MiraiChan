@@ -20,6 +20,7 @@ def merge_avfile(
     output_file: str,
     cover_image: Optional[str] = None,
     metadata: Optional[dict[str, str]] = None,
+    check: bool = True,
 ) -> int:
     """调用ffmpeg进行合流，并能添加元数据"""
     args = ["-i", vi_file]
@@ -44,7 +45,7 @@ def merge_avfile(
             args.extend(["-metadata", f"{key}={value}"])
 
     args.append(output_file)
-    return call_ffmpeg(*args)
+    return call_ffmpeg(*args, check=check)
 
 
 async_merge_avfile = run_as_async_decorator()(merge_avfile)
@@ -56,6 +57,7 @@ def convert_audio(
     quality: Optional[str] = None,
     metadata: Optional[dict[str, str]] = None,
     cover_image: Optional[str] = None,
+    check: bool = True,
 ):
     """
     转换音频文件格式，且能添加元数据和封面图片
@@ -88,7 +90,7 @@ def convert_audio(
             args.extend(["-metadata", f"{key}={value}"])
 
     args.append(output_file)
-    return call_ffmpeg(*args)
+    return call_ffmpeg(*args, check=check)
 
 
 async_convert_audio = run_as_async_decorator()(convert_audio)
