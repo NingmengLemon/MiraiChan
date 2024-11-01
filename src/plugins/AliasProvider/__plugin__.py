@@ -11,6 +11,7 @@ from configloader import ConfigLoader, ConfigLoaderMetadata
 
 class AliasProviderConfigModel(BaseModel):
     user_alias: dict[int, str] = {}
+    length_limit: 20
 
 
 logger = get_logger()
@@ -33,8 +34,13 @@ async def cmd_set_alias(
     text = event.text.strip()
     if len((args := text.split(maxsplit=1))) == 2 and event.user_id:
         alias = args[1]
-        await set_alias(event.user_id, alias)
-        await adapter.send_reply(f"已将你的别称设为 「{alias}」 ！")
+        if len(alias) > cfgloader.config.length_limit:
+            await adapter.send_reply(
+                f"字数超出限制喵，当前限制 {cfgloader.config.length_limit} 字"
+            )
+        else:
+            await set_alias(event.user_id, alias)
+            await adapter.send_reply(f"已将你的别称设为 「{alias}」 ！")
     else:
         await del_alias(event.user_id)
         await adapter.send_reply("已经将你的别称删除了ww")
