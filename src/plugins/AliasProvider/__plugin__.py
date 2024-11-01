@@ -2,7 +2,7 @@ import atexit
 from melobot import get_logger
 from melobot.plugin import Plugin, AsyncShare, SyncShare
 from melobot.protocols.onebot.v11 import on_message, on_start_match, Adapter
-from melobot.protocols.onebot.v11.adapter.event import MessageEvent
+from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 from melobot.utils import RWContext
 from pydantic import BaseModel
 
@@ -28,11 +28,11 @@ rwlock = RWContext()
 
 @on_start_match(".setalias")
 async def cmd_set_alias(
-    event: MessageEvent,
+    event: GroupMessageEvent,
     adapter: Adapter,
 ):
     text = event.text.strip()
-    if len((args := text.split(maxsplit=1))) == 2 and event.user_id:
+    if len((args := text.split(maxsplit=1))) == 2:
         alias = args[1]
         if len(alias) > cfgloader.config.length_limit:
             await adapter.send_reply(
