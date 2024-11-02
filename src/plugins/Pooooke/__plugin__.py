@@ -4,7 +4,7 @@ from melobot.protocols.onebot.v11 import on_notice, Adapter
 from melobot.protocols.onebot.v11.adapter.segment import PokeSegment, Segment
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent, PokeNotifyEvent
 
-from ...lagrange_extended_actions import GroupPokeAction, FriendPokeAction
+from lagrange_extended_actions import GroupPokeAction, FriendPokeAction
 
 bot = get_bot()
 logger = get_logger()

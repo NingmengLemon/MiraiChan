@@ -1,5 +1,6 @@
 import functools
 from typing import Sequence
+
 from melobot import Plugin, send_text, get_logger
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 from melobot.protocols.onebot.v11 import on_message
