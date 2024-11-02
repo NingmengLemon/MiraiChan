@@ -82,4 +82,6 @@ def load_config[T: BaseModel](metadata: ConfigLoaderMetadata[T]):
     if os.path.isfile(filepath):
         with open(filepath, "rb") as fp:
             return metadata.model.model_validate_json(fp.read())
-    return metadata.model()
+    default_conf = metadata.model()
+    save_config(metadata, default_conf)
+    return default_conf
