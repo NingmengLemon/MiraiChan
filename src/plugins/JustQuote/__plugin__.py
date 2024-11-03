@@ -1,18 +1,11 @@
-import asyncio
 from io import BytesIO
-from melobot import Plugin, send_text, get_logger
+from melobot import Plugin, get_logger
 from melobot.protocols.onebot.v11.adapter.event import (
     GroupMessageEvent,
-    _GroupMessageSender,
 )
-from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
-from melobot.protocols.onebot.v11.adapter.echo import (
-    GetMsgEcho,
-    GetGroupHonorInfoEcho,
-)
+from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, Segment
 from melobot.protocols.onebot.v11 import on_command, Adapter
 from pydantic import BaseModel
-from PIL import Image
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
 from lemony_utils.consts import http_headers
@@ -34,9 +27,9 @@ cfgloader.load_config()
 logger = get_logger()
 
 
-async def make_quote(msg: GetMsgEcho, avatar: str | None = None):
+async def make_quote(msgsegs: list[Segment], avatar: str | None = None):
     avatar_img = await fetch_image(avatar)
-    return await run_as_async(make_image, (avatar_img, msg))
+    return make_image(avatar_img, msgsegs)
 
 
 async def fetch_image(url: str | None):
@@ -49,24 +42,6 @@ async def fetch_image(url: str | None):
             logger.error(f"error while get img, error={e}")
 
 
-def get_avatar_from_honor(honor: GetGroupHonorInfoEcho, user_id: int) -> None | str:
-    if not honor.data:
-        return None
-    avail_field = (
-        "talkative_list",
-        "performer_list",
-        "legend_list",
-        "strong_newbie_list",
-        "emotion_list",
-    )
-    for key, val in honor.data.values():
-        if key in avail_field:
-            for user in val:
-                if user["user_id"] == user_id:
-                    return user["avatar"]
-    return None
-
-
 @on_command(".", " ", ["q", "quote"])
 async def quote(adapter: Adapter, event: GroupMessageEvent):
     if _ := event.get_segments(ReplySegment):
@@ -74,16 +49,16 @@ async def quote(adapter: Adapter, event: GroupMessageEvent):
     else:
         await adapter.send_reply("需要指定目标消息")
         return
-    msg, honor = await asyncio.gather(
-        (await adapter.with_echo(adapter.get_msg)(msg_id))[0],
-        (await adapter.with_echo(adapter.get_group_honor_info)(event.group_id, "all"))[
-            0
-        ],
+    msg = await (await adapter.with_echo(adapter.get_msg)(msg_id))[0]
+    if not msg.data:
+        await adapter.send_reply("目标消息数据获取失败")
+    sender = msg.data["sender"]
+    msgsegs = msg.data["message"]
+    image = await make_quote(
+        msgsegs,
+        f"https://q.qlogo.cn/headimg_dl?dst_uin={sender.user_id}&spec=640&img_type=jpg",
     )
-    image = await make_quote(msg, get_avatar_from_honor(honor, msg.sender.user_id))
-    await adapter.send_image(
-        f"[{msg.sender.title or msg.sender.nickname}的怪话]", raw=image.read()
-    )
+    await adapter.send_image("[群U的怪话]", raw=image.read())
 
 
 class Quoter(Plugin):
