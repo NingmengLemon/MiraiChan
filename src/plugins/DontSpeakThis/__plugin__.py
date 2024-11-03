@@ -1,13 +1,15 @@
-from melobot import Plugin, send_text, get_logger
+from melobot import Plugin
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
-from melobot.protocols.onebot.v11 import on_full_match
+from melobot.protocols.onebot.v11 import on_command
 
 import checker_factory
 
 
-@on_full_match(".withdraw", checker=lambda e: e.sender.user_id == checker_factory.owner)
+@on_command(
+    ".", " ", "withdraw", checker=lambda e: e.sender.user_id == checker_factory.owner
+)
 async def withdraw(event: MessageEvent, adapter: Adapter):
     msg = event.get_segments(ReplySegment)
     if not msg:
