@@ -1,4 +1,5 @@
 import functools
+import asyncio
 import subprocess
 
 from melobot import Plugin, get_logger, GenericLogger
@@ -8,7 +9,6 @@ from melobot.session import enter_session, get_rule, suspend
 from melobot.session.option import Rule
 
 import checker_factory
-from lemony_utils.asyncutils import run_as_async
 
 
 def run_shell_command(command):
@@ -31,7 +31,7 @@ async def run_shell(event: MessageEvent, adapter: Adapter, logger: GenericLogger
         return
     await adapter.send_reply("开始运行指令，请坐和放宽...")
     logger.debug(f"executing > {cmd}")
-    stdout, stderr, code = await run_as_async(run_shell_command, (cmd,))
+    stdout, stderr, code = await asyncio.to_thread(run_shell_command, cmd)
     reply = []
     if s := stdout.strip():
         reply.append(f"stdout:\n{s}")

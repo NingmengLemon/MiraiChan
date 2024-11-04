@@ -1,7 +1,9 @@
+import functools
 import subprocess
 from typing import Optional
+import asyncio
 
-from .asyncutils import run_as_async_decorator
+from lemony_utils.asyncutils import to_thread_decorator
 
 
 def call_ffmpeg(*args, check=True):
@@ -11,7 +13,7 @@ def call_ffmpeg(*args, check=True):
     return p.returncode
 
 
-async_call_ffmpeg = run_as_async_decorator()(call_ffmpeg)
+async_call_ffmpeg = to_thread_decorator(call_ffmpeg)
 
 
 def merge_avfile(
@@ -48,7 +50,7 @@ def merge_avfile(
     return call_ffmpeg(*args, check=check)
 
 
-async_merge_avfile = run_as_async_decorator()(merge_avfile)
+async_merge_avfile = to_thread_decorator(merge_avfile)
 
 
 def convert_audio(
@@ -93,4 +95,4 @@ def convert_audio(
     return call_ffmpeg(*args, check=check)
 
 
-async_convert_audio = run_as_async_decorator()(convert_audio)
+async_convert_audio = to_thread_decorator(convert_audio)
