@@ -77,14 +77,12 @@ def make_image(
     msgsegs = msg["message"]
     msgtexts = [seg.data["text"] for seg in msgsegs if isinstance(seg, TextSegment)]
     msgtext = to_full_width("\n".join(msgtexts))
-    authortext = to_full_width(
-        (
-            f"—— {sender.card}\n({sender.nickname})"
-            if sender.card
-            else f"—— {sender.nickname}"
-        )
+    authortext = (
+        f"—— {sender.card}\n({sender.nickname})"
+        if sender.card
+        else f"—— {sender.nickname}"
     )
-    ll, fs = calc_font_size(authortext, max_font_size=52, box_width=480, box_height=210)
+    ll, fs = calc_font_size(authortext, max_font_size=36, box_width=480, box_height=210)
     with open_font(fontfile, size=fs) as font:
         draw.text(
             (1170, 785),
@@ -92,7 +90,9 @@ def make_image(
             fill=(128, 128, 128, 255),
             font=font,
         )
-    ll, fs = calc_font_size(msgtext, max_font_size=72, box_width=864, box_height=288)
+    ll, fs = calc_font_size(
+        msgtext, max_font_size=72, box_width=864, box_height=288, min_font_size=10
+    )
     with open_font(fontfile, size=fs) as font:
         draw.text(
             (996, 325),
