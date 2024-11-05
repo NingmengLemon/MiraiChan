@@ -1,5 +1,7 @@
 import asyncio
+import tempfile
 from io import BytesIO
+import base64
 import os
 import time
 from melobot import Plugin, get_logger
@@ -12,6 +14,7 @@ from pydantic import BaseModel
 from configloader import ConfigLoader, ConfigLoaderMetadata
 from lemony_utils.consts import http_headers
 from lemony_utils.templates import async_http
+from lagrange_extended_actions import UploadGroupFileAction
 from .images import make_image
 
 
@@ -22,8 +25,7 @@ class QuoteConfig(BaseModel):
     mask: str = "data/quote_mask.png"
 
 
-if not os.path.exists("data"):
-    os.makedirs("data")
+os.makedirs("data", exist_ok=True)
 cfgloader = ConfigLoader(
     ConfigLoaderMetadata(model=QuoteConfig, filename="quoter_conf.json")
 )
@@ -64,12 +66,31 @@ async def quote(adapter: Adapter, event: GroupMessageEvent):
     msg = await (await adapter.with_echo(adapter.get_msg)(msg_id))[0]
     if not msg.data:
         await adapter.send_reply("目标消息数据获取失败")
+        return
     sender = msg.data["sender"]
     image = await make_quote(
         msg.data,
         f"https://q.qlogo.cn/headimg_dl?dst_uin={sender.user_id}&spec=640&img_type=jpg",
     )
-    # await adapter.send(ImageSegment(file=image))
+    imagebytes = image.getvalue()
+    imageb64 = "base64://" + base64.b64encode(imagebytes).decode("utf-8")
+    await adapter.send(ImageSegment(file=imageb64))
+
+    if cfgloader.config.do_upload:
+        # 需要与拉格兰位于同一台机器上
+        with tempfile.NamedTemporaryFile("wb+", delete_on_close=False) as tmpfp:
+            tmpfp.write(imagebytes)
+            tmpfp.close()
+            await (
+                await adapter.with_echo(adapter.call_output)(
+                    UploadGroupFileAction(
+                        group_id=event.group_id,
+                        file=tmpfp.name,
+                        name=f"{time.time():.0f}-{sender.user_id}.png",
+                        folder=cfgloader.config.update_folder,
+                    )
+                )
+            )[0]
 
 
 class Quoter(Plugin):
