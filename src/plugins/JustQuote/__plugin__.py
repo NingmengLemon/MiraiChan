@@ -15,7 +15,8 @@ from configloader import ConfigLoader, ConfigLoaderMetadata
 from lemony_utils.consts import http_headers
 from lemony_utils.templates import async_http
 from lagrange_extended_actions import UploadGroupFileAction
-from .images import make_image
+
+from . import images  # pylint: disable=E0611
 
 
 class QuoteConfig(BaseModel):
@@ -30,6 +31,7 @@ cfgloader = ConfigLoader(
 )
 cfgloader.load_config()
 logger = get_logger()
+images.load_font(cfgloader.config.font)
 
 
 async def make_quote(
@@ -37,10 +39,9 @@ async def make_quote(
 ) -> BytesIO:
     avatar_img = await fetch_image(avatar)
     return await asyncio.to_thread(
-        make_image,
+        images.make_image,
         avatar_img,
         cfgloader.config.mask,
-        cfgloader.config.font,
         msg,
     )
 
