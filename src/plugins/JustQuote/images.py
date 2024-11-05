@@ -1,4 +1,3 @@
-import base64
 from contextlib import contextmanager
 from io import BytesIO
 
@@ -9,8 +8,6 @@ from PIL import Image, ImageOps, ImageFont, ImageDraw
 
 
 _ApplyGraSupports = str | BytesIO | Image.Image
-_RatioPoint = tuple[float, float]
-_RGBAColor = tuple[int, int, int, int]
 
 
 def _standardize(image: _ApplyGraSupports):
@@ -26,14 +23,39 @@ def _standardize(image: _ApplyGraSupports):
 
 
 def wrap_text(s: str, line_length: int):
-    lines = [s[i : i + line_length] for i in range(0, len(s), line_length)]
-    return lines
+    result = []
+    for line in s.split("\n"):
+        result += [line[i : i + line_length] for i in range(0, len(line), line_length)]
+    return result
 
 
 @contextmanager
 def open_font(font: str | BytesIO, size: float = 10):
     fonto = ImageFont.truetype(font, size=size)
     yield fonto
+
+
+def to_full_width(text: str):
+    return "".join([chr(ord(c) + 0xFEE0) if 33 <= ord(c) <= 126 else c for c in text])
+
+
+def calc_font_size(
+    text: str,
+    max_font_size: int,
+    box_width: int,
+    box_height: int,
+    min_font_size: int = 20,
+):
+    word_count = len(text)
+    extra_linebreak = text.count("\n")
+    fsize = max_font_size
+    while (
+        word_count * fsize / box_width + extra_linebreak > box_height / fsize
+        and fsize > min_font_size
+    ):
+        fsize -= 1
+
+    return int(box_width / fsize), fsize
 
 
 def make_image(
@@ -47,35 +69,36 @@ def make_image(
     canvas = Image.new("RGBA", size=(1920, 1080), color=bg_color)
     if avatar:
         avatar = _standardize(avatar)
-        canvas.paste(
-            ImageOps.contain(avatar, size=(1080, 1080)), box=(0, 0)
-        )
+        canvas.paste(ImageOps.contain(avatar, size=(1080, 1080)), box=(0, 0))
     result = Image.alpha_composite(canvas, mask)
     draw = ImageDraw.Draw(result)
 
     sender = msg["sender"]
     msgsegs = msg["message"]
-    msgtexts = []
-    for seg in msgsegs:
-        if isinstance(seg, TextSegment):
-            msgtexts.append(seg.data["text"])
-    with open_font(fontfile, size=52) as font:
+    msgtexts = [seg.data["text"] for seg in msgsegs if isinstance(seg, TextSegment)]
+    msgtext = to_full_width("\n".join(msgtexts))
+    authortext = to_full_width(
+        (
+            f"—— {sender.card}\n({sender.nickname})"
+            if sender.card
+            else f"—— {sender.nickname}"
+        )
+    )
+    ll, fs = calc_font_size(authortext, max_font_size=52, box_width=480, box_height=210)
+    with open_font(fontfile, size=fs) as font:
         draw.text(
-            (1340, 785),
-            (
-                f"—— {sender.title}\n({sender.nickname})"
-                if sender.title
-                else f"—— {sender.nickname}"
-            ),
+            (1170, 785),
+            "\n".join(wrap_text(authortext, ll)),
             fill=(128, 128, 128, 255),
             font=font,
         )
-    with open_font(fontfile, size=72) as font:
+    ll, fs = calc_font_size(msgtext, max_font_size=72, box_width=864, box_height=288)
+    with open_font(fontfile, size=fs) as font:
         draw.text(
             (996, 325),
-            "\n".join(wrap_text(" ".join(msgtexts), 15)),
+            "\n".join(wrap_text(msgtext, ll)),
             fill=(255, 255, 255, 255),
-            align="center",
+            align="left",
             font=font,
         )
     fp = BytesIO()
