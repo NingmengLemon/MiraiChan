@@ -19,13 +19,12 @@ from .images import make_image
 
 
 class QuoteConfig(BaseModel):
-    do_upload: bool = False
-    update_folder: str = "群U的怪话"
-    font: str = "fonts/NotoSansSC-Medium.ttf"
+    font: str = "data/fonts/NotoSansSC-Medium.ttf"
     mask: str = "data/quote_mask.png"
 
 
 os.makedirs("data", exist_ok=True)
+os.makedirs("data/fonts", exist_ok=True)
 cfgloader = ConfigLoader(
     ConfigLoaderMetadata(model=QuoteConfig, filename="quoter_conf.json")
 )
@@ -75,22 +74,6 @@ async def quote(adapter: Adapter, event: GroupMessageEvent):
     imagebytes = image.getvalue()
     imageb64 = "base64://" + base64.b64encode(imagebytes).decode("utf-8")
     await adapter.send(ImageSegment(file=imageb64))
-
-    if cfgloader.config.do_upload:
-        # 需要与拉格兰位于同一台机器上
-        with tempfile.NamedTemporaryFile("wb+", delete_on_close=False) as tmpfp:
-            tmpfp.write(imagebytes)
-            tmpfp.close()
-            await (
-                await adapter.with_echo(adapter.call_output)(
-                    UploadGroupFileAction(
-                        group_id=event.group_id,
-                        file=tmpfp.name,
-                        name=f"{time.time():.0f}-{sender.user_id}.png",
-                        folder=cfgloader.config.update_folder,
-                    )
-                )
-            )[0]
 
 
 class Quoter(Plugin):
