@@ -20,11 +20,11 @@ from . import images  # pylint: disable=E0611
 
 
 class QuoteConfig(BaseModel):
+    emoji_cdn: str | None = None
     font: str = "data/fonts/NotoSansSC-Medium.ttf"
     mask: str = "data/quote_mask.png"
 
 
-os.makedirs("data", exist_ok=True)
 os.makedirs("data/fonts", exist_ok=True)
 cfgloader = ConfigLoader(
     ConfigLoaderMetadata(model=QuoteConfig, filename="quoter_conf.json")
@@ -32,6 +32,8 @@ cfgloader = ConfigLoader(
 cfgloader.load_config()
 logger = get_logger()
 images.load_font(cfgloader.config.font)
+if _ := cfgloader.config.emoji_cdn:
+    images.set_emoji_cdn(_)
 
 
 async def make_quote(
