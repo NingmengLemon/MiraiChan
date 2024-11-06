@@ -1,9 +1,7 @@
 import asyncio
-import tempfile
 from io import BytesIO
 import base64
 import os
-import time
 from melobot import Plugin, get_logger
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 from melobot.protocols.onebot.v11.adapter.echo import _GetMsgEchoDataInterface
@@ -70,6 +68,9 @@ async def quote(adapter: Adapter, event: GroupMessageEvent):
         await adapter.send_reply("目标消息数据获取失败")
         return
     sender = msg.data["sender"]
+    if sender.user_id == event.self_id:
+        await adapter.send_reply("不可以引用咱自己的话！")
+        return
     image = await make_quote(
         msg.data,
         f"https://q.qlogo.cn/headimg_dl?dst_uin={sender.user_id}&spec=640&img_type=jpg",
