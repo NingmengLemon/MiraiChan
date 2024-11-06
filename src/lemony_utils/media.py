@@ -3,7 +3,7 @@ import subprocess
 from typing import Optional
 import asyncio
 
-from lemony_utils.asyncutils import to_thread_decorator
+from .asyncutils import to_thread_decorator
 
 
 def call_ffmpeg(*args, check=True):
