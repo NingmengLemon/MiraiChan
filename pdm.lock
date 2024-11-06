@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:fee249c4a3853dbb1b8ac2607b7e0bb2f87ea16909fac2b8b0d5add8bbbf60b7"
+content_hash = "sha256:43629efe628461c2c1513fa764dacd573be4268fcba1a598d96f4857353536a6"
 
 [[metadata.targets]]
 requires_python = "==3.12.*"
@@ -264,6 +264,20 @@ groups = ["dev"]
 files = [
     {file = "decorator-5.1.1-py3-none-any.whl", hash = "sha256:b8c3f85900b9dc423225913c5aace94729fe1fa9763b38939a95226f02d37186"},
     {file = "decorator-5.1.1.tar.gz", hash = "sha256:637996211036b6385ef91435e4fae22989472f9d571faba8927ba8253acbc330"},
+]
+
+[[package]]
+name = "emoji"
+version = "2.14.0"
+requires_python = ">=3.7"
+summary = "Emoji for Python"
+groups = ["default"]
+dependencies = [
+    "typing-extensions>=4.7.0; python_version < \"3.9\"",
+]
+files = [
+    {file = "emoji-2.14.0-py3-none-any.whl", hash = "sha256:fcc936bf374b1aec67dda5303ae99710ba88cc9cdce2d1a71c5f2204e6d78799"},
+    {file = "emoji-2.14.0.tar.gz", hash = "sha256:f68ac28915a2221667cddb3e6c589303c3c6954c6c5af6fefaec7f9bdf72fdca"},
 ]
 
 [[package]]
@@ -583,6 +597,20 @@ files = [
     {file = "pillow-11.0.0-cp312-cp312-win_amd64.whl", hash = "sha256:8ec4a89295cd6cd4d1058a5e6aec6bf51e0eaaf9714774e1bfac7cfc9051db47"},
     {file = "pillow-11.0.0-cp312-cp312-win_arm64.whl", hash = "sha256:27a7860107500d813fcd203b4ea19b04babe79448268403172782754870dac25"},
     {file = "pillow-11.0.0.tar.gz", hash = "sha256:72bacbaf24ac003fea9bff9837d1eedb6088758d41e100c1552930151f677739"},
+]
+
+[[package]]
+name = "pilmoji"
+version = "2.0.5"
+requires_python = ">=3.8.0"
+git = "https://github.com/jay3332/pilmoji.git"
+ref = "2.0"
+revision = "6ff436fe0a28362bd1d411863347face33e3b6ac"
+summary = "Pilmoji is an emoji renderer for Pillow, Python's imaging library."
+groups = ["default"]
+dependencies = [
+    "Pillow",
+    "emoji",
 ]
 
 [[package]]
