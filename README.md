@@ -11,12 +11,12 @@
 - [ ] 反奶龙图像识别
 - [ ] `Pooooke` 戳！（戳一戳相关玩法）
 - [x] `EroMoncak` 不许涩涩！（特化的关键字回复）
-- [ ] B站分享链接脱敏与预览
+- [ ] `BiliLinkPurify` B站分享链接脱敏与预览
 - [x] `WhatToListenToday` 今天听什么（关联仓库见 [miraichan-music-lottery](https://github.com/NingmengLemon/miraichan-music-lottery)）
 - [ ] `WhatToEatToday` 今天吃什么
 - [ ] 全自动群管理员
 - [ ] 通用的关键字回复
 - [ ] 交互式权限系统
-- [x] `JustQuote` 群U骚话存档（\*做得稀烂 等以后再重构）
+- [x] `JustQuote` 群U骚话存档
 
 \* 计划仍在绝赞追加中，但是进度嘛，就……（逃
