@@ -1,14 +1,17 @@
-from contextlib import contextmanager
+import functools
 from io import BytesIO
-from urllib.parse import quote_plus
 
 from melobot.protocols.onebot.v11.adapter.echo import _GetMsgEchoDataInterface
 from melobot.protocols.onebot.v11.adapter.segment import TextSegment
 
-from PIL import Image, ImageOps
-import pilmoji
+from PIL import Image, ImageOps, ImageDraw
 
-from lemony_utils.images import FontCache, SelfHostSource, calc_font_size
+from lemony_utils.images import (
+    FontCache,
+    SelfHostSource,
+    draw_multiline_text_auto,
+    get_main_color,
+)
 
 _ApplyGraSupports = str | BytesIO | Image.Image
 _font_cache: "FontCache" = None
@@ -64,45 +67,26 @@ def make_image(
         if sender.card
         else f"—— {sender.nickname}"
     )
-    with pilmoji.Pilmoji(
-        result,
-        # emoji_position_offset=(0, fs // 3),
-        source=(_emoji_source or pilmoji.source.GoogleEmojiSource),
-    ) as draw:
-        fs, wrapped = calc_font_size(
-            authortext,
-            max_font_size=36,
-            box_width=480,
-            box_height=210,
-            fontcache=_font_cache,
-        )
-        with _font_cache.usec(fs) as font:
-            draw.text(
-                (1170, 785),
-                wrapped,
-                fill=(128, 128, 128, 255),
-                font=font,
-            )
-        fs, wrapped = calc_font_size(
-            msgtext,
-            max_font_size=72,
-            box_width=864,
-            box_height=288,
-            min_font_size=10,
-            fontcache=_font_cache,
-        )
-        with _font_cache.usec(fs) as font:
-            draw.text(
-                (996, 325),
-                wrapped,
-                fill=(255, 255, 255, 255),
-                align="left",
-                font=font,
-            )
+    draw = ImageDraw.Draw(result)
+    draw_text = functools.partial(
+        draw_multiline_text_auto,
+        emoji_source=_emoji_source,
+        font=_font_cache,
+        draw=draw,
+    )
+    draw_text(
+        bbox=(1000, 325, 1850, 675),
+        text=msgtext,
+        max_font_size=72,
+        # fill=(255, 255, 255, 255),
+        fill=(get_main_color(avatar) if avatar else (255, 255, 255, 255)),
+    )
+    draw_text(
+        bbox=(1140, 945, 1850, 1055),
+        text=authortext,
+        max_font_size=36,
+        fill=(128, 128, 128, 255),
+    )
     fp = BytesIO()
     result.save(fp, format="PNG")
     return fp
-
-
-if __name__ == "__main__":
-    pass
