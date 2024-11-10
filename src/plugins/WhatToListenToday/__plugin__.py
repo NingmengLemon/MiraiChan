@@ -57,7 +57,7 @@ def gen_reply(data: DrawResp):
         reply += [
             "如果你在电砖内网，那么现在就可以听！😋\n",
             share_host,
-            data["href"],
+            data["player"],
         ]
     return "".join(reply)
 

@@ -20,6 +20,7 @@ class DrawResp(TypedDict):
     filename: str
     session: str
     href: str
+    player: str
 
 
 class StatusResp(TypedDict):
