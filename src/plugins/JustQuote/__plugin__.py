@@ -1,20 +1,15 @@
-import asyncio
-from io import BytesIO
 import base64
 import os
 from melobot import Plugin, get_logger
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
-from melobot.protocols.onebot.v11.adapter.echo import _GetMsgEchoDataInterface
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, ImageSegment
 from melobot.protocols.onebot.v11 import on_command, Adapter
 from pydantic import BaseModel
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
-from lemony_utils.consts import http_headers
-from lemony_utils.templates import async_http
 from lagrange_extended_actions import UploadGroupFileAction
 
-from . import images  # pylint: disable=E0611
+from .maker import QuoteMaker
 
 
 class QuoteConfig(BaseModel):
@@ -29,31 +24,11 @@ cfgloader = ConfigLoader(
 )
 cfgloader.load_config()
 logger = get_logger()
-images.load_font(cfgloader.config.font)
-if _ := cfgloader.config.emoji_cdn:
-    images.set_emoji_cdn(_)
-
-
-async def make_quote(
-    msg: _GetMsgEchoDataInterface, avatar: str | None = None
-) -> BytesIO:
-    avatar_img = await fetch_image(avatar)
-    return await asyncio.to_thread(
-        images.make_image,
-        avatar_img,
-        cfgloader.config.mask,
-        msg,
-    )
-
-
-async def fetch_image(url: str | None):
-    if url:
-        try:
-            async with async_http(url, "get", headers=http_headers) as resp:
-                resp.raise_for_status()
-                return BytesIO(await resp.content.read())
-        except Exception as e:
-            logger.error(f"error while get img, error={e}")
+maker = QuoteMaker(
+    font=cfgloader.config.font,
+    bg_mask=cfgloader.config.mask,
+    emoji_cdn=cfgloader.config.emoji_cdn,
+)
 
 
 @on_command(".", " ", ["q", "quote"])
@@ -71,10 +46,7 @@ async def quote(adapter: Adapter, event: GroupMessageEvent):
     if sender.user_id == event.self_id:
         await adapter.send_reply("不可以引用咱自己的话！")
         return
-    image = await make_quote(
-        msg.data,
-        f"https://q.qlogo.cn/headimg_dl?dst_uin={sender.user_id}&spec=640&img_type=jpg",
-    )
+    image = await maker.make(msg.data)
     imagebytes = image.getvalue()
     imageb64 = "base64://" + base64.b64encode(imagebytes).decode("utf-8")
     await adapter.send(ImageSegment(file=imageb64))
