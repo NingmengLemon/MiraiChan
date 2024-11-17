@@ -136,7 +136,6 @@ def draw_multiline_text_auto(
     bbox: _BboxT,
     draw: ImageDraw.ImageDraw,
     text: str,
-    emoji_source: BaseSource | Type[BaseSource] | None,
     font: _FontFileT | FontCache,
     max_font_size: int,
     min_font_size: int = 10,
@@ -144,6 +143,7 @@ def draw_multiline_text_auto(
     align: Literal["left", "right", "center"] = "left",
     spacing: int = 4,
     sticky: str | None = None,
+    emoji_source: BaseSource | Type[BaseSource] | None = None,
     **kwargs,
 ):
     """尽可能地在给定的bbox中绘制横向文本框，若达到最小字号后仍无法满足，绘制高度会超出预期高度
