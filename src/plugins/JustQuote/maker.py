@@ -96,6 +96,9 @@ class QuoteMaker:
     @staticmethod
     async def fetch_image(url: str, maxsize=-1):
         try:
+            url = url.replace(
+                "https://multimedia.nt.qq.com.cn/", "http://multimedia.nt.qq.com.cn/"
+            )
             async with async_http(url, "get", headers=http_headers) as resp:
                 resp.raise_for_status()
                 if (
@@ -119,7 +122,8 @@ class QuoteMaker:
     ):
         if image_dict is None:
             image_dict = {}
-        bg_color = (255, 255, 255, 255)
+        fg_color = (255, 255, 255, 255)
+        bg_color = (19, 19, 19, 255)
         get_logger().debug(f"{image_dict=}")
 
         sender = msg["sender"]
@@ -137,7 +141,7 @@ class QuoteMaker:
             # 现在只支持纯文本和纯图片
             return None
 
-        bg = Image.new("RGBA", size=(1920, 1080), color=bg_color)
+        bg = Image.new("RGBA", size=(1920, 1080), color=fg_color)
         # 头像
         if avatar:
             bg.paste(ImageOps.contain(avatar, size=(1080, 1080)), box=(0, 0))
@@ -167,13 +171,20 @@ class QuoteMaker:
         elif image_dict:
             get_logger().debug("drawing msg, plainimgs")
             imgs = list(image_dict.values())
-            pastebox = cls._calc_paste_box((850, 720), [img.size for img in imgs])
+            pastebox = cls._calc_paste_box((800, 700), [img.size for img in imgs])
             w, h, cw, ch = pastebox
-            x, y = 1000, 180
+            x, y = 1050, 200
             for i in range(h):
                 for j in range(w):
+                    index = j + i * h
+                    if index > len(imgs) - 1:
+                        break
+                    resized = ImageOps.contain(imgs[index], size=(cw, ch))
                     canvas.paste(
-                        ImageOps.contain(avatar, size=(cw, ch)),
+                        Image.alpha_composite(
+                            Image.new("RGBA", size=resized.size, color=bg_color),
+                            resized,
+                        ),
                         box=(x + j * cw, y + i * ch),
                     )
         fp = BytesIO()
