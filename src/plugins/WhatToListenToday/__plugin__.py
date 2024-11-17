@@ -10,7 +10,7 @@ from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
 
 from .models import WTLTConfig, DrawResp, StatusResp
-from ...lemony_utils.templates import async_http
+from lemony_utils.templates import async_http
 
 
 cfgloader = ConfigLoader(
