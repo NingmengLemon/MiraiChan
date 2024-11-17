@@ -83,17 +83,15 @@ class InteractiveProcess:
                 break
             print("drained:", line.strip())
 
-    async def close(self, force: bool = False):
+    async def close(self):
         if self._process is None:
             raise NotStartedError("call start() first before you act")
         if (code := self._process.returncode) is None:
-            if force:
-                if sys.platform == "win32":
-                    self._process.kill()
-                else:
-                    self._process.send_signal(signal.SIGKILL)
-            else:
-                self._process.send_signal(signal.SIGTERM)
+            self._process.terminate()
             code = await self._process.wait()
         self._process = None
         return code
+
+    @property
+    def process(self):
+        return self._process

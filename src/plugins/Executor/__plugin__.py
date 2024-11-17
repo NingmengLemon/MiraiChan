@@ -22,7 +22,7 @@ def run_shell_command(command):
     return result.stdout, result.stderr, result.returncode
 
 
-@on_start_match(".shell", checker=lambda e: e.sender.user_id == checker_factory.owner)
+@on_start_match(".sh", checker=lambda e: e.sender.user_id == checker_factory.owner)
 async def run_shell(event: MessageEvent, adapter: Adapter, logger: GenericLogger):
     if len(_ := event.text.split(maxsplit=1)) != 2:
         return
