@@ -18,9 +18,9 @@ async def async_http(
     params: Optional[dict] = None,
     data: Optional[dict] = None,
     json: Optional[dict] = None,
+    **kwargs,
 ) -> AsyncGenerator[ClientResponse, None]:
     async with ClientSession(headers=headers) as http_session:
-        kwargs = {}
         if json:
             kwargs["json"] = json
         if params:

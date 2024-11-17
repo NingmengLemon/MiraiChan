@@ -43,10 +43,14 @@ async def quote(adapter: Adapter, event: GroupMessageEvent):
         await adapter.send_reply("目标消息数据获取失败")
         return
     sender = msg.data["sender"]
+    # logger.debug(msg.data)
     if sender.user_id == event.self_id:
         await adapter.send_reply("不可以引用咱自己的话！")
         return
-    image = await maker.make(msg.data)
+    image = await maker.make(msg.data, use_imgs=True)
+    if image is None:
+        await adapter.send_reply("目标消息中没有支持引用的元素")
+        return
     imagebytes = image.getvalue()
     imageb64 = "base64://" + base64.b64encode(imagebytes).decode("utf-8")
     await adapter.send(ImageSegment(file=imageb64))
