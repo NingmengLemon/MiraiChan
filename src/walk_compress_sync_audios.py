@@ -76,6 +76,13 @@ def straight_sync(src: str, dst: str):
                 else:
                     stat.create += 1
             else:
+                if os.path.exists(dfile):
+                    if os.path.getsize(dfile) > 0 and os.path.getmtime(
+                        sfile
+                    ) <= os.path.getmtime(dfile):
+                        stat.skip += 1
+                        continue
+                    os.remove(dfile)
                 shutil.copyfile(sfile, dfile)
                 stat.copy += 1
                 continue
