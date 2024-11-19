@@ -5,6 +5,9 @@ from concurrent.futures import as_completed, ThreadPoolExecutor
 
 from lemony_utils.media import convert_audio
 
+# 因为不可能把我的(大部分)无损曲库用于音乐抽签（出于带宽和服务器的存储容量考虑）
+# 所以试图写了这样一个
+
 EXPECTED_EXTS = (
     ".flac",
     ".mp3",
@@ -15,6 +18,8 @@ EXPECTED_EXTS = (
     ".alac",
     ".ogg",
 )
+TO_EXT = ".mp3"
+COPY_EXTS = (".lrc",)
 
 IGNORE_KWLIST = ("SyncToy_",)
 
@@ -25,6 +30,7 @@ class StraiStat:
     skip: int = 0
     override: int = 0
     ignore: int = 0
+    copy: int = 0
 
 
 @dataclass
@@ -43,26 +49,36 @@ def straight_sync(src: str, dst: str):
     for sroot, _, sfilenames in os.walk(src):
         droot = sroot.replace(src, dst)
         for sfilename in sfilenames:
-            if os.path.splitext(sfilename)[1].lower() not in EXPECTED_EXTS:
+            ext = os.path.splitext(sfilename)[1].lower()
+            if ext not in EXPECTED_EXTS and ext not in COPY_EXTS:
                 stat.ignore += 1
                 continue
             sfile = os.path.join(sroot, sfilename)
-            dfile = os.path.join(droot, os.path.splitext(sfilename)[0] + ".mp3")
-            if sum(((i in sfile) for i in IGNORE_KWLIST)):
-                stat.ignore += 1
-                continue
-            if os.path.exists(dfile):
-                if os.path.getsize(dfile) > 0 and os.path.getmtime(
-                    sfile
-                ) <= os.path.getmtime(dfile):
-                    stat.skip += 1
-                    continue
-                os.remove(dfile)
-                stat.override += 1
-            else:
-                stat.create += 1
+            dfile = os.path.join(
+                droot,
+                os.path.splitext(sfilename)[0]
+                + (TO_EXT if ext in EXPECTED_EXTS else ext),
+            )
             if not os.path.exists(droot):
                 os.makedirs(droot, exist_ok=True)
+            if ext in EXPECTED_EXTS:
+                if sum(((i in sfile) for i in IGNORE_KWLIST)):
+                    stat.ignore += 1
+                    continue
+                if os.path.exists(dfile):
+                    if os.path.getsize(dfile) > 0 and os.path.getmtime(
+                        sfile
+                    ) <= os.path.getmtime(dfile):
+                        stat.skip += 1
+                        continue
+                    os.remove(dfile)
+                    stat.override += 1
+                else:
+                    stat.create += 1
+            else:
+                shutil.copyfile(sfile, dfile)
+                stat.copy += 1
+                continue
             yield (sfile, dfile), {"quality": "128k"}
     return stat
 
@@ -87,7 +103,7 @@ def reversed_sync(src: str, dst: str):
                 stat.ignore += 1
                 continue
             flag = 0
-            for ext in EXPECTED_EXTS:
+            for ext in EXPECTED_EXTS + COPY_EXTS:
                 sfile = os.path.join(sroot, (bare + ext))
                 if os.path.exists(sfile):
                     flag = 1

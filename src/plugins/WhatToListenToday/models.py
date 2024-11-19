@@ -21,6 +21,7 @@ class DrawResp(TypedDict):
     session: str
     href: str
     player: str
+    lyrics: str | None
 
 
 class StatusResp(TypedDict):
