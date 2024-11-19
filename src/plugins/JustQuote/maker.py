@@ -185,7 +185,10 @@ class QuoteMaker:
                             Image.new("RGBA", size=resized.size, color=bg_color),
                             resized,
                         ),
-                        box=(x + j * cw, y + i * ch),
+                        box=(
+                            x + j * cw + int((cw - resized.size[0]) / 2),
+                            y + i * ch + int((ch - resized.size[1]) / 2),
+                        ),
                     )
         fp = BytesIO()
         canvas.save(fp, format="PNG")
