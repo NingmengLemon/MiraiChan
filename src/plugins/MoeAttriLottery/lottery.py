@@ -62,7 +62,7 @@ class MoeLot:
                 quantifier = "只"
             case "少女" | "御姐" | "非法御姐":
                 quantifier = "位"
-        text = "一{quantifier}表面{shallowchara}、内里{deepchara}还带点{habit}的{haircolor}{pupilcolor}{breast}{age}{race}".format(
+        text = "一{quantifier}表面{shallowchara}、内里{deepchara}还带点{habit}的{haircolor}{pupilcolor}{breast}{race}{age}".format(
             quantifier=quantifier, **moedata
         )
         if "racial_feature" in moedata:
