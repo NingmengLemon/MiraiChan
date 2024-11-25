@@ -37,7 +37,7 @@ async def draw_attrs(event: GroupMessageEvent, adapter: Adapter, logger: Generic
         == (now_date := time.strftime("%Y-%m-%d", time.localtime()))
         and event.sender.user_id != checker_factory.owner
     ):
-        await adapter.send_reply("今天已经抽过了噢，还要再抽一次吗w")
+        await adapter.send_reply("今天已经抽过了噢")
         return
     cd_table[event.sender.user_id] = now_date
     moeattr = moelot.draw()
