@@ -36,6 +36,7 @@ debug = "--debug" in sys.argv or cfg.debug
 
 logger = Logger(level=LogLevel.DEBUG if debug else LogLevel.INFO)
 logger.debug("Config: " + cfg.model_dump_json(indent=4))
+os.makedirs("data", exist_ok=True)
 
 if __name__ == "__main__":
     bot = (

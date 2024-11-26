@@ -14,6 +14,8 @@ dependencies = [
     "qrcode>=8.0",
     "uvloop>=0.21.0; sys_platform != 'win32'",
     "pilmoji @ git+https://github.com/jay3332/pilmoji.git@2.0",
+    "sqlmodel>=0.0.22",
+    "graphviz>=0.20.3",
 ]
 requires-python = "==3.12.*"
 readme = "README.md"

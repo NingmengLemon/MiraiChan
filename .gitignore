@@ -166,3 +166,4 @@ samples/
 plugin_config/
 melobot.log*
 data/fonts/
+*.db
