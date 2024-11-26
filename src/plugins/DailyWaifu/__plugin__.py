@@ -112,8 +112,8 @@ async def draw_waifu(
         await adapter.send_reply("已经没有可以当作老婆的群u了ww")
         return
     manager.add_waifu_rel(event.group_id, src=me.user_id, dst=waifu["user_id"])
-    await adapter.send_reply("你今天的老婆是「{nickname}」！".format(**waifu))
-
+    await adapter.send_reply("你今天的老婆是 @{nickname} ！".format(**waifu))
+    await stop()
     async with enter_session(WaifuRule(me.user_id, waifu["user_id"])):
         logger.debug("已进入结芬会话")
         stage = MarryStage.NOT_PROPOSED
@@ -208,4 +208,4 @@ async def show_waifu(event: GroupMessageEvent, adapter: Adapter, logger: Generic
 class DailyWaifu(Plugin):
     author = "LemonyNingmeng"
     version = "0.1.0"
-    flows = (draw_waifu, divorce, show_waifu)
+    flows = (draw_waifu,)  # , divorce, show_waifu)
