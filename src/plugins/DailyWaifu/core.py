@@ -70,7 +70,7 @@ class WaifuManager:
             where.append(DailyWaifuRel.dst == dst)
         return select(DailyWaifuRel).where(
             DailyWaifuRel.gid == gid,
-            DailyWaifuRel.time < self.to_next_midnight(),
+            DailyWaifuRel.time >= self.to_midnight(),
             *where,
         )
 
