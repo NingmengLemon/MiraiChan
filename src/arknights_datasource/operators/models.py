@@ -24,7 +24,7 @@ class OperatorFilters(BaseModel):
     filters: list[OperatorFilter]
 
 
-OperatorData = TypedDict(
+Operator = TypedDict(
     "Operator",
     {
         "id": str,
@@ -78,4 +78,4 @@ OperatorData = TypedDict(
 
 
 class OperatorLib(BaseModel):
-    data: list[OperatorData]
+    data: list[Operator]
