@@ -28,6 +28,7 @@ class RelNotExistsError(Exception):
 
 
 class WaifuManager:
+
     def __init__(self, dburl: str):
         self._engine = create_engine(
             dburl,
@@ -41,17 +42,23 @@ class WaifuManager:
         with Session(self._engine) as session, self._mlock as _:  # 死锁注意
             yield session
 
-    def filter_waifuable[T: _UserSeq](self, gid: int, users: T) -> T:
-        married = set[int]()
+    def filter_waifuable[
+        T: _UserSeq
+    ](self, gid: int, users: T, exclude_daily=True) -> T:
+        exclude = set[int]()
         with self._get_session() as sess:
             for e in sess.exec(select(MarriageRel).where(MarriageRel.gid == gid)).all():
-                married.add(e.a)
-                married.add(e.b)
+                exclude.add(e.a)
+                exclude.add(e.b)
+            if exclude_daily:
+                for e in sess.exec(self._select_dwr(gid, None, None)).all():
+                    exclude.add(e.src)
+                    exclude.add(e.dst)
 
         def filter_func(user: _GetGroupMemberInfoEchoData | int):
             if isinstance(user, dict):
                 user = user["user_id"]
-            return user not in married
+            return user not in exclude
 
         return list(filter(filter_func, users))
 
@@ -70,7 +77,7 @@ class WaifuManager:
             where.append(DailyWaifuRel.dst == dst)
         return select(DailyWaifuRel).where(
             DailyWaifuRel.gid == gid,
-            DailyWaifuRel.time >= self.to_midnight(),
+            DailyWaifuRel.time >= to_midnight(),
             *where,
         )
 
@@ -126,38 +133,43 @@ class WaifuManager:
                 sess.commit()
 
     @staticmethod
-    def _dump_table(session: Session, table: Type[SQLModel], gid: int | None = None):
+    def _dump_table(
+        session: Session,
+        table: Type[SQLModel],
+        gid: int | None = None,
+        filter_expire=True,
+    ):
         sel = select(table)
         if gid:
             sel = sel.where(table.gid == gid)
+        if filter_expire:
+            sel = sel.where(table.time >= to_midnight())
         return [i.model_dump() for i in session.exec(sel).all()]
 
-    def dump(self, gid: int | None = None):
+    def dump(self, gid: int | None = None, filter_expire=True):
         with self._get_session() as sess:
             return (
-                self._dump_table(sess, DailyWaifuRel, gid),
-                self._dump_table(sess, MarriageRel, gid),
+                self._dump_table(sess, DailyWaifuRel, gid, filter_expire),
+                self._dump_table(sess, MarriageRel, gid, filter_expire),
             )
 
     def clear_expired_dwr(self):
         with self._get_session() as sess:
             todelete = sess.exec(
-                select(DailyWaifuRel).where(
-                    DailyWaifuRel.time < self.to_next_midnight()
-                )
+                select(DailyWaifuRel).where(DailyWaifuRel.time < to_next_midnight())
             ).all()
             for r in todelete:
                 sess.delete(r)
             sess.commit()
 
-    @classmethod
-    def to_next_midnight(cls, ts: float | None = None):
-        ts = time.time() if ts is None else ts
-        return cls.to_midnight(ts + 60 * 60 * 24)
 
-    @staticmethod
-    def to_midnight(ts: float | None = None):
-        ts = time.time() if ts is None else ts
-        nd = [*time.localtime(ts)]
-        nd[3], nd[4], nd[5] = [0] * 3
-        return time.mktime(tuple(nd))
+def to_next_midnight(ts: float | None = None):
+    ts = time.time() if ts is None else ts
+    return to_midnight(ts + 60 * 60 * 24)
+
+
+def to_midnight(ts: float | None = None):
+    ts = time.time() if ts is None else ts
+    nd = [*time.localtime(ts)]
+    nd[3], nd[4], nd[5] = [0] * 3
+    return time.mktime(tuple(nd))

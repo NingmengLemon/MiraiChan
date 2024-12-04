@@ -7,6 +7,7 @@ from sqlmodel import Field, SQLModel
 
 class ConfigModel(BaseModel):
     dburl: str = "sqlite:///data/group_waifus.db"
+    timeout: int = 60 * 10
 
 
 class DailyWaifuRel(SQLModel, table=True):
