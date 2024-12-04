@@ -1,16 +1,11 @@
-import asyncio
-import json
-
 from lxml import etree
 
 from lemony_utils.templates import async_http
 from lemony_utils.consts import http_headers
 
-from .models import OperatorLib, OperatorFilters
+from .models import OperatorLib, OperatorFilters, Operator, OperatorFilter
 
-__all__ = [
-    "fetch",
-]
+__all__ = ["fetch", "OperatorLib", "OperatorFilters", "Operator", "OperatorFilter"]
 
 
 URL = "https://prts.wiki/w/%E5%B9%B2%E5%91%98%E4%B8%80%E8%A7%88"
@@ -21,7 +16,7 @@ XPATH_FILTER = '//*[@id="filter-filter"]'
 async def fetch():
     async with async_http(URL, "get", headers=http_headers) as resp:
         resp.raise_for_status()
-        return await asyncio.to_thread(extract, await resp.text())
+        return extract(await resp.text())
 
 
 def extract(htmltext: str):
