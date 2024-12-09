@@ -1,5 +1,7 @@
-from typing import Any, Type, TypedDict, Unpack, NotRequired
+from typing import Any, Literal, Type, TypedDict, Unpack, NotRequired
 from melobot.protocols.onebot.v11.adapter.action import Action
+from melobot.protocols.onebot.v11.adapter.echo import Echo
+from melobot.protocols.onebot.v11.adapter.segment import Segment
 
 
 class FriendPokeAction(Action):
@@ -19,6 +21,13 @@ class GroupPokeAction(Action):
 class FetchCustomFaceAction(Action):
     def __init__(self):
         super().__init__("fetch_custom_face", {})
+
+
+class FetchCustomFaceEcho(Echo):
+    class Model(Echo.Model):
+        data: list[str] | None
+
+    data: list[str] | None
 
 
 class GetFriendMsgHistoryAction(Action):
@@ -60,6 +69,16 @@ class UploadPrivateFileAction(Action):
 
     def __init__(self, **kwargs: Unpack[Params]):
         super().__init__("upload_private_file", kwargs)
+
+
+class CreateGroupFileFolderAction(Action):
+    class Params(TypedDict):
+        group_id: int
+        name: str
+        parent_id: str
+
+    def __init__(self, **kwargs: Unpack[Params]):
+        super().__init__("create_group_file_folder", kwargs)
 
 
 class GetGroupRootFilesAction(Action):
@@ -105,3 +124,55 @@ class SetGroupReactionAction(Action):
 
     def __init__(self, kwargs: Unpack[Params]):
         super().__init__("set_group_reaction", kwargs)
+
+
+class SetEssenceMsgAction(Action):
+    def __init__(self, message_id: int):
+        super().__init__("set_essence_msg", {"message_id": message_id})
+
+
+class GetEssenceMsgList(Action):
+    def __init__(self, group_id):
+        super().__init__("get_essence_msg_list", {"group_id": group_id})
+
+
+class _GetEssenceMsgListEchoData(TypedDict):
+    sender_id: int
+    sender_nick: str
+    sender_time: int
+    operator_id: int
+    operator_nick: str
+    operator_time: int
+    message_id: int
+
+
+class _GetEssenceMsgListEchoInterface(_GetEssenceMsgListEchoData):
+    content: list[Segment]
+
+
+class GetEssenceMsgListEcho(Echo):
+    class Model(Echo.Model):
+        data: list[_GetEssenceMsgListEchoData] | None
+
+    data: list[_GetEssenceMsgListEchoInterface] | None
+
+    def __init__(self, **kv_pairs: Any) -> None:
+        super().__init__(**kv_pairs)
+        if self.data is None:
+            return
+        msgs: list[dict[str, Any]] = kv_pairs["data"]
+        for i in range(len(msgs)):
+            self.data[i]["content"] = [
+                Segment.resolve(seg["type"], seg["data"]) for seg in msgs[i]["content"]
+            ]
+
+
+class _MFaceData(TypedDict):
+    url: str
+    emoji_package_id: int
+    emoji_id: str
+    key: str
+    summary: str
+
+
+# MfaceSegment = Segment.add_type(Literal["mface"], _MFaceData)
