@@ -5,9 +5,9 @@ import subprocess
 from melobot import Plugin, get_logger, GenericLogger
 from melobot.protocols.onebot.v11 import on_message, on_start_match, Adapter
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
-from melobot.session import enter_session, get_rule, suspend
-from melobot.session.option import Rule
+from melobot.protocols.onebot.v11.adapter.segment import ImageSegment
 
+from lemony_utils.images import to_b64_url, text_to_image
 import checker_factory
 
 
@@ -38,7 +38,13 @@ async def run_shell(event: MessageEvent, adapter: Adapter, logger: GenericLogger
     if s := stderr.strip():
         reply.append(f"stderr:\n{s}")
     reply.append(f"\ncode = {code}")
-    await adapter.send_reply("\n".join(reply))
+    await adapter.send_reply(
+        ImageSegment(
+            file=await asyncio.to_thread(
+                lambda: to_b64_url(text_to_image("\n".join(reply)))
+            )
+        )
+    )
 
 
 @on_start_match(".pyexec", checker=lambda e: e.sender.user_id == checker_factory.owner)

@@ -1,6 +1,7 @@
 import asyncio
 from io import BytesIO
 import json
+import base64
 
 from pydantic import BaseModel
 
@@ -15,13 +16,24 @@ import aiohttp
 from PIL import Image, ImageOps
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
+import checker_factory
 from lemony_utils.consts import http_headers
 from lemony_utils.templates import async_http
+from lemony_utils.images import text_to_image, to_b64_url
 
 
 class NNConfig(BaseModel):
     api: str = "http://127.0.0.1:9656/predict"
     api_key: str | None = None
+    focus_list: list[int] = []
+    banned_emoji_packet_ids: list[int] = [
+        231182,
+        231412,
+        231764,
+        239439,
+        239546,
+        239871,
+    ]
 
 
 cfgloader = ConfigLoader(
@@ -70,7 +82,7 @@ async def fetch_image(url: str):
     ".",
     " ",
     "recognize",
-    # checker=lambda e: e.user_id == checker_factory.owner,
+    checker=lambda e: e.user_id == checker_factory.owner,
 )
 async def test_recognize(adapter: Adapter, event: GroupMessageEvent):
     if _ := event.get_segments(ReplySegment):
@@ -93,19 +105,39 @@ async def test_recognize(adapter: Adapter, event: GroupMessageEvent):
         await adapter.send_reply(f"出错了: {e}")
     else:
         await adapter.send_reply(
-            json.dumps(
-                result,
-                indent=2,
-                ensure_ascii=False,
-            )
+            ImageSegment(
+                file=await asyncio.to_thread(
+                    lambda: to_b64_url(
+                        text_to_image(
+                            json.dumps(
+                                result,
+                                indent=2,
+                                ensure_ascii=False,
+                            )
+                        )
+                    )
+                )
+            ),
         )
 
 
 @on_message()
 async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
+    banned_stickerset = cfgloader.config.banned_emoji_packet_ids
+    if sum(
+        [
+            s.data["emoji_package_id"] in banned_stickerset
+            for s in event.message
+            if s.type == "mface"
+        ]
+    ):
+        logger.info(f"banned emoji found in msg: {event}")
+        await adapter.delete_msg(event.message_id)
+        return
     imgs = [s for s in event.message if isinstance(s, ImageSegment)]
     if not imgs:
         return
+    return
     logger.debug(
         f"checking {event.message_id} by {event.sender.user_id}({event.sender.nickname})"
     )
@@ -130,4 +162,4 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
 class AntiNailong(Plugin):
     version = "0.1.0"
     author = "LemonyNingmeng"
-    flows = (test_recognize,)  # , daemon)
+    flows = (test_recognize, daemon)
