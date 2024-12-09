@@ -1,7 +1,10 @@
 import asyncio
+from contextlib import asynccontextmanager
 import time
+from typing import Any
 
 from melobot.utils import RWContext, singleton
+from melobot.log import get_logger
 
 from . import enemies, items, operators
 
@@ -17,6 +20,7 @@ class ArknSource:
         self._operator_filters: operators.OperatorFilters | None = None
         self.last_update: float = 0
         self._rwc = RWContext()
+        self._logger = get_logger()
 
     async def update(self):
         async with self._rwc.write():
@@ -26,6 +30,7 @@ class ArknSource:
             )
             self._operators, self._operator_filters = await operators.fetch()
             self.last_update = time.time()
+        self._logger.info("游戏数据已更新")
 
     async def enemies(self):
         async with self._rwc.read():
@@ -46,3 +51,11 @@ class ArknSource:
                 if self._operator_filters
                 else None
             )
+
+    @staticmethod
+    @asynccontextmanager
+    async def use[T: Any](obj: T):
+        try:
+            yield obj
+        finally:
+            del obj
