@@ -10,9 +10,12 @@ from yarl import URL
 from .consts import http_headers
 
 
+UrlStr = URL | str
+
+
 @asynccontextmanager
 async def async_http(
-    url: str,
+    url: UrlStr,
     method: Literal["get", "post"],
     headers: Optional[dict] = None,
     params: Optional[dict] = None,
@@ -40,9 +43,6 @@ async def dummy_session_context(session: ClientSession):
 
 class _ReqTemplateDecoratedReturn(_RequestOptions):
     method: NotRequired[Literal["get", "post"]]
-
-
-UrlStr = URL | str
 
 
 def async_reqtemplate(
