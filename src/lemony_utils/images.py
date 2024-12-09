@@ -1,4 +1,5 @@
 from io import BytesIO
+import base64
 import random
 from typing import Any, Generator, Iterable, Literal, Type
 from urllib.parse import quote_plus
@@ -62,6 +63,9 @@ class FontCache:
 
     def __getitem__(self, key: int):
         return self.use(key)
+
+
+_t2i_default_font = FontCache("data/fonts/NotoSansSC-Medium.ttf")
 
 
 def wrap_text_by_length(s: str, line_length: int):
@@ -269,3 +273,33 @@ def get_main_color(image: Image.Image, radius: None | float = None, resize: int 
     )
     w, h = blurred.size
     return blurred.getpixel((random.randint(0, w - 1), random.randint(0, h - 1)))
+
+
+def text_to_image(
+    text: str,
+    font: ImageFont.FreeTypeFont | None = None,
+    color: _ColorT = (0, 0, 0, 255),
+    bg_color: _ColorT = (255, 255, 255, 255),
+    margin: int = 10,
+    wrap: int | None = 1080,
+    **kwargs,
+):
+    if font is None:
+        font = _t2i_default_font.use(15)
+    if wrap is not None and wrap > 0:
+        text = "\n".join(wrap_text_by_width(text, wrap, font))
+    img = Image.new("RGBA", (1000, 1000))
+    draw = ImageDraw.Draw(img)
+    left, top, right, bottom = draw.multiline_textbbox((0, 0), text, font)
+    width, height = right - left + 2 * margin, bottom - top + 2 * margin
+    img = Image.new("RGBA", (width, height), color=bg_color)
+    draw = ImageDraw.Draw(img)
+    draw_point = (0 + margin, 0 + margin)
+    draw.multiline_text(draw_point, text, font=font, fill=color, **kwargs)
+    result = BytesIO()
+    img.save(result, "PNG")
+    return result.getvalue()
+
+
+def to_b64_url(b: bytes):
+    return "base64://" + base64.b64encode(b).decode("utf-8")
