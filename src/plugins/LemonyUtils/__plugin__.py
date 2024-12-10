@@ -2,12 +2,18 @@ import asyncio
 import json
 import base64
 import os
+from typing import Any
 
 from melobot.plugin import Plugin
 from melobot.log import GenericLogger
 from melobot.protocols.onebot.v11.handle import on_command, on_message
 from melobot.protocols.onebot.v11.adapter import Adapter
-from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, ImageSegment
+from melobot.protocols.onebot.v11.adapter.segment import (
+    ReplySegment,
+    ImageSegment,
+    JsonSegment,
+    Segment,
+)
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 from pydantic import BaseModel
 
@@ -31,7 +37,11 @@ async def echo(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger
     if not msg.data:
         await adapter.send_reply("目标消息数据获取失败")
         return
-    segs = [seg.raw for seg in msg.data["message"]]
+    segs: list[dict[str, Any]] = []
+    for i, seg in enumerate(msg.data["message"]):
+        segs.append(seg.raw)
+        if isinstance(seg, JsonSegment):
+            segs[i]["data"]["data"] = json.loads(seg.data["data"])
     logger.debug(f"echoing: {msg}, {segs=}")
     await adapter.send_reply(
         ImageSegment(
