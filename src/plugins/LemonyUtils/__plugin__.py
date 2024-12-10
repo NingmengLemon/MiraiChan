@@ -14,7 +14,7 @@ from melobot.protocols.onebot.v11.adapter.segment import (
     JsonSegment,
     Segment,
 )
-from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
+from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 from pydantic import BaseModel
 
 from lemony_utils.images import text_to_image, to_b64_url
@@ -54,7 +54,18 @@ async def echo(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger
     )
 
 
+@on_command(
+    ".", " ", "withdraw", checker=lambda e: e.sender.user_id == checker_factory.owner
+)
+async def withdraw(event: MessageEvent, adapter: Adapter):
+    msg = event.get_segments(ReplySegment)
+    if not msg:
+        await adapter.send_reply("需要指定尝试撤回的消息")
+        return
+    await adapter.delete_msg(msg[0].data["id"])
+
+
 class Utils(Plugin):
     author = "LemonyNingmeng"
     version = "0.1.0"
-    flows = (echo,)
+    flows = (echo, withdraw)
