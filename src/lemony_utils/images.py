@@ -65,7 +65,7 @@ class FontCache:
         return self.use(key)
 
 
-_t2i_default_font = FontCache("data/fonts/NotoSansSC-Medium.ttf")
+_t2i_default_font = FontCache("data/fonts/sarasa-mono-sc-semibold.ttf")
 
 
 def wrap_text_by_length(s: str, line_length: int):
@@ -277,15 +277,17 @@ def get_main_color(image: Image.Image, radius: None | float = None, resize: int 
 
 def text_to_image(
     text: str,
-    font: ImageFont.FreeTypeFont | None = None,
-    color: _ColorT = (0, 0, 0, 255),
-    bg_color: _ColorT = (255, 255, 255, 255),
+    font: ImageFont.FreeTypeFont | None | int = None,
+    color: _ColorT = (255, 255, 255, 255),
+    bg_color: _ColorT = (32, 32, 32, 255),
     margin: int = 10,
-    wrap: int | None = 1080,
+    wrap: int | None = 1920,
     **kwargs,
 ):
     if font is None:
-        font = _t2i_default_font.use(15)
+        font = _t2i_default_font.use(20)
+    elif isinstance(font, int):
+        font = _t2i_default_font.use(font)
     if wrap is not None and wrap > 0:
         text = "\n".join(wrap_text_by_width(text, wrap, font))
     img = Image.new("RGBA", (1000, 1000))
