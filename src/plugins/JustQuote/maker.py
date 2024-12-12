@@ -74,11 +74,7 @@ class QuoteMaker:
 
     @classmethod
     async def _fetch_all_imgs(cls, segs: Iterable[Segment], maxsize=-1):
-        urls = [
-            seg.data["file"]
-            for seg in segs
-            if isinstance(seg, ImageRecvSegment) and seg.data["file"].startswith("http")
-        ]
+        urls = [str(seg.data["url"]) for seg in segs if isinstance(seg, ImageRecvSegment)]
         get_logger().debug(f"{urls=}")
         return {
             k: v
