@@ -5,7 +5,9 @@ from typing import Any, Generator, Iterable, Literal, Type
 from urllib.parse import quote_plus
 from contextlib import contextmanager
 import math
+import asyncio
 
+from melobot.protocols.onebot.v11.adapter.segment import ImageSegment
 from PIL import ImageFont, ImageDraw, Image, ImageFilter
 from pilmoji import Pilmoji
 from pilmoji.source import HTTPBasedSource, BaseSource
@@ -303,5 +305,13 @@ def text_to_image(
     return result.getvalue()
 
 
-def to_b64_url(b: bytes):
+def bytes_to_b64_url(b: bytes):
     return "base64://" + base64.b64encode(b).decode("utf-8")
+
+
+async def text_to_imgseg(text: str, /, **kwargs):
+    return ImageSegment(
+        file=await asyncio.to_thread(
+            lambda: bytes_to_b64_url(text_to_image(text, **kwargs)),
+        )
+    )

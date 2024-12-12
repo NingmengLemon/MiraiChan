@@ -1,4 +1,5 @@
 import json
+import asyncio
 from melobot import get_bot
 from melobot.plugin import Plugin
 from melobot.log import GenericLogger
@@ -10,6 +11,7 @@ from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, ImageSegm
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 
 from arknights_datasource import ArknSource
+from lemony_utils.images import text_to_imgseg
 
 
 aksource = ArknSource()
@@ -21,7 +23,7 @@ async def _():
     await aksource.update()
 
 
-@on_message(parser=CmdParser(".", " ", ["arkquery", "aq"]))
+@on_command(".", " ", ["arkquery", "aq"])
 async def query(
     adapter: Adapter,
     event: MessageEvent,
@@ -46,7 +48,9 @@ async def query(
                 )
                 if result:
                     await adapter.send_reply(
-                        json.dumps(result[0], indent=2, ensure_ascii=False)
+                        await text_to_imgseg(
+                            json.dumps(result[0], indent=2, ensure_ascii=False)
+                        )
                     )
                 else:
                     await adapter.send_reply("没有找到数据")
@@ -62,6 +66,7 @@ async def query(
                 await adapter.send_reply("数据更新完成")
         case _:
             await adapter.send_reply("不正确的指令格式")
+
 
 class AkUtils(Plugin):
     version = "0.1.0"
