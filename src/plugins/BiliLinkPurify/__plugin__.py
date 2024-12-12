@@ -6,10 +6,7 @@ import random
 from melobot import get_bot, Event, stop
 from melobot.plugin import Plugin
 from melobot.log import GenericLogger, get_logger
-from melobot.di import Reflect
-from melobot.utils import lock, async_interval, RWContext, unfold_ctx, cooldown
-from melobot.session import enter_session, Rule, suspend
-from melobot.protocols.onebot.v11.handle import on_command, on_message, on_full_match
+from melobot.protocols.onebot.v11.handle import on_command, on_message
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import (
@@ -44,7 +41,10 @@ async def unpack_miniapp(event: MessageEvent, adapter: Adapter, logger: GenericL
         return
     jseg = jsegs[0]
     data: dict[str, Any] = json.loads(jseg.data["data"])
-    url = data.get("meta", {}).get("detail_1", {}).get("qqdocurl")
+    url = (
+        data.get("meta", {}).get("detail_1", {}).get("qqdocurl")
+        or data.get("meta", {}).get("news", {}).get("jumpUrl")
+    )
     logger.debug(f"extract url: {url}")
     if url and ("b23.tv" in url or "bilibili.com" in url):
         url = await purify_biliurl(url)
