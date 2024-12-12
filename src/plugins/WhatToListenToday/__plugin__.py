@@ -31,17 +31,17 @@ def wrapped_asynchttp(point: str, **kwargs):
 
 
 def gen_reply(data: DrawResp):
-    reply = ["今天听"]
+    reply = ["今天听 "]
     artists = data["artists"]
     match len(artists):
         case 0:
             pass
         case 1:
-            reply.append(f"{artists[0]}的")
+            reply.append(f"{artists[0]} 的")
         case 2:
-            reply += [artists[0], "和", artists[1], "的"]
+            reply += [artists[0], " 和 ", artists[1], " 的"]
         case _:
-            reply += ["、".join(artists[:-1]), "和", artists[-1], "的"]
+            reply += ["、".join(artists[:-1]), " 和 ", artists[-1], " 的"]
     if title := data["title"]:
         reply.append(f"「{title}」")
     elif artists:
@@ -55,7 +55,7 @@ def gen_reply(data: DrawResp):
         reply.append(f"时长 {dura//60:.0f} 分 {dura%60:0>2.0f} 秒\n")
     if cfgloader.config.share_link:
         reply += [
-            "如果你在电砖内网，那么现在就可以听！😋\n",
+            "如果你在电砖内网，那么现在就可以听w\n",
             share_host,
             data["player"],
         ]
