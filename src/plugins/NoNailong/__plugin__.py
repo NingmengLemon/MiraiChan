@@ -3,13 +3,15 @@ import atexit
 from io import BytesIO
 import json
 import base64
+import random
 import time
-from typing import TypedDict
+from typing import TypedDict, Literal
 import hashlib
 
 from pydantic import BaseModel
 
-from melobot.utils import lock
+from melobot import get_bot
+from melobot.utils import lock, async_interval
 from melobot.plugin import Plugin
 from melobot.log import GenericLogger
 from melobot.protocols.onebot.v11.handle import on_command, on_message
@@ -29,8 +31,7 @@ from lemony_utils.images import text_to_imgseg
 class NLConfig(BaseModel):
     api: str | None = "http://127.0.0.1:9656/predict"
     api_key: str | None = None
-    focus_list: list[int] = []
-    score_threshold: float = 0.7
+    score_threshold: float = 0.87
     banned_emoji_package_ids: list[int] = [
         231182,
         231412,
@@ -39,14 +40,10 @@ class NLConfig(BaseModel):
         239546,
         239871,
     ]
-    ban_votethreshold: int = 4
-    ban_time: int = 5 * 60
-    max_ban_time: int = 60 * 60 * 24 * 30 - 1
-    ban_time_mult: float = 2.0
-    ban_time_record: dict[int, int] = {}
-    vote_expires: float = 10 * 60
     not_nlimg_hashes: list[str] = []  # sha256
     nlimg_hashes: list[str] = []  # sha256
+    imgrec_expires: float = 60 * 60 * 1
+    role_cache_expires: float = 60 * 5
 
 
 cfgloader = ConfigLoader(
@@ -63,31 +60,45 @@ BANNED_STICKERSETS = cfgloader.config.banned_emoji_package_ids
 atexit.register(cfgloader.save_config)
 
 
-@lock()
-async def get_ban_time(user_id: int):
-    ban_time = cfgloader.config.ban_time_record.get(
-        user_id,
-        cfgloader.config.ban_time,
-    )
-    cfgloader.config.ban_time_record[user_id] = int(
-        ban_time * cfgloader.config.ban_time_mult
-    )
-    return min(ban_time, cfgloader.config.max_ban_time)
+class ImgRec(TypedDict):
+    hash: str
+    bio: BytesIO
+    sender: int
+    msgid: int
+    ts: float
 
 
-class ConfirmationData(TypedDict):
-    nlsender: int
-    time: float
-    vote: int
-    voted: set[int]
-    nlmsg: int
-    imghash: str
-    imgdata: BytesIO
+imgrecord: dict[int, ImgRec] = {}  # key=原始图片消息的id
+banned_imgrec: dict[int, int] = {}  # 通知消息的id: 原始消息的id
+# 群号: 自我角色, 时间戳
+self_role_cache: dict[int, tuple[Literal["owner", "admin", "member"], float]] = {}
+bot = get_bot()
+
+clear_task: asyncio.Task = None
 
 
-confirm_sessions: dict[int, ConfirmationData] = {}
-# bot发送的确认消息的 message_id: 数据
-confirm_lock = asyncio.Lock()
+async def clear_imgrecord():
+    msgids = [
+        k
+        for k, v in imgrecord.items()
+        if time.time() - v["ts"] >= cfgloader.config.imgrec_expires
+    ]
+    for msgid in msgids:
+        del imgrecord[msgid]
+    for msgid in [k for k, v in banned_imgrec.items() if v in msgids]:
+        del banned_imgrec[msgid]
+
+
+@bot.on_loaded
+async def _():
+    global clear_task
+    clear_task = async_interval(clear_imgrecord, cfgloader.config.imgrec_expires)
+
+
+@bot.on_stopped
+async def _():
+    if clear_task:
+        clear_task.cancel()
 
 
 def preproc(img: BytesIO):
@@ -121,6 +132,17 @@ async def fetch_image(url: str):
         return BytesIO(await resp.content.read())
 
 
+async def get_reply(adapter: Adapter, event: MessageEvent):
+    if _ := event.get_segments(ReplySegment):
+        msg_id = _[0].data["id"]
+    else:
+        return
+    msg = await (await adapter.with_echo(adapter.get_msg)(msg_id))[0]
+    if not msg.data:
+        return
+    return msg
+
+
 @on_command(
     ".",
     " ",
@@ -128,14 +150,9 @@ async def fetch_image(url: str):
     checker=lambda e: e.user_id == checker_factory.owner,
 )
 async def test_recognize(adapter: Adapter, event: GroupMessageEvent):
-    if _ := event.get_segments(ReplySegment):
-        msg_id = _[0].data["id"]
-    else:
-        await adapter.send_reply("需要指定目标消息")
-        return
-    msg = await (await adapter.with_echo(adapter.get_msg)(msg_id))[0]
-    if not msg.data:
-        await adapter.send_reply("目标消息数据获取失败")
+    msg = await get_reply(adapter, event)
+    if msg is None:
+        await adapter.send_reply("获取消息失败")
         return
     imgs = [s for s in msg.data["message"] if isinstance(s, ImageSegment)]
     if not imgs:
@@ -158,30 +175,48 @@ async def test_recognize(adapter: Adapter, event: GroupMessageEvent):
         )
 
 
-async def is_admin(adapter: Adapter, group_id: int, user_id: int):
+async def get_self_role(adapter: Adapter, group_id: int, self_id: int):
+    cache = self_role_cache.get(group_id)
+    if cache is None or time.time() - cache[1] >= cfgloader.config.role_cache_expires:
+        echo = await (
+            await adapter.with_echo(adapter.get_group_member_info)(
+                group_id=group_id,
+                user_id=self_id,
+            )
+        )[0]
+        if echo.data is None:
+            return None
+        self_role_cache[group_id] = (echo.data["role"], time.time())
+    cache = self_role_cache.get(group_id)
+    return cache[0] if cache else None
+
+
+async def ban_combo(
+    adapter: Adapter,
+    event: GroupMessageEvent,
+    score: float | None = None,
+    index: int = 0,
+    record: bool = True,
+):
+    await adapter.delete_msg(event.message_id)
     echo = await (
-        await adapter.with_echo(adapter.get_group_member_info)(
-            group_id=group_id,
-            user_id=user_id,
+        await adapter.with_echo(adapter.send)(
+            # random.choice(["你不许发乃龙", "切莫相信乃龙，我将为你指明道路"])
+            "你不许发乃龙"
+            + (f"\n（图 {index+1}，{score=:.4f}）" if score else "")
         )
     )[0]
-    if echo.data is None:
-        return None
-    return echo.data["role"] in ("admin", "owner")
-
-
-async def ban_combo(adapter: Adapter, event: GroupMessageEvent):
-    await adapter.delete_msg(event.message_id)
-    await adapter.set_group_ban(
-        event.group_id, event.user_id, duration=await get_ban_time(event.user_id)
-    )
-    await adapter.send("切莫相信乃龙，我将为你指明道路")
+    if echo.data:
+        if record:
+            banned_imgrec[echo.data["message_id"]] = event.message_id
+        return echo.data["message_id"]
 
 
 @on_message()
 async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
-    if not await is_admin(adapter, event.group_id, event.self_id):
-        logger.debug("Im not admin in this group, skip check")
+    bot_role = await get_self_role(adapter, event.group_id, event.self_id)
+    if bot_role not in ("owner", "admin"):
+        logger.debug(f"Im not admin in group {event.group_id}, skip check")
         return
     if sum(
         [
@@ -191,7 +226,7 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
         ]
     ):
         logger.info(f"banned emoji found in msg: {event}")
-        await ban_combo(adapter, event)
+        await ban_combo(adapter, event, record=False)
         return
     # predict by model
     imgs = [s for s in event.message if isinstance(s, ImageSegment)]
@@ -208,10 +243,17 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
         try:
             imgdata = await fetch_image(str(img.data["url"]))
             imghash = hashlib.sha256(imgdata.getvalue()).hexdigest()
+            imgrecord[event.message_id] = ImgRec(
+                hash=imghash,
+                bio=imgdata,
+                sender=event.user_id,
+                msgid=event.message_id,
+                ts=time.time(),
+            )
             if imghash in cfgloader.config.not_nlimg_hashes:
                 continue
             if imghash in cfgloader.config.nlimg_hashes:
-                await ban_combo(adapter, event)
+                await ban_combo(adapter, event, index=i)
                 return
             result = await predict(imgdata)
         except Exception as e:
@@ -222,108 +264,57 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
                 f"found {entity['class_name']} (score={entity['score']}) in img {i}"
             )
             if entity["class_name"] == "nailong" and entity["score"] >= THRESHOLD:
-                logger.info("nailong detected! enter voting confirmation")
-                await start_vote(
-                    adapter, event, imghash=imghash, imgdata=imgdata, imgindex=i
-                )
+                logger.info("nailong detected!")
+                await ban_combo(adapter, event, score=entity["score"], index=i)
                 return
     logger.debug("no nailong found")
 
 
-async def start_vote(
-    adapter: Adapter,
-    event: GroupMessageEvent,
-    imghash: str,
-    imgdata: BytesIO,
-    imgindex: int,
-):
-    echo = await (
-        await adapter.with_echo(adapter.send_reply)(
-            f"""这条消息的第 {imgindex+1} 张图片看上去像是乃龙，它确实是吗？
-其余成员回复此条消息 '是' / '否' 以投票
-( 0 / {cfgloader.config.ban_votethreshold} )"""
-        )
-    )[0]
-    if not echo.data:
+@on_command(".", " ", "reportnl", checker=lambda e: e.user_id == checker_factory.owner)
+async def report(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
+    msg = await get_reply(adapter, event)
+    if not msg:
+        await adapter.send_reply("获取消息失败")
         return
-    async with confirm_lock:
-        confirm_sessions[echo.data["message_id"]] = ConfirmationData(
-            nlsender=event.user_id,
-            time=time.time(),
-            vote=0,
-            voted=set(),
-            nlmsg=event.message_id,
-            imghash=imghash,
-            imgdata=imgdata,
-        )
-
-
-@on_message()
-async def confirm_ban(
-    adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger
-):
-    if _ := event.get_segments(ReplySegment):
-        msg_id = _[0].data["id"]
-    else:
+    orig_msgid = msg.data["message_id"]
+    orig_record = imgrecord.get(orig_msgid)
+    if orig_record is None:
+        await adapter.send_reply("没有找到图片记录w")
         return
-    match event.text.strip():
-        case "是的" | "是" | "对的" | "对":
-            vote = True
-        case "不是" | "不" | "不对" | "否":
-            vote = False
-        case _:
-            return
-    msg = await (await adapter.with_echo(adapter.get_msg)(msg_id))[0]
-    if not msg.data:
+    imghash = orig_record["hash"]
+    if imghash in cfgloader.config.not_nlimg_hashes:
+        cfgloader.config.not_nlimg_hashes.remove(imghash)
+    if imghash not in cfgloader.config.nlimg_hashes:
+        cfgloader.config.nlimg_hashes.append(imghash)
+    logger.info(f"put {imghash=} into included list")
+    await adapter.delete_msg(orig_msgid)
+    await adapter.send_reply("已应用更改")
+
+
+@on_command(".", " ", "notnl", checker=lambda e: e.user_id == checker_factory.owner)
+async def report_not(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
+    msg = await get_reply(adapter, event)
+    if not msg:
+        await adapter.send_reply("获取消息失败")
         return
-    async with confirm_lock:
-        if msg.data["message_id"] not in confirm_sessions:
-            return
-        confirmation = confirm_sessions.get(msg.data["message_id"])
-
-        if (
-            confirmation["nlsender"] == event.user_id
-            and confirmation["nlsender"] != checker_factory.owner
-        ):
-            await adapter.send_reply("不能给自己投票")
-            return
-        if event.user_id in confirmation["voted"]:
-            await adapter.send_reply("你已经投过票了")
-            return
-        if event.user_id == checker_factory.owner:
-            confirmation["vote"] += (
-                cfgloader.config.ban_votethreshold
-                if vote
-                else -cfgloader.config.ban_votethreshold
-            )
-        else:
-            confirmation["vote"] += 1 if vote else -1
-
-        confirmation["voted"].add(event.user_id)
-        if confirmation["vote"] >= cfgloader.config.ban_votethreshold:
-            await adapter.send_reply("投票通过")
-            await adapter.delete_msg(confirmation["nlmsg"])
-            await adapter.set_group_ban(
-                event.group_id,
-                confirmation["nlsender"],
-                duration=await get_ban_time(confirmation["nlsender"]),
-            )
-            cfgloader.config.nlimg_hashes.append(confirmation["imghash"])
-            del confirm_sessions[msg.data["message_id"]]
-            return
-        if confirmation["vote"] <= -cfgloader.config.ban_votethreshold:
-            await adapter.send_reply("已添加到图片白名单")
-            cfgloader.config.not_nlimg_hashes.append(confirmation["imghash"])
-            del confirm_sessions[msg.data["message_id"]]
-            return
-
-
-@on_command(".", " ", "reportnl")
-async def report():
-    pass
+    orig_msgid = banned_imgrec.get(msg.data["message_id"])
+    if orig_msgid is None:
+        await adapter.send_reply("这条消息没有被识别成乃龙啊（？）")
+        return
+    orig_record = imgrecord.get(orig_msgid)
+    if orig_record is None:
+        await adapter.send_reply("没有找到图片记录w")
+        return
+    imghash = orig_record["hash"]
+    if imghash in cfgloader.config.nlimg_hashes:
+        cfgloader.config.nlimg_hashes.remove(imghash)
+    if imghash not in cfgloader.config.not_nlimg_hashes:
+        cfgloader.config.not_nlimg_hashes.append(imghash)
+    logger.info(f"put {imghash=} into excluded list")
+    await adapter.send_reply("已应用更改")
 
 
 class AntiNailong(Plugin):
     version = "0.1.0"
     author = "LemonyNingmeng"
-    flows = (test_recognize,)  # daemon, confirm_ban)
+    flows = (test_recognize, daemon, report, report_not)
