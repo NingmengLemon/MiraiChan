@@ -17,6 +17,8 @@ if sys.platform != "win32":
 
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
+from ob11adapter_validation_patches import patch_all
+
 
 class ForwWsIOConfigModel(BaseModel):
     url: str
@@ -45,7 +47,7 @@ if __name__ == "__main__":
             logger=logger,
         )
         .add_io(ForwardWebSocketIO(**cfg.forwwsio.model_dump()))
-        .add_adapter(Adapter())
+        .add_adapter(patch_all(Adapter()))
     )
     bot.load_plugins(cfg.plugins, load_depth=cfg.load_depth)
     bot.run(debug=debug)
