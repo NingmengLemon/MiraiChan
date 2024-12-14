@@ -1,10 +1,19 @@
 import atexit
 import time
+from typing import Literal
+
 from melobot import Plugin
+from melobot.log import GenericLogger
 from melobot.utils import RWContext
-from melobot.protocols.onebot.v11.handle import on_full_match, on_start_match
+from melobot.protocols.onebot.v11.handle import (
+    on_full_match,
+    on_start_match,
+    on_command,
+    GetParseArgs,
+)
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 from melobot.protocols.onebot.v11.adapter import Adapter
+from melobot.protocols.onebot.v11.utils import CmdParser, ParseArgs
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
@@ -62,8 +71,40 @@ def gen_reply(data: DrawResp):
     return "".join(reply)
 
 
-@on_full_match([".今天听什么", ".wtlt"])
-async def draw(adapter: Adapter, event: GroupMessageEvent):
+_ConstrainDict = dict[Literal["artist", "album", "title"], str]
+_supported_constrains = {"artist", "album", "title"}
+
+
+def parse_constrains(cmd: str) -> _ConstrainDict:
+    result = {}
+    for statement in cmd.removeprefix("filter").split(";"):
+        if len(_ := statement.split("=", maxsplit=1)) == 2:
+            field, value = _[0].strip().lower(), _[1].strip()
+            if field in _supported_constrains:
+                result[field] = value
+    return result
+
+
+@on_start_match([".wtlt", ".今天听什么"])
+async def entrance(
+    adapter: Adapter,
+    event: MessageEvent,
+):
+    cmd = event.text
+    args = cmd.split(maxsplit=1)[1:]
+    if not args or args[0].startswith("filter"):
+        await draw(
+            adapter, event, constrains=(parse_constrains(args[0]) if args else None)
+        )
+    else:
+        await opts(adapter, event, args[0])
+
+
+async def draw(
+    adapter: Adapter,
+    event: GroupMessageEvent,
+    constrains: _ConstrainDict | None = None,
+):
     async with record_lock.read():
         if (
             draw_cdtable.get(event.sender.user_id, 0) > time.time()
@@ -72,7 +113,7 @@ async def draw(adapter: Adapter, event: GroupMessageEvent):
             await adapter.send_reply("请至少听完这首歌……！")
             return
     try:
-        async with wrapped_asynchttp("/draw") as resp:
+        async with wrapped_asynchttp("/draw", params=constrains) as resp:
             data = await resp.json()
             if resp.status != 200:
                 await adapter.send_reply(
@@ -96,13 +137,12 @@ def gen_status(data: StatusResp):
     )
 
 
-@on_start_match(".wtlt", checker=lambda e: e.sender.user_id == checker_factory.owner)
-async def opts(adapter: Adapter, event: MessageEvent):
-    cmd = event.text.split(maxsplit=1)
-    if len(cmd) <= 1:
+async def opts(adapter: Adapter, event: MessageEvent, cmd: str):
+    if event.user_id != checker_factory.owner:
+        await adapter.send_reply("无权使用此指令")
         return
     try:
-        match cmd[1]:
+        match cmd:
             case "status":
                 async with wrapped_asynchttp("/status") as resp:
                     if resp.status == 200:
@@ -110,7 +150,7 @@ async def opts(adapter: Adapter, event: MessageEvent):
                     else:
                         await adapter.send_reply(f"异常的后端响应：{await resp.json()}")
             case "pause" | "resume" | "scan":
-                async with wrapped_asynchttp(f"/{cmd[1]}") as resp:
+                async with wrapped_asynchttp(f"/{cmd}") as resp:
                     await adapter.send_reply(f"后端响应：{await resp.json()}")
             case _:
                 await adapter.send_reply("未知的二级指令喵")
@@ -121,7 +161,4 @@ async def opts(adapter: Adapter, event: MessageEvent):
 class WTLT(Plugin):
     version = "0.1.0"
     author = "LemonyNingmeng"
-    flows = (
-        opts,
-        draw,
-    )
+    flows = (entrance,)
