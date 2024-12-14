@@ -4,19 +4,20 @@ from io import BytesIO
 import json
 import random
 import time
-from typing import TypedDict, Literal, cast
+from typing import Any, TypedDict, Literal, cast
 import hashlib
 
 from melobot import get_bot
 from melobot.utils import lock, async_interval
 from melobot.plugin import Plugin
 from melobot.log import GenericLogger
-from melobot.protocols.onebot.v11.handle import on_command, on_message
+from melobot.protocols.onebot.v11.utils import ParseArgs
+from melobot.protocols.onebot.v11.handle import on_command, on_message, GetParseArgs
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, ImageSegment
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 import aiohttp
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageDraw
 from pydantic import BaseModel
 from yarl import URL
 
@@ -24,7 +25,7 @@ from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
 from lemony_utils.consts import http_headers
 from lemony_utils.templates import async_http
-from lemony_utils.images import text_to_imgseg
+from lemony_utils.images import text_to_imgseg, default_font_cache, bytes_to_b64_url
 
 
 class NLConfig(BaseModel):
@@ -111,7 +112,6 @@ def preproc(img: BytesIO):
 
 @lock()
 async def predict(img: BytesIO):
-    img = await asyncio.to_thread(preproc, img)
     form = aiohttp.FormData()
     form.add_field("image", img.getvalue(), content_type="image/png")
     async with async_http(
@@ -157,13 +157,31 @@ def record_img(
     )
 
 
+def draw_boxs(image: BytesIO, data: dict[str, Any], font_size=20, width=2):
+    pimg = Image.open(image).convert("RGBA")
+    draw = ImageDraw.Draw(pimg)
+    for entity in data["data"]:
+        draw.rectangle(entity["box"], width=width, outline=(255, 0, 0, 255))
+        draw.text(
+            (entity["box"][0] + width, entity["box"][1]),
+            entity["class_name"] + f" {entity['score']:.4f}",
+            font=default_font_cache.use(font_size),
+            fill=(255, 0, 0, 255),
+        )
+    result = BytesIO()
+    pimg.save(result, "png")
+    return result
+
+
 @on_command(
     ".",
     " ",
     "recognize",
     checker=lambda e: e.user_id == checker_factory.owner,
 )
-async def test_recognize(adapter: Adapter, event: GroupMessageEvent):
+async def test_recognize(
+    adapter: Adapter, event: GroupMessageEvent, args: ParseArgs = GetParseArgs()
+):
     msg = await get_reply(adapter, event)
     if msg is None:
         await adapter.send_reply("获取消息失败")
@@ -174,9 +192,19 @@ async def test_recognize(adapter: Adapter, event: GroupMessageEvent):
         return
     try:
         img = await fetch_image(str(imgs[0].data["url"]))
+        img = await asyncio.to_thread(preproc, img)
         result = await predict(img)
     except Exception as e:
         await adapter.send_reply(f"出错了: {e}")
+        return
+    if not result["data"]:
+        await adapter.send_reply("识别结果为空")
+        return
+    if args.vals and args.vals[0] == "image":
+        drawn_img = await asyncio.to_thread(draw_boxs, img, result)
+        await adapter.send_reply(
+            ImageSegment(file=bytes_to_b64_url(drawn_img.getvalue()))
+        )
     else:
         await adapter.send_reply(
             await text_to_imgseg(
