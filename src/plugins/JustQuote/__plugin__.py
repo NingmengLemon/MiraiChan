@@ -7,7 +7,7 @@ from melobot.protocols.onebot.v11 import on_command, Adapter
 from pydantic import BaseModel
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
-from lagrange_extended_actions import UploadGroupFileAction
+from extended_actions.lagrange import UploadGroupFileAction
 
 from .maker import QuoteMaker
 
