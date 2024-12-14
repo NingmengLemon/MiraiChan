@@ -2,13 +2,10 @@ import asyncio
 import atexit
 from io import BytesIO
 import json
-import base64
 import random
 import time
-from typing import TypedDict, Literal
+from typing import TypedDict, Literal, cast
 import hashlib
-
-from pydantic import BaseModel
 
 from melobot import get_bot
 from melobot.utils import lock, async_interval
@@ -20,6 +17,8 @@ from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, ImageSegm
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 import aiohttp
 from PIL import Image, ImageOps
+from pydantic import BaseModel
+from yarl import URL
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
@@ -31,7 +30,7 @@ from lemony_utils.images import text_to_imgseg
 class NLConfig(BaseModel):
     api: str | None = "http://127.0.0.1:9656/predict"
     api_key: str | None = None
-    score_threshold: float = 0.87
+    score_threshold: float = 0.8
     banned_emoji_package_ids: list[int] = [
         231182,
         231412,
@@ -42,7 +41,7 @@ class NLConfig(BaseModel):
     ]
     not_nlimg_hashes: list[str] = []  # sha256
     nlimg_hashes: list[str] = []  # sha256
-    imgrec_expires: float = 60 * 60 * 1
+    imgrec_expires: float = 60 * 60 * 12
     role_cache_expires: float = 60 * 5
 
 
@@ -62,7 +61,6 @@ atexit.register(cfgloader.save_config)
 
 class ImgRec(TypedDict):
     hash: str
-    bio: BytesIO
     sender: int
     msgid: int
     ts: float
@@ -117,7 +115,7 @@ async def predict(img: BytesIO):
     form = aiohttp.FormData()
     form.add_field("image", img.getvalue(), content_type="image/png")
     async with async_http(
-        API + (f"?key={API_KEY}" if API_KEY else ""), "post", data=form
+        URL(API) % ({"key": API_KEY} if API_KEY else {}), "post", data=form
     ) as resp:
         resp.raise_for_status()
         return await resp.json()
@@ -141,6 +139,22 @@ async def get_reply(adapter: Adapter, event: MessageEvent):
     if not msg.data:
         return
     return msg
+
+
+def _calc_hash(b: bytes):
+    return hashlib.sha256(b).hexdigest()
+
+
+def record_img(
+    event: GroupMessageEvent,
+    imghash: str,
+):
+    imgrecord[event.message_id] = ImgRec(
+        hash=imghash,
+        sender=event.user_id,
+        msgid=event.message_id,
+        ts=time.time(),
+    )
 
 
 @on_command(
@@ -242,14 +256,8 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
     for i, img in enumerate(imgs):
         try:
             imgdata = await fetch_image(str(img.data["url"]))
-            imghash = hashlib.sha256(imgdata.getvalue()).hexdigest()
-            imgrecord[event.message_id] = ImgRec(
-                hash=imghash,
-                bio=imgdata,
-                sender=event.user_id,
-                msgid=event.message_id,
-                ts=time.time(),
-            )
+            imghash = await asyncio.to_thread(_calc_hash, imgdata.getvalue())
+            record_img(event, imghash)
             if imghash in cfgloader.config.not_nlimg_hashes:
                 continue
             if imghash in cfgloader.config.nlimg_hashes:
@@ -270,7 +278,12 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
     logger.debug("no nailong found")
 
 
-@on_command(".", " ", "reportnl", checker=lambda e: e.user_id == checker_factory.owner)
+@on_command(
+    ".",
+    " ",
+    ["reportnl", "这是乃龙"],
+    checker=lambda e: e.user_id == checker_factory.owner,
+)
 async def report(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
     msg = await get_reply(adapter, event)
     if not msg:
@@ -291,11 +304,16 @@ async def report(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
     await adapter.send_reply("已应用更改")
 
 
-@on_command(".", " ", "notnl", checker=lambda e: e.user_id == checker_factory.owner)
+@on_command(
+    ".",
+    " ",
+    ["notnl", "并非乃龙"],
+    checker=lambda e: e.user_id == checker_factory.owner,
+)
 async def report_not(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
     msg = await get_reply(adapter, event)
     if not msg:
-        await adapter.send_reply("获取消息失败")
+        # await adapter.send_reply("获取消息失败")
         return
     orig_msgid = banned_imgrec.get(msg.data["message_id"])
     if orig_msgid is None:
