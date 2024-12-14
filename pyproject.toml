@@ -18,6 +18,7 @@ dependencies = [
     "graphviz>=0.20.3",
     "lxml>=5.3.0",
     "types-lxml>=2024.11.8",
+    "types-aiofiles>=24.1.0.20240626",
 ]
 requires-python = "==3.12.*"
 readme = "README.md"
