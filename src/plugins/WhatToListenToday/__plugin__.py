@@ -2,18 +2,16 @@ import atexit
 import time
 from typing import Literal
 
-from melobot import Plugin
+from melobot import PluginPlanner, PluginInfo
 from melobot.log import GenericLogger
 from melobot.utils import RWContext
 from melobot.protocols.onebot.v11.handle import (
     on_full_match,
     on_start_match,
     on_command,
-    GetParseArgs,
 )
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 from melobot.protocols.onebot.v11.adapter import Adapter
-from melobot.protocols.onebot.v11.utils import CmdParser, ParseArgs
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
@@ -21,6 +19,7 @@ import checker_factory
 from .models import WTLTConfig, DrawResp, StatusResp
 from lemony_utils.templates import async_http
 
+WhatToListen = PluginPlanner("0.1.0")
 
 cfgloader = ConfigLoader(
     ConfigLoaderMetadata(model=WTLTConfig, filename="whattolisten_conf.json")
@@ -84,7 +83,7 @@ def parse_constrains(cmd: str) -> _ConstrainDict:
                 result[field] = value
     return result
 
-
+@WhatToListen.use
 @on_start_match([".wtlt", ".今天听什么"])
 async def entrance(
     adapter: Adapter,
@@ -157,8 +156,3 @@ async def opts(adapter: Adapter, event: MessageEvent, cmd: str):
     except Exception as e:
         await adapter.send_reply(f"向后端发送指令时出错：{e}")
 
-
-class WTLT(Plugin):
-    version = "0.1.0"
-    author = "LemonyNingmeng"
-    flows = (entrance,)

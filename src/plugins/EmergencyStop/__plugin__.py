@@ -1,12 +1,14 @@
-import atexit
-from melobot import Plugin, get_logger
+import sys
+
+from melobot import PluginPlanner, get_logger
 from melobot.protocols.onebot.v11.handle import on_full_match
 from pydantic import BaseModel
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
 
-import sys
+
+EmergencyStop = PluginPlanner("0.1.0")
 
 
 class EmStopConf(BaseModel):
@@ -25,6 +27,7 @@ if cfgloader.config.triggered:
     sys.exit(0)
 
 
+@EmergencyStop.use
 @on_full_match(
     cfgloader.config.trigger_word,
     checker=lambda e: e.sender.user_id == checker_factory.owner,
@@ -34,9 +37,3 @@ async def trigger():
     cfgloader.save_config()
     logger.critical("Emergency Stop triggered, try quiting")
     sys.exit(0)
-
-
-class EmStop(Plugin):
-    version = "0.1.0"
-    author = "LemonyNingmeng"
-    flows = (trigger,)
