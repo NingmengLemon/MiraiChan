@@ -1,4 +1,3 @@
-import asyncio
 import json
 from typing import Any
 
@@ -6,7 +5,11 @@ from melobot.plugin import Plugin
 from melobot.log import GenericLogger
 from melobot.protocols.onebot.v11.handle import on_command, GetParseArgs
 from melobot.protocols.onebot.v11.adapter import Adapter
-from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
+from melobot.protocols.onebot.v11.adapter.segment import (
+    ReplySegment,
+    JsonSegment,
+    XmlSegment,
+)
 from melobot.protocols.onebot.v11.utils import ParseArgs
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 
@@ -28,8 +31,16 @@ async def get_reply(adapter: Adapter, event: MessageEvent):
 
 
 @on_command(".", " ", "echo", checker=lambda e: e.user_id == checker_factory.owner)
-async def echo():
-    pass
+async def echo(adapter: Adapter, event: MessageEvent):
+    if not (msg := await get_reply(adapter, event)):
+        return
+    await adapter.send(
+        [
+            seg
+            for seg in msg.data["message"]
+            if not isinstance(seg, (JsonSegment, XmlSegment))
+        ]
+    )
 
 
 @on_command(
@@ -81,4 +92,4 @@ async def withdraw(event: MessageEvent, adapter: Adapter):
 class Utils(Plugin):
     author = "LemonyNingmeng"
     version = "0.1.0"
-    flows = (getmsg, withdraw)
+    flows = (getmsg, withdraw, echo)
