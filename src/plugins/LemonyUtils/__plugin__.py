@@ -4,17 +4,11 @@ from typing import Any
 
 from melobot.plugin import Plugin
 from melobot.log import GenericLogger
-from melobot.protocols.onebot.v11.handle import on_command, on_message, GetParseArgs
+from melobot.protocols.onebot.v11.handle import on_command, GetParseArgs
 from melobot.protocols.onebot.v11.adapter import Adapter
-from melobot.protocols.onebot.v11.adapter.segment import (
-    ReplySegment,
-    ImageSegment,
-    JsonSegment,
-    Segment,
-)
+from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 from melobot.protocols.onebot.v11.utils import ParseArgs
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
-from pydantic import BaseModel
 
 from lemony_utils.images import text_to_imgseg
 import checker_factory
@@ -30,7 +24,7 @@ async def get_reply(adapter: Adapter, event: MessageEvent):
     if not msg.data:
         await adapter.send_reply("目标消息数据获取失败")
         return
-    return msg.data
+    return msg
 
 
 @on_command(".", " ", "echo", checker=lambda e: e.user_id == checker_factory.owner)
@@ -41,27 +35,35 @@ async def echo():
 @on_command(
     ".",
     " ",
-    "getseg",
+    ["get", "getmsg"],
     checker=lambda e: e.user_id == checker_factory.owner,
 )
-async def getseg(
+async def getmsg(
     adapter: Adapter,
     event: GroupMessageEvent,
     logger: GenericLogger,
     args: ParseArgs = GetParseArgs(),
 ):
-    msgdata = await get_reply(adapter, event)
+    if not (msg := await get_reply(adapter, event)):
+        return
+    msgdata: dict[str, Any] = msg.raw.get("data", {})
+    msgdata.pop("raw_message", None)
     segs: list[dict[str, Any]] = []
-    for i, seg in enumerate(msgdata["message"]):
-        segs.append(seg.raw)
-        if isinstance(seg, JsonSegment):
-            segs[i]["data"]["data"] = json.loads(seg.data["data"])
-    logger.debug(f"get seg: {msgdata}")
+    for i, seg in enumerate(msgdata.pop("message", [])):
+        segs.append(seg.copy())
+        try:
+            if seg["type"] == "json":
+                segs[i]["data"]["data"] = json.loads(seg["data"]["data"])
+        except Exception:
+            pass
+    msgdata["message"] = segs
+
+    logger.debug(f"get seg: {msg}")
     if args.vals and args.vals[0] == "text":
-        await adapter.send_reply(json.dumps(segs, indent=2, ensure_ascii=False))
+        await adapter.send_reply(json.dumps(msgdata, indent=2, ensure_ascii=False))
     else:
         await adapter.send_reply(
-            await text_to_imgseg(json.dumps(segs, indent=2, ensure_ascii=False))
+            await text_to_imgseg(json.dumps(msgdata, indent=2, ensure_ascii=False))
         )
 
 
@@ -79,4 +81,4 @@ async def withdraw(event: MessageEvent, adapter: Adapter):
 class Utils(Plugin):
     author = "LemonyNingmeng"
     version = "0.1.0"
-    flows = (getseg, withdraw)
+    flows = (getmsg, withdraw)
