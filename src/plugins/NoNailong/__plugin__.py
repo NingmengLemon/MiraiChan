@@ -4,8 +4,7 @@ from io import BytesIO
 import random
 import time
 import traceback
-from typing import TypedDict, Literal
-import hashlib
+from typing import Literal
 
 from melobot import get_bot
 from melobot.utils import lock, async_interval
@@ -14,41 +13,18 @@ from melobot.log import GenericLogger
 from melobot.protocols.onebot.v11.utils import ParseArgs
 from melobot.protocols.onebot.v11.handle import on_command, on_message, GetParseArgs
 from melobot.protocols.onebot.v11.adapter import Adapter
-from melobot.protocols.onebot.v11.adapter.segment import (
-    ReplySegment,
-    ImageRecvSegment,
-    ImageSegment,
-)
-from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
+from melobot.protocols.onebot.v11.adapter.segment import ImageRecvSegment, ImageSegment
+from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 import aiohttp
-from PIL import Image, ImageOps, ImageDraw
-from pydantic import BaseModel, AnyUrl
 from yarl import URL
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
-from lemony_utils.consts import http_headers
 from lemony_utils.templates import async_http
-from lemony_utils.images import text_to_imgseg, default_font_cache, bytes_to_b64_url
+from lemony_utils.images import text_to_imgseg, bytes_to_b64_url
 
-
-class NLConfig(BaseModel):
-    # 对接由 nkxingxh/yolox-onnx-api-server 启动的图像识别服务
-    api: str | None = "http://127.0.0.1:9656/predict"
-    api_key: str | None = None
-    score_threshold: float = 0.8
-    banned_emoji_package_ids: list[int] = [
-        231182,
-        231412,
-        231764,
-        239439,
-        239546,
-        239871,
-    ]
-    not_nlimg_hashes: list[str] = []  # sha256
-    nlimg_hashes: list[str] = []  # sha256
-    imgrec_expires: float = 60 * 60 * 12
-    role_cache_expires: float = 60 * 5
+from .models import NLConfig, ImgRec, PredictResult
+from .utils import preprocess, get_reply, calc_hash, draw_boxs, fetch_image
 
 
 cfgloader = ConfigLoader(
@@ -63,13 +39,6 @@ API_KEY = cfgloader.config.api_key
 THRESHOLD = cfgloader.config.score_threshold
 BANNED_STICKERSETS = cfgloader.config.banned_emoji_package_ids
 atexit.register(cfgloader.save_config)
-
-
-class ImgRec(TypedDict):
-    hash: str
-    sender: int
-    msgid: int
-    ts: float
 
 
 imgrecord: dict[int, ImgRec] = {}  # key=原始图片消息的id
@@ -105,29 +74,6 @@ async def _():
         clear_task.cancel()
 
 
-def preproc(img: BytesIO):
-    pimg = Image.open(img).convert("RGBA")
-    w, h = pimg.size
-    if w > 512 or h > 512:
-        pimg = ImageOps.contain(pimg, (512, 512))
-    result = BytesIO()
-    pimg.save(result, "png")
-    return result
-
-
-class _PredictResultEntity(TypedDict):
-    box: list[float]
-    class_id: int
-    class_name: str
-    score: float
-
-
-class PredictResult(BaseModel):
-    data: list[_PredictResultEntity]
-    et: float
-    vis: None | AnyUrl
-
-
 @lock()
 async def predict(img: BytesIO):
     form = aiohttp.FormData()
@@ -137,29 +83,6 @@ async def predict(img: BytesIO):
     ) as resp:
         resp.raise_for_status()
         return PredictResult.model_validate(await resp.json())
-
-
-async def fetch_image(url: URL | str):
-    async with async_http(
-        URL(url).with_scheme("http"), "get", headers=http_headers
-    ) as resp:
-        resp.raise_for_status()
-        return BytesIO(await resp.content.read())
-
-
-async def get_reply(adapter: Adapter, event: MessageEvent):
-    if _ := event.get_segments(ReplySegment):
-        msg_id = _[0].data["id"]
-    else:
-        return
-    msg = await (await adapter.with_echo(adapter.get_msg)(msg_id))[0]
-    if not msg.data:
-        return
-    return msg
-
-
-def _calc_hash(b: bytes):
-    return hashlib.sha256(b).hexdigest()
 
 
 def record_img(
@@ -172,22 +95,6 @@ def record_img(
         msgid=event.message_id,
         ts=time.time(),
     )
-
-
-def draw_boxs(image: BytesIO, data: list[_PredictResultEntity], font_size=20, width=2):
-    pimg = Image.open(image).convert("RGBA")
-    draw = ImageDraw.Draw(pimg)
-    for entity in data:
-        draw.rectangle(entity["box"], width=width, outline=(255, 0, 0, 255))
-        draw.text(
-            (entity["box"][0] + width, entity["box"][1]),
-            entity["class_name"] + f" {entity['score']:.4f}",
-            font=default_font_cache.use(font_size),
-            fill=(255, 0, 0, 255),
-        )
-    result = BytesIO()
-    pimg.save(result, "png")
-    return result
 
 
 @on_command(
@@ -209,7 +116,7 @@ async def test_recognize(
         return
     try:
         img = await asyncio.to_thread(
-            preproc, await fetch_image(str(imgs[0].data["url"]))
+            preprocess, await fetch_image(str(imgs[0].data["url"]))
         )
         result = await predict(img)
     except Exception:
@@ -250,34 +157,30 @@ async def ban_combo(
     index: int = 0,
     record: bool = True,
 ):
-    if (
-        await (await adapter.with_echo(adapter.delete_msg)(event.message_id))[0]
-    ).is_ok():
-        echo = await (
-            await adapter.with_echo(adapter.send)(
-                random.choice(
-                    [
-                        "你不许发乃龙",
-                        "切莫相信乃龙，我将为你指明道路",
-                        "本群不许发乃龙",
-                    ]
-                )
-                + (f"\n（图 {index+1}，{score=:.4f}）" if score else "")
+    if not cfgloader.config.del_fail_msgs and not cfgloader.config.del_succ_msgs:
+        return
+    echo = await (
+        await adapter.with_echo(adapter.send)(
+            (
+                random.choice(cfgloader.config.del_succ_msgs)
+                if (
+                    await (
+                        await adapter.with_echo(adapter.delete_msg)(event.message_id)
+                    )[0]
+                ).is_ok()
+                else random.choice(cfgloader.config.del_fail_msgs)
             )
-        )[0]
-        if echo.data:
-            if record:
-                banned_imgrec[echo.data["message_id"]] = event.message_id
-            return echo.data["message_id"]
-    else:
-        await adapter.send(
-            random.choice(
-                [
-                    "😅",
-                    "我请问呢",
-                ]
+            + (
+                f"\n({index+1}, {score:.4f})"
+                if score and cfgloader.config.show_score
+                else ""
             )
         )
+    )[0]
+    if echo.data:
+        if record:
+            banned_imgrec[echo.data["message_id"]] = event.message_id
+        return echo.data["message_id"]
 
 
 @on_message()
@@ -310,14 +213,14 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
     for i, img in enumerate(imgs):
         try:
             imgdata = await fetch_image(str(img.data["url"]))
-            imghash = await asyncio.to_thread(_calc_hash, imgdata.getvalue())
+            imghash = await asyncio.to_thread(calc_hash, imgdata.getvalue())
             record_img(event, imghash)
             if imghash in cfgloader.config.not_nlimg_hashes:
                 continue
             if imghash in cfgloader.config.nlimg_hashes:
                 await ban_combo(adapter, event, index=i)
                 return
-            result = await predict(await asyncio.to_thread(preproc, imgdata))
+            result = await predict(await asyncio.to_thread(preprocess, imgdata))
         except Exception as e:
             logger.error(f"error when recognize: {e}")
             continue
@@ -340,7 +243,7 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
 )
 async def report(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
     msg = await get_reply(adapter, event)
-    if not msg:
+    if not msg or not msg.data:
         await adapter.send_reply("获取消息失败")
         return
     orig_msgid = msg.data["message_id"]
@@ -353,7 +256,7 @@ async def report(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
         cfgloader.config.not_nlimg_hashes.remove(imghash)
     if imghash not in cfgloader.config.nlimg_hashes:
         cfgloader.config.nlimg_hashes.append(imghash)
-    logger.info(f"put {imghash=} into included list")
+    logger.info(f"put {imghash=} into nl list")
     await adapter.delete_msg(orig_msgid)
     await adapter.send_reply("已应用更改")
 
@@ -366,13 +269,10 @@ async def report(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
 )
 async def report_not(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
     msg = await get_reply(adapter, event)
-    if not msg:
-        # await adapter.send_reply("获取消息失败")
+    if not msg or not msg.data:
+        await adapter.send_reply("获取消息失败")
         return
-    orig_msgid = banned_imgrec.get(msg.data["message_id"])
-    if orig_msgid is None:
-        await adapter.send_reply("这条消息没有被识别成乃龙啊（？）")
-        return
+    orig_msgid = banned_imgrec.get(msg.data["message_id"]) or msg.data["message_id"]
     orig_record = imgrecord.get(orig_msgid)
     if orig_record is None:
         await adapter.send_reply("没有找到图片记录w")
@@ -382,7 +282,7 @@ async def report_not(adapter: Adapter, event: GroupMessageEvent, logger: Generic
         cfgloader.config.nlimg_hashes.remove(imghash)
     if imghash not in cfgloader.config.not_nlimg_hashes:
         cfgloader.config.not_nlimg_hashes.append(imghash)
-    logger.info(f"put {imghash=} into excluded list")
+    logger.info(f"put {imghash=} into not_nl list")
     await adapter.send_reply("已应用更改")
 
 
