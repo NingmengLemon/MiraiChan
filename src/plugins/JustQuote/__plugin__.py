@@ -1,13 +1,15 @@
 import base64
 import os
-from melobot import Plugin, get_logger
+import time
+import aiofiles
+from melobot import Plugin
+from melobot.log import GenericLogger
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, ImageSegment
 from melobot.protocols.onebot.v11 import on_command, Adapter
 from pydantic import BaseModel
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
-from extended_actions.lagrange import UploadGroupFileAction
 
 from .maker import QuoteMaker
 
@@ -16,6 +18,7 @@ class QuoteConfig(BaseModel):
     emoji_cdn: str | None = None
     font: str = "data/fonts/NotoSansSC-Medium.ttf"
     mask: str = "data/quote_mask.png"
+    saveto: str | None = "data/record/quotes"
 
 
 os.makedirs("data/fonts", exist_ok=True)
@@ -23,7 +26,7 @@ cfgloader = ConfigLoader(
     ConfigLoaderMetadata(model=QuoteConfig, filename="quoter_conf.json")
 )
 cfgloader.load_config()
-logger = get_logger()
+os.makedirs(cfgloader.config.saveto, exist_ok=True)
 maker = QuoteMaker(
     font=cfgloader.config.font,
     bg_mask=cfgloader.config.mask,
@@ -32,7 +35,7 @@ maker = QuoteMaker(
 
 
 @on_command(".", " ", ["q", "quote"])
-async def quote(adapter: Adapter, event: GroupMessageEvent):
+async def quote(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
     if _ := event.get_segments(ReplySegment):
         msg_id = _[0].data["id"]
     else:
@@ -54,6 +57,15 @@ async def quote(adapter: Adapter, event: GroupMessageEvent):
     imagebytes = image.getvalue()
     imageb64 = "base64://" + base64.b64encode(imagebytes).decode("utf-8")
     await adapter.send(ImageSegment(file=imageb64))
+    if not (path := cfgloader.config.saveto):
+        return
+    file = os.path.join(
+        path,
+        f"{time.strftime("%Y%m%d-%H%M%S", time.localtime())}_{event.user_id}_{event.group_id}.png",
+    )
+    async with aiofiles.open(file, "wb+") as fp:
+        await fp.write(imagebytes)
+    logger.info(f"quote saved as {file}")
 
 
 class Quoter(Plugin):
