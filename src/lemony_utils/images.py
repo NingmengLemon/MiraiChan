@@ -68,6 +68,7 @@ class FontCache:
 
 
 _t2i_default_font = FontCache("data/fonts/sarasa-mono-sc-semibold.ttf")
+default_font_cache = _t2i_default_font
 
 
 def wrap_text_by_length(s: str, line_length: int):

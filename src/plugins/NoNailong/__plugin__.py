@@ -1,10 +1,10 @@
 import asyncio
 import atexit
 from io import BytesIO
-import json
 import random
 import time
-from typing import Any, TypedDict, Literal, cast
+import traceback
+from typing import TypedDict, Literal
 import hashlib
 
 from melobot import get_bot
@@ -14,11 +14,15 @@ from melobot.log import GenericLogger
 from melobot.protocols.onebot.v11.utils import ParseArgs
 from melobot.protocols.onebot.v11.handle import on_command, on_message, GetParseArgs
 from melobot.protocols.onebot.v11.adapter import Adapter
-from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, ImageSegment
+from melobot.protocols.onebot.v11.adapter.segment import (
+    ReplySegment,
+    ImageRecvSegment,
+    ImageSegment,
+)
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 import aiohttp
 from PIL import Image, ImageOps, ImageDraw
-from pydantic import BaseModel
+from pydantic import BaseModel, AnyUrl
 from yarl import URL
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
@@ -29,6 +33,7 @@ from lemony_utils.images import text_to_imgseg, default_font_cache, bytes_to_b64
 
 
 class NLConfig(BaseModel):
+    # 对接由 nkxingxh/yolox-onnx-api-server 启动的图像识别服务
     api: str | None = "http://127.0.0.1:9656/predict"
     api_key: str | None = None
     score_threshold: float = 0.8
@@ -110,6 +115,19 @@ def preproc(img: BytesIO):
     return result
 
 
+class _PredictResultEntity(TypedDict):
+    box: list[float]
+    class_id: int
+    class_name: str
+    score: float
+
+
+class PredictResult(BaseModel):
+    data: list[_PredictResultEntity]
+    et: float
+    vis: None | AnyUrl
+
+
 @lock()
 async def predict(img: BytesIO):
     form = aiohttp.FormData()
@@ -118,14 +136,13 @@ async def predict(img: BytesIO):
         URL(API) % ({"key": API_KEY} if API_KEY else {}), "post", data=form
     ) as resp:
         resp.raise_for_status()
-        return await resp.json()
+        return PredictResult.model_validate(await resp.json())
 
 
-async def fetch_image(url: str):
-    url = url.replace(
-        "https://multimedia.nt.qq.com.cn/", "http://multimedia.nt.qq.com.cn/"
-    )
-    async with async_http(url, "get", headers=http_headers) as resp:
+async def fetch_image(url: URL | str):
+    async with async_http(
+        URL(url).with_scheme("http"), "get", headers=http_headers
+    ) as resp:
         resp.raise_for_status()
         return BytesIO(await resp.content.read())
 
@@ -157,10 +174,10 @@ def record_img(
     )
 
 
-def draw_boxs(image: BytesIO, data: dict[str, Any], font_size=20, width=2):
+def draw_boxs(image: BytesIO, data: list[_PredictResultEntity], font_size=20, width=2):
     pimg = Image.open(image).convert("RGBA")
     draw = ImageDraw.Draw(pimg)
-    for entity in data["data"]:
+    for entity in data:
         draw.rectangle(entity["box"], width=width, outline=(255, 0, 0, 255))
         draw.text(
             (entity["box"][0] + width, entity["box"][1]),
@@ -186,35 +203,28 @@ async def test_recognize(
     if msg is None:
         await adapter.send_reply("获取消息失败")
         return
-    imgs = [s for s in msg.data["message"] if isinstance(s, ImageSegment)]
+    imgs = [s for s in msg.data["message"] if isinstance(s, ImageRecvSegment)]
     if not imgs:
         await adapter.send_reply("消息中没有图片")
         return
     try:
-        img = await fetch_image(str(imgs[0].data["url"]))
-        img = await asyncio.to_thread(preproc, img)
+        img = await asyncio.to_thread(
+            preproc, await fetch_image(str(imgs[0].data["url"]))
+        )
         result = await predict(img)
-    except Exception as e:
-        await adapter.send_reply(f"出错了: {e}")
+    except Exception:
+        await adapter.send_reply(f"出错了:\n{traceback.format_exc()}")
         return
-    if not result["data"]:
+    if not result.data:
         await adapter.send_reply("识别结果为空")
         return
     if args.vals and args.vals[0] == "image":
-        drawn_img = await asyncio.to_thread(draw_boxs, img, result)
+        drawn_img = await asyncio.to_thread(draw_boxs, img, result.data)
         await adapter.send_reply(
             ImageSegment(file=bytes_to_b64_url(drawn_img.getvalue()))
         )
     else:
-        await adapter.send_reply(
-            await text_to_imgseg(
-                json.dumps(
-                    result,
-                    indent=2,
-                    ensure_ascii=False,
-                )
-            )
-        )
+        await adapter.send_reply(await text_to_imgseg(result.model_dump_json(indent=2)))
 
 
 async def get_self_role(adapter: Adapter, group_id: int, self_id: int):
@@ -227,7 +237,7 @@ async def get_self_role(adapter: Adapter, group_id: int, self_id: int):
             )
         )[0]
         if echo.data is None:
-            return None
+            return cache[0] if cache else None
         self_role_cache[group_id] = (echo.data["role"], time.time())
     cache = self_role_cache.get(group_id)
     return cache[0] if cache else None
@@ -240,18 +250,34 @@ async def ban_combo(
     index: int = 0,
     record: bool = True,
 ):
-    await adapter.delete_msg(event.message_id)
-    echo = await (
-        await adapter.with_echo(adapter.send)(
-            # random.choice(["你不许发乃龙", "切莫相信乃龙，我将为你指明道路"])
-            "你不许发乃龙"
-            + (f"\n（图 {index+1}，{score=:.4f}）" if score else "")
+    if (
+        await (await adapter.with_echo(adapter.delete_msg)(event.message_id))[0]
+    ).is_ok():
+        echo = await (
+            await adapter.with_echo(adapter.send)(
+                random.choice(
+                    [
+                        "你不许发乃龙",
+                        "切莫相信乃龙，我将为你指明道路",
+                        "本群不许发乃龙",
+                    ]
+                )
+                + (f"\n（图 {index+1}，{score=:.4f}）" if score else "")
+            )
+        )[0]
+        if echo.data:
+            if record:
+                banned_imgrec[echo.data["message_id"]] = event.message_id
+            return echo.data["message_id"]
+    else:
+        await adapter.send(
+            random.choice(
+                [
+                    "😅",
+                    "我请问呢",
+                ]
+            )
         )
-    )[0]
-    if echo.data:
-        if record:
-            banned_imgrec[echo.data["message_id"]] = event.message_id
-        return echo.data["message_id"]
 
 
 @on_message()
@@ -271,7 +297,7 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
         await ban_combo(adapter, event, record=False)
         return
     # predict by model
-    imgs = [s for s in event.message if isinstance(s, ImageSegment)]
+    imgs = [s for s in event.message if isinstance(s, ImageRecvSegment)]
     if not imgs:
         logger.debug("no img found, skip predict")
         return
@@ -291,11 +317,11 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
             if imghash in cfgloader.config.nlimg_hashes:
                 await ban_combo(adapter, event, index=i)
                 return
-            result = await predict(imgdata)
+            result = await predict(await asyncio.to_thread(preproc, imgdata))
         except Exception as e:
             logger.error(f"error when recognize: {e}")
             continue
-        for entity in result["data"]:
+        for entity in result.data:
             logger.debug(
                 f"found {entity['class_name']} (score={entity['score']}) in img {i}"
             )
