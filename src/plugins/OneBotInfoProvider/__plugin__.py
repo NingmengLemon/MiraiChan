@@ -1,23 +1,18 @@
 from typing import Any
 import json
 
-from melobot import Plugin, get_bot, get_logger, GenericLogger
-from melobot.plugin import SyncShare
-from melobot.utils import RWContext
+from melobot import PluginPlanner, get_bot, get_logger
 from melobot.protocols.onebot.v11 import (
     Adapter,
-    EchoRequireCtx,
-    on_message,
     on_command,
     on_meta,
 )
-from melobot.protocols.onebot.v11.adapter.event import MessageEvent, HeartBeatMetaEvent
-from melobot.protocols.onebot.v11.utils import LevelRole
+from melobot.protocols.onebot.v11.adapter.event import HeartBeatMetaEvent
 
-import checker_factory
+from ... import checker_factory
+
 
 store: dict[str, Any] = {}
-rwlock = RWContext()
 
 bot = get_bot()
 logger = get_logger()
@@ -25,36 +20,26 @@ logger = get_logger()
 
 @bot.on_loaded
 async def get_onebot_login_info(adapter: Adapter) -> None:
-    async with rwlock.write():
-        echo = await (await adapter.with_echo(adapter.get_login_info)())[0]
-        data = echo.data
-        if echo.is_ok():
-            store.update(data)
-            logger.info("已获得 OneBot 账号信息")
-        else:
-            logger.warning("获取 OneBot 账号信息失败")
+    echo = await (await adapter.with_echo(adapter.get_login_info)())[0]
+    if echo.data:
+        store.update(echo.data)
+        logger.info("已获得 OneBot 账号信息")
+    else:
+        logger.warning("获取 OneBot 账号信息失败")
 
 
 @bot.on_loaded
 async def get_onebot_app_info(adapter: Adapter) -> None:
-    async with rwlock.write():
-        echo = await (await adapter.with_echo(adapter.get_version_info)())[0]
-        data = echo.data
-        if echo.is_ok():
-            store.update(data)
-            logger.info("已获得 Onebot 实现端信息")
-        else:
-            logger.warning("获取 Onebot 实现端信息失败")
+    echo = await (await adapter.with_echo(adapter.get_version_info)())[0]
+    if echo.data:
+        store.update(echo.data)
+        logger.info("已获得 Onebot 实现端信息")
+    else:
+        logger.warning("获取 Onebot 实现端信息失败")
 
 
-async def get_info(name: str):
-    async with rwlock.read():
-        return store.get(name)
-
-
-async def get_all_info():
-    async with rwlock.read():
-        return store.copy()
+def get_info():
+    return store.copy()
 
 
 async def update_info(adapter: Adapter):
@@ -62,28 +47,25 @@ async def update_info(adapter: Adapter):
     await get_onebot_login_info(adapter)
 
 
-@on_meta(lambda e: e.is_heartbeat())
+OneBotInfoProvider = PluginPlanner("0.1.0", funcs=[get_info, update_info])
+
+
+@OneBotInfoProvider.use
+@on_meta()
 async def auto_update_meta(event: HeartBeatMetaEvent):
-    async with rwlock.write():
-        store["status"] = event.status.raw.copy()
-        store["time"] = event.time
+    store["status"] = event.status.raw.copy()
+    store["time"] = event.time
 
 
+@OneBotInfoProvider.use
 @on_command(
     ".", " ", "botinfo", checker=lambda e: e.sender.user_id == checker_factory.owner
 )
 async def echo_info(adapter: Adapter):
     await adapter.send_reply(
         json.dumps(
-            await get_all_info(),
+            get_info(),
             ensure_ascii=False,
             indent=4,
         )
     )
-
-
-class OneBotInfoProvider(Plugin):
-    version = "0.1.0"
-    author = "LemonyNingmeng"
-    funcs = (get_info, get_all_info, update_info)
-    flows = (auto_update_meta, echo_info)

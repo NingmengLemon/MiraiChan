@@ -2,7 +2,7 @@ import base64
 import os
 import time
 import aiofiles
-from melobot import Plugin
+from melobot import PluginPlanner
 from melobot.log import GenericLogger
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, ImageSegment
@@ -13,12 +13,15 @@ from configloader import ConfigLoader, ConfigLoaderMetadata
 
 from .maker import QuoteMaker
 
+Quoter = PluginPlanner("0.1.0")
+
 
 class QuoteConfig(BaseModel):
     emoji_cdn: str | None = None
     font: str = "data/fonts/NotoSansSC-Medium.ttf"
     mask: str = "data/quote_mask.png"
     saveto: str | None = "data/record/quotes"
+    allow_image: bool = False
 
 
 os.makedirs("data/fonts", exist_ok=True)
@@ -34,6 +37,7 @@ maker = QuoteMaker(
 )
 
 
+@Quoter.use
 @on_command(".", " ", ["q", "quote"])
 async def quote(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
     if _ := event.get_segments(ReplySegment):
@@ -50,7 +54,10 @@ async def quote(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogge
     if sender.user_id == event.self_id:
         await adapter.send_reply("不可以引用咱自己的话！")
         return
-    image = await maker.make(msg.data, use_imgs=True)
+    image = await maker.make(
+        msg.data,
+        use_imgs=cfgloader.config.allow_image,
+    )
     if image is None:
         await adapter.send_reply("目标消息中没有支持引用的元素")
         return
@@ -66,9 +73,3 @@ async def quote(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogge
     async with aiofiles.open(file, "wb+") as fp:
         await fp.write(imagebytes)
     logger.info(f"quote saved as {file}")
-
-
-class Quoter(Plugin):
-    version = "0.1.0"
-    author = "LemonyNingmeng"
-    flows = (quote,)

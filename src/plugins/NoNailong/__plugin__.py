@@ -8,7 +8,7 @@ from typing import Literal
 
 from melobot import get_bot
 from melobot.utils import lock, async_interval
-from melobot.plugin import Plugin
+from melobot.plugin import PluginPlanner
 from melobot.log import GenericLogger
 from melobot.protocols.onebot.v11.utils import ParseArgs
 from melobot.protocols.onebot.v11.handle import on_command, on_message, GetParseArgs
@@ -25,6 +25,8 @@ from lemony_utils.images import text_to_imgseg, bytes_to_b64_url
 
 from .models import NLConfig, ImgRec, PredictResult
 from .utils import preprocess, get_reply, calc_hash, draw_boxs, fetch_image
+
+NoNailong = PluginPlanner("0.1.0")
 
 
 cfgloader = ConfigLoader(
@@ -97,6 +99,7 @@ def record_img(
     )
 
 
+@NoNailong.use
 @on_command(
     ".",
     " ",
@@ -183,6 +186,7 @@ async def ban_combo(
         return echo.data["message_id"]
 
 
+@NoNailong.use
 @on_message()
 async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
     bot_role = await get_self_role(adapter, event.group_id, event.self_id)
@@ -235,6 +239,7 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
     logger.debug("no nailong found")
 
 
+@NoNailong.use
 @on_command(
     ".",
     " ",
@@ -261,6 +266,7 @@ async def report(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
     await adapter.send_reply("已应用更改")
 
 
+@NoNailong.use
 @on_command(
     ".",
     " ",
@@ -284,9 +290,3 @@ async def report_not(adapter: Adapter, event: GroupMessageEvent, logger: Generic
         cfgloader.config.not_nlimg_hashes.append(imghash)
     logger.info(f"put {imghash=} into not_nl list")
     await adapter.send_reply("已应用更改")
-
-
-class AntiNailong(Plugin):
-    version = "0.1.0"
-    author = "LemonyNingmeng"
-    flows = (test_recognize, daemon, report, report_not)

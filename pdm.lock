@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:40116f40ce8345081435fc3d82123606d1c3e259ff127093bbb4bf4f9f76e524"
+content_hash = "sha256:67708c914697d579f76f463aa6382a1890c6f80cc34010cae8a910182c89f3f4"
 
 [[metadata.targets]]
 requires_python = "==3.12.*"
@@ -538,7 +538,7 @@ files = [
 
 [[package]]
 name = "melobot"
-version = "3.0.0rc21"
+version = "3.0.0"
 requires_python = ">=3.10"
 summary = "A bot framework with much high level features."
 groups = ["default"]
@@ -550,26 +550,26 @@ dependencies = [
     "typing-extensions>=4.10.0",
 ]
 files = [
-    {file = "melobot-3.0.0rc21-py3-none-any.whl", hash = "sha256:76dc858803f78d5081611af5645426a6242dc0a617fb035ed854ad922ad36d36"},
-    {file = "melobot-3.0.0rc21.tar.gz", hash = "sha256:7001115541097e557ce85c038b341c7c0a3167039d011c517428ecf98171835f"},
+    {file = "melobot-3.0.0-py3-none-any.whl", hash = "sha256:a5af3da0ab22e4bf7248d8c475265bb258394c533523729ac0bdb273c4a00f84"},
+    {file = "melobot-3.0.0.tar.gz", hash = "sha256:0d15deeaef3f7797ef7773c29f3b65696937388ee270e7d804f9fe9d25f266ab"},
 ]
 
 [[package]]
 name = "melobot"
-version = "3.0.0rc21"
+version = "3.0.0"
 extras = ["onebot"]
 requires_python = ">=3.10"
 summary = "A bot framework with much high level features."
 groups = ["default"]
 dependencies = [
     "aiohttp<4,>=3.10.10",
-    "melobot==3.0.0rc21",
+    "melobot==3.0.0",
     "pydantic<3,>=2.9.2",
     "websockets<15,>=14.1",
 ]
 files = [
-    {file = "melobot-3.0.0rc21-py3-none-any.whl", hash = "sha256:76dc858803f78d5081611af5645426a6242dc0a617fb035ed854ad922ad36d36"},
-    {file = "melobot-3.0.0rc21.tar.gz", hash = "sha256:7001115541097e557ce85c038b341c7c0a3167039d011c517428ecf98171835f"},
+    {file = "melobot-3.0.0-py3-none-any.whl", hash = "sha256:a5af3da0ab22e4bf7248d8c475265bb258394c533523729ac0bdb273c4a00f84"},
+    {file = "melobot-3.0.0.tar.gz", hash = "sha256:0d15deeaef3f7797ef7773c29f3b65696937388ee270e7d804f9fe9d25f266ab"},
 ]
 
 [[package]]
@@ -787,7 +787,7 @@ files = [
 
 [[package]]
 name = "pydantic"
-version = "2.10.1"
+version = "2.10.3"
 requires_python = ">=3.8"
 summary = "Data validation using Python type hints"
 groups = ["default"]
@@ -797,8 +797,8 @@ dependencies = [
     "typing-extensions>=4.12.2",
 ]
 files = [
-    {file = "pydantic-2.10.1-py3-none-any.whl", hash = "sha256:a8d20db84de64cf4a7d59e899c2caf0fe9d660c7cfc482528e7020d7dd189a7e"},
-    {file = "pydantic-2.10.1.tar.gz", hash = "sha256:a4daca2dc0aa429555e0656d6bf94873a7dc5f54ee42b1f5873d666fb3f35560"},
+    {file = "pydantic-2.10.3-py3-none-any.whl", hash = "sha256:be04d85bbc7b65651c5f8e6b9976ed9c6f41782a55524cef079a34a0bb82144d"},
+    {file = "pydantic-2.10.3.tar.gz", hash = "sha256:cb5ac360ce894ceacd69c403187900a02c4b20b693a9dd1d643e1effab9eadf9"},
 ]
 
 [[package]]

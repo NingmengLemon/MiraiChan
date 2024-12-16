@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from melobot.plugin import Plugin
+from melobot.plugin import PluginPlanner
 from melobot.log import GenericLogger
 from melobot.protocols.onebot.v11.handle import on_command, GetParseArgs
 from melobot.protocols.onebot.v11.adapter import Adapter
@@ -17,6 +17,9 @@ from lemony_utils.images import text_to_imgseg
 import checker_factory
 
 
+LemonyUtils = PluginPlanner("0.1.0")
+
+
 async def get_reply(adapter: Adapter, event: MessageEvent):
     if _ := event.get_segments(ReplySegment):
         msg_id = _[0].data["id"]
@@ -30,6 +33,7 @@ async def get_reply(adapter: Adapter, event: MessageEvent):
     return msg
 
 
+@LemonyUtils.use
 @on_command(".", " ", "echo", checker=lambda e: e.user_id == checker_factory.owner)
 async def echo(adapter: Adapter, event: MessageEvent):
     if not (msg := await get_reply(adapter, event)):
@@ -43,6 +47,7 @@ async def echo(adapter: Adapter, event: MessageEvent):
     )
 
 
+@LemonyUtils.use
 @on_command(
     ".",
     " ",
@@ -78,6 +83,7 @@ async def getmsg(
         )
 
 
+@LemonyUtils.use
 @on_command(
     ".", " ", "withdraw", checker=lambda e: e.sender.user_id == checker_factory.owner
 )
@@ -87,9 +93,3 @@ async def withdraw(event: MessageEvent, adapter: Adapter):
         await adapter.send_reply("需要指定尝试撤回的消息")
         return
     await adapter.delete_msg(msg[0].data["id"])
-
-
-class Utils(Plugin):
-    author = "LemonyNingmeng"
-    version = "0.1.0"
-    flows = (getmsg, withdraw, echo)

@@ -1,14 +1,14 @@
 import functools
 from typing import Sequence
 
-from melobot import Plugin, send_text, get_logger
+from melobot import PluginPlanner, send_text, get_logger
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 from melobot.protocols.onebot.v11 import on_message
 import pypinyin
 
-from configloader import ConfigLoader, ConfigLoaderMetadata
 from .. import AliasProvider
 
+EroMoncak = PluginPlanner("0.1.0")
 
 logger = get_logger()
 
@@ -26,6 +26,7 @@ def match_pinyin(hanss: str, pins: Sequence[str]):
     return get_pinyin(hanssf) == (pins if isinstance(pins, list) else list(pins))
 
 
+@EroMoncak.use
 @on_message()
 async def say_noero(event: MessageEvent):
     text = event.text.strip()
@@ -33,13 +34,14 @@ async def say_noero(event: MessageEvent):
         sender = event.sender
         if (
             sender.user_id
-            and (alias := await AliasProvider.get_alias(sender.user_id)) is not None
+            and (alias := AliasProvider.get_alias(sender.user_id)) is not None
         ):
             await send_text(f"涩{alias}")
         else:
             await send_text("不许涩涩")
 
 
+@EroMoncak.use
 @on_message()
 async def repeat_ero(event: MessageEvent):
     text = event.text.strip()
@@ -50,9 +52,3 @@ async def repeat_ero(event: MessageEvent):
         and await AliasProvider.if_alias_exists((alias := text[1:].strip()))
     ):
         await send_text(f"涩{alias}")
-
-
-class EroMoncak(Plugin):
-    version = "0.1.0"
-    author = "LemonyNingmeng"
-    flows = (say_noero, repeat_ero)

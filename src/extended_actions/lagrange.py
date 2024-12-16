@@ -131,7 +131,7 @@ class SetEssenceMsgAction(Action):
         super().__init__("set_essence_msg", {"message_id": message_id})
 
 
-class GetEssenceMsgList(Action):
+class GetEssenceMsgListAction(Action):
     def __init__(self, group_id):
         super().__init__("get_essence_msg_list", {"group_id": group_id})
 

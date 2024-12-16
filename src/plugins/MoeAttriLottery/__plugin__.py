@@ -4,7 +4,7 @@ import time
 from pydantic import BaseModel
 
 from melobot import get_logger
-from melobot.plugin import Plugin
+from melobot.plugin import PluginPlanner
 from melobot.log import GenericLogger
 from melobot.protocols.onebot.v11.handle import on_command
 from melobot.protocols.onebot.v11.adapter import Adapter
@@ -14,6 +14,8 @@ from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
 
 from .lottery import MoeLot
+
+MoeLottery = PluginPlanner("0.1.0")
 
 
 class QuoteConfig(BaseModel):
@@ -30,6 +32,7 @@ moelot = MoeLot(cfgloader.config.moedata_file)
 cd_table: dict[int, str] = {}
 
 
+@MoeLottery.use
 @on_command(".", " ", ["今日人设", "萌抽签"])
 async def draw_attrs(event: GroupMessageEvent, adapter: Adapter, logger: GenericLogger):
     if (
@@ -43,9 +46,3 @@ async def draw_attrs(event: GroupMessageEvent, adapter: Adapter, logger: Generic
     moeattr = moelot.draw()
     logger.debug(f"{moeattr=}")
     await adapter.send_reply(f"你今天的人设是{moelot.to_text(moeattr)}！")
-
-
-class MoeLottery(Plugin):
-    author = "LemonyNingmeng"
-    version = "0.1.0"
-    flows = (draw_attrs,)

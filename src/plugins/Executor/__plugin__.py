@@ -1,14 +1,14 @@
-import functools
 import asyncio
 import subprocess
 
-from melobot import Plugin, get_logger, GenericLogger
-from melobot.protocols.onebot.v11 import on_message, on_start_match, Adapter
+from melobot import PluginPlanner, GenericLogger
+from melobot.protocols.onebot.v11 import on_start_match, Adapter
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
-from melobot.protocols.onebot.v11.adapter.segment import ImageSegment
 
 from lemony_utils.images import text_to_imgseg
 import checker_factory
+
+Executor = PluginPlanner("0.1.0")
 
 
 def run_shell_command(command):
@@ -22,6 +22,7 @@ def run_shell_command(command):
     return result.stdout, result.stderr, result.returncode
 
 
+@Executor.use
 @on_start_match(".sh", checker=lambda e: e.sender.user_id == checker_factory.owner)
 async def run_shell(event: MessageEvent, adapter: Adapter, logger: GenericLogger):
     if len(_ := event.text.split(maxsplit=1)) != 2:
@@ -44,9 +45,3 @@ async def run_shell(event: MessageEvent, adapter: Adapter, logger: GenericLogger
 @on_start_match(".pyexec", checker=lambda e: e.sender.user_id == checker_factory.owner)
 async def exec_py(event: MessageEvent, adapter: Adapter, logger: GenericLogger):
     return
-
-
-class Executor(Plugin):
-    version = "0.1.0"
-    author = "LemonyNingmeng"
-    flows = (run_shell,)

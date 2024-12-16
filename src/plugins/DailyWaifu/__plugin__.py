@@ -4,7 +4,7 @@ from typing import Annotated
 import base64
 
 from melobot import get_bot, Event, stop
-from melobot.plugin import Plugin
+from melobot.plugin import PluginPlanner
 from melobot.log import GenericLogger, get_logger
 from melobot.di import Reflect
 from melobot.utils import lock, async_interval, RWContext, unfold_ctx
@@ -20,10 +20,11 @@ from melobot.protocols.onebot.v11.adapter.segment import (
     ImageSegment,
 )
 from configloader import ConfigLoader, ConfigLoaderMetadata
-from .core import WaifuManager, RelExistsError, RelNotExistsError
+from .core import WaifuManager
 from .models import ConfigModel
 from .graph import render
 
+DailyWaifu = PluginPlanner("0.1.0")
 # inspired by kmua bot
 cfgloader = ConfigLoader(
     ConfigLoaderMetadata(model=ConfigModel, filename="waifu_conf.json")
@@ -81,6 +82,7 @@ async def marry(
     raise NotImplementedError()
 
 
+@DailyWaifu.use
 @on_command(".", " ", ["今日老婆", "waifu"])
 async def draw_waifu(event: GroupMessageEvent, adapter: Adapter, logger: GenericLogger):
     me = event.sender
@@ -169,9 +171,3 @@ async def show_waifu(event: GroupMessageEvent, adapter: Adapter, logger: Generic
     imgbytes = await render(_ or [], dw, mr)
     imageb64 = "base64://" + base64.b64encode(imgbytes).decode("utf-8")
     await adapter.send(ImageSegment(file=imageb64))
-
-
-class DailyWaifu(Plugin):
-    author = "LemonyNingmeng"
-    version = "0.1.0"
-    flows = (draw_waifu,)  # , show_waifu)
