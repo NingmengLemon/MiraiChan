@@ -15,11 +15,23 @@ from melobot.protocols.onebot.v11.adapter import Adapter
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
+import little_helper
 
 from .models import WTLTConfig, DrawResp, StatusResp
 from lemony_utils.templates import async_http
 
 WhatToListen = PluginPlanner("0.1.0")
+little_helper.register(
+    "WhatToListenToday",
+    {
+        "cmd": ".{今天听什么|wtlt} [--filter <field1>:<value1>[;<field2>:<value2>;...]]",
+        "text": "今天听……？",
+    },
+    {
+        "cmd": ".{今天听什么|wtlt} {status|pause|resume|scan}",
+        "text": "管理程序后端\n*Owner Only*",
+    },
+)
 
 cfgloader = ConfigLoader(
     ConfigLoaderMetadata(model=WTLTConfig, filename="whattolisten_conf.json")
@@ -83,6 +95,7 @@ def parse_constrains(cmd: str) -> _ConstrainDict:
                 result[field] = value
     return result
 
+
 @WhatToListen.use
 @on_start_match([".wtlt", ".今天听什么"])
 async def entrance(
@@ -91,7 +104,7 @@ async def entrance(
 ):
     cmd = event.text
     args = cmd.split(maxsplit=1)[1:]
-    if not args or args[0].startswith("filter"):
+    if not args or args[0].startswith("--filter"):
         await draw(
             adapter, event, constrains=(parse_constrains(args[0]) if args else None)
         )
@@ -107,7 +120,7 @@ async def draw(
     async with record_lock.read():
         if (
             draw_cdtable.get(event.sender.user_id, 0) > time.time()
-            and event.sender.user_id != checker_factory.owner
+            and event.sender.user_id != checker_factory.OWNER
         ):
             await adapter.send_reply("请至少听完这首歌……！")
             return
@@ -137,7 +150,7 @@ def gen_status(data: StatusResp):
 
 
 async def opts(adapter: Adapter, event: MessageEvent, cmd: str):
-    if event.user_id != checker_factory.owner:
+    if event.user_id != checker_factory.OWNER:
         await adapter.send_reply("无权使用此指令")
         return
     try:
@@ -155,4 +168,3 @@ async def opts(adapter: Adapter, event: MessageEvent, cmd: str):
                 await adapter.send_reply("未知的二级指令喵")
     except Exception as e:
         await adapter.send_reply(f"向后端发送指令时出错：{e}")
-

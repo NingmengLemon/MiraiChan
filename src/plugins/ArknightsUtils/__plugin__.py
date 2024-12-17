@@ -11,8 +11,20 @@ from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 
 from arknights_datasource import ArknSource
 from lemony_utils.images import text_to_imgseg
+import little_helper
 
 ArknightsUtils = PluginPlanner("0.1.0")
+little_helper.register(
+    "ArknightsUtils",
+    {
+        "cmd": ".{arkquery|aq} {operator|o} <name>",
+        "text": "查询干员信息",
+    },
+    {
+        "cmd": ".{arkquery|aq} update",
+        "text": "更新游戏数据",
+    },
+)
 
 aksource = ArknSource()
 bot = get_bot()

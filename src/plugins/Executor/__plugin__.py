@@ -7,8 +7,16 @@ from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 
 from lemony_utils.images import text_to_imgseg
 import checker_factory
+import little_helper
 
 Executor = PluginPlanner("0.1.0")
+little_helper.register(
+    "Executor",
+    {
+        "cmd": ".shell <shell>",
+        "text": "运行 shell\n*Owner Only*",
+    },
+)
 
 
 def run_shell_command(command):
@@ -23,7 +31,7 @@ def run_shell_command(command):
 
 
 @Executor.use
-@on_start_match(".sh", checker=lambda e: e.sender.user_id == checker_factory.owner)
+@on_start_match(".shell", checker=checker_factory.get_owner_checker())
 async def run_shell(event: MessageEvent, adapter: Adapter, logger: GenericLogger):
     if len(_ := event.text.split(maxsplit=1)) != 2:
         return
@@ -42,6 +50,6 @@ async def run_shell(event: MessageEvent, adapter: Adapter, logger: GenericLogger
     await adapter.send_reply(await text_to_imgseg("\n".join(reply)))
 
 
-@on_start_match(".pyexec", checker=lambda e: e.sender.user_id == checker_factory.owner)
+@on_start_match(".pyexec", checker=checker_factory.get_owner_checker())
 async def exec_py(event: MessageEvent, adapter: Adapter, logger: GenericLogger):
     return

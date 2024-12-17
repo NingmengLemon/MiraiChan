@@ -15,9 +15,25 @@ from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, Messag
 
 from lemony_utils.images import text_to_imgseg
 import checker_factory
+import little_helper
 
 
 LemonyUtils = PluginPlanner("0.1.0")
+little_helper.register(
+    "LemonyUtils",
+    {
+        "cmd": ".echo",
+        "text": "复读回复的消息\n*Owner Only*",
+    },
+    {
+        "cmd": ".{getmsg|get} [--text]",
+        "text": "获取回复的消息的数据\n*Owner Only*",
+    },
+    {
+        "cmd": ".withdraw",
+        "text": "尝试撤回回复的消息\n*Owner Only*",
+    },
+)
 
 
 async def get_reply(adapter: Adapter, event: MessageEvent):
@@ -34,7 +50,7 @@ async def get_reply(adapter: Adapter, event: MessageEvent):
 
 
 @LemonyUtils.use
-@on_command(".", " ", "echo", checker=lambda e: e.user_id == checker_factory.owner)
+@on_command(".", " ", "echo", checker=checker_factory.get_owner_checker())
 async def echo(adapter: Adapter, event: MessageEvent):
     if not (msg := await get_reply(adapter, event)):
         return
@@ -52,7 +68,7 @@ async def echo(adapter: Adapter, event: MessageEvent):
     ".",
     " ",
     ["get", "getmsg"],
-    checker=lambda e: e.user_id == checker_factory.owner,
+    checker=checker_factory.get_owner_checker(),
 )
 async def getmsg(
     adapter: Adapter,
@@ -75,7 +91,7 @@ async def getmsg(
     msgdata["message"] = segs
 
     logger.debug(f"get seg: {msg}")
-    if args.vals and args.vals[0] == "text":
+    if args.vals and args.vals[0] == "--text":
         await adapter.send_reply(json.dumps(msgdata, indent=2, ensure_ascii=False))
     else:
         await adapter.send_reply(
@@ -85,7 +101,7 @@ async def getmsg(
 
 @LemonyUtils.use
 @on_command(
-    ".", " ", "withdraw", checker=lambda e: e.sender.user_id == checker_factory.owner
+    ".", " ", "withdraw", checker=checker_factory.get_owner_checker()
 )
 async def withdraw(event: MessageEvent, adapter: Adapter):
     msg = event.get_segments(ReplySegment)

@@ -16,8 +16,8 @@ from .models import PredictResultEntity
 def preprocess(img: BytesIO):
     pimg = Image.open(img).convert("RGBA")
     w, h = pimg.size
-    if w > 512 or h > 512:
-        pimg = ImageOps.contain(pimg, (512, 512))
+    if w > 512 and h > 512:
+        pimg = ImageOps.cover(pimg, (512, 512))
     result = BytesIO()
     pimg.save(result, "png")
     return result
