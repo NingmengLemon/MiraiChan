@@ -1,6 +1,6 @@
 from typing import TypedDict
 
-from pydantic import BaseModel, AnyUrl
+from pydantic import BaseModel, AnyUrl, Field
 
 
 class NLConfig(BaseModel):
@@ -16,10 +16,11 @@ class NLConfig(BaseModel):
         239546,
         239871,
     ]
-    not_nlimg_hashes: list[str] = []  # sha256
-    nlimg_hashes: list[str] = []  # sha256
-    imgrec_expires: float = 60 * 60 * 12
-    role_cache_expires: float = 60 * 5
+    not_nlimg_hashes: list[str] = []  # phash
+    nlimg_hashes: list[str] = []  # phash
+    max_hash_distance: int = Field(16, ge=0)
+    imgrec_expires: float = Field(60 * 60 * 12, ge=0)
+    role_cache_expires: float = Field(60 * 5, ge=0)
     del_succ_msgs: list[str] = [
         "你不许发乃龙",
         "切莫相信乃龙，我将为你指明道路",

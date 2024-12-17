@@ -20,6 +20,7 @@ dependencies = [
     "types-lxml>=2024.11.8",
     "types-aiofiles>=24.1.0.20240626",
     "pydantic>=2.10.3",
+    "imagehash>=4.3.1",
 ]
 requires-python = "==3.12.*"
 readme = "README.md"
