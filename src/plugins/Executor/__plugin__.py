@@ -26,6 +26,7 @@ def run_shell_command(command):
         capture_output=True,
         text=True,
         check=False,
+        encoding="utf-8",
     )
     return result.stdout, result.stderr, result.returncode
 
@@ -42,10 +43,10 @@ async def run_shell(event: MessageEvent, adapter: Adapter, logger: GenericLogger
     logger.debug(f"executing > {cmd}")
     stdout, stderr, code = await asyncio.to_thread(run_shell_command, cmd)
     reply = []
-    if s := stdout.strip():
-        reply.append(f"stdout:\n{s}")
-    if s := stderr.strip():
-        reply.append(f"stderr:\n{s}")
+    if s := stdout:
+        reply.append(f"stdout:\n{s.strip()}")
+    if s := stderr:
+        reply.append(f"stderr:\n{s.strip()}")
     reply.append(f"\ncode = {code}")
     await adapter.send_reply(await text_to_imgseg("\n".join(reply)))
 
