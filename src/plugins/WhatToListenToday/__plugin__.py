@@ -88,7 +88,7 @@ _supported_constrains = {"artist", "album", "title"}
 
 def parse_constrains(cmd: str) -> _ConstrainDict:
     result = {}
-    for statement in cmd.removeprefix("filter").split(";"):
+    for statement in cmd.removeprefix("--filter").split(";"):
         if len(_ := statement.split("=", maxsplit=1)) == 2:
             field, value = _[0].strip().lower(), _[1].strip()
             if field in _supported_constrains:
