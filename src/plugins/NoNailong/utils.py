@@ -1,6 +1,6 @@
 from io import BytesIO
-import hashlib
 
+import imagehash
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
@@ -13,8 +13,12 @@ from lemony_utils.consts import http_headers
 from .models import PredictResultEntity
 
 
-def preprocess(img: BytesIO):
-    pimg = Image.open(img).convert("RGBA")
+def preprocess(img: BytesIO | Image.Image):
+    pimg = (
+        Image.open(img).convert("RGBA")
+        if isinstance(img, BytesIO)
+        else img.convert("RGBA")
+    )
     w, h = pimg.size
     if w > 512 and h > 512:
         pimg = ImageOps.cover(pimg, (512, 512))
@@ -34,8 +38,31 @@ async def get_reply(adapter: Adapter, event: MessageEvent):
     return msg
 
 
-def calc_hash(b: bytes):
-    return hashlib.sha256(b).hexdigest()
+def to_hash(img: bytes | BytesIO | Image.Image | imagehash.ImageHash | str):
+    if isinstance(img, BytesIO):
+        with Image.open(img) as fp:
+            return _calc_phash(fp)
+    elif isinstance(img, bytes):
+        img = BytesIO(img)
+        with Image.open(img) as fp:
+            return _calc_phash(fp)
+    elif isinstance(img, Image.Image):
+        return _calc_phash(img)
+    elif isinstance(img, str):
+        img = imagehash.hex_to_hash(img)
+        return img
+    elif isinstance(img, imagehash.ImageHash):
+        return img
+    else:
+        raise TypeError(f"Cannot convert {type(img)} to imghash")
+
+
+def _calc_phash(img: Image.Image):
+    return imagehash.phash(
+        img.convert("RGBA"),
+        hash_size=16,
+        highfreq_factor=8,
+    )
 
 
 def draw_boxs(image: BytesIO, data: list[PredictResultEntity], font_size=20, width=2):

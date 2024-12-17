@@ -6,10 +6,11 @@ import time
 import traceback
 from typing import Literal
 
+import imagehash
 from melobot import get_bot
 from melobot.utils import lock, async_interval
 from melobot.plugin import PluginPlanner
-from melobot.log import GenericLogger
+from melobot.log import GenericLogger, get_logger
 from melobot.protocols.onebot.v11.utils import ParseArgs
 from melobot.protocols.onebot.v11.handle import on_command, on_message, GetParseArgs
 from melobot.protocols.onebot.v11.adapter import Adapter
@@ -17,6 +18,7 @@ from melobot.protocols.onebot.v11.adapter.segment import ImageRecvSegment, Image
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 import aiohttp
 from yarl import URL
+from PIL import Image
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
@@ -25,9 +27,9 @@ from lemony_utils.images import text_to_imgseg, bytes_to_b64_url
 import little_helper
 
 from .models import NLConfig, ImgRec, PredictResult
-from .utils import preprocess, get_reply, calc_hash, draw_boxs, fetch_image
+from .utils import preprocess, get_reply, to_hash, draw_boxs, fetch_image
 
-NoNailong = PluginPlanner("0.1.0")
+NoNailong = PluginPlanner("1.0.0")
 little_helper.register(
     "AntiNailong",
     {
@@ -64,6 +66,7 @@ banned_imgrec: dict[int, int] = {}  # 通知消息的id: 原始消息的id
 # 群号: 自我角色, 时间戳
 self_role_cache: dict[int, tuple[Literal["owner", "admin", "member"], float]] = {}
 bot = get_bot()
+logger = get_logger()
 
 clear_task: asyncio.Task = None
 
@@ -78,6 +81,29 @@ async def clear_imgrecord():
         del imgrecord[msgid]
     for msgid in [k for k, v in banned_imgrec.items() if v in msgids]:
         del banned_imgrec[msgid]
+
+
+def query_nl_anno(img: BytesIO | Image.Image | str | imagehash.ImageHash):
+    img = to_hash(img)
+    hexhash = str(img)
+    max_dist = cfgloader.config.max_hash_distance
+    if hexhash in cfgloader.config.nlimg_hashes:
+        logger.debug("hit yes_list, phash dist = 0")
+        return True
+    if hexhash in cfgloader.config.not_nlimg_hashes:
+        logger.debug("hit not_list, phash dist = 0")
+        return False
+    if max_dist <= 0:
+        return None
+    for i in cfgloader.config.nlimg_hashes.copy():
+        if len(i) == len(img) and (dist := imagehash.hex_to_hash(i) - img) <= max_dist:
+            logger.debug(f"hit yes_list, phash dist = {dist}")
+            return True
+    for i in cfgloader.config.not_nlimg_hashes.copy():
+        if len(i) == len(img) and (dist := imagehash.hex_to_hash(i) - img) <= max_dist:
+            logger.debug(f"hit not_list, phash dist = {dist}")
+            return False
+    return None
 
 
 @bot.on_loaded
@@ -233,13 +259,14 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
     for i, img in enumerate(imgs):
         try:
             imgdata = await fetch_image(str(img.data["url"]))
-            imghash = await asyncio.to_thread(calc_hash, imgdata.getvalue())
-            record_img(event, imghash)
-            if imghash in cfgloader.config.not_nlimg_hashes:
-                continue
-            if imghash in cfgloader.config.nlimg_hashes:
-                await ban_combo(adapter, event, index=i)
-                return
+            imghash = await asyncio.to_thread(to_hash, imgdata.getvalue())
+            record_img(event, str(imghash))
+            if (anno := query_nl_anno(imghash)) is not None:
+                if anno:
+                    await ban_combo(adapter, event, index=i)
+                    return
+                else:
+                    continue
             result = await predict(await asyncio.to_thread(preprocess, imgdata))
         except Exception as e:
             logger.error(f"error when recognize: {e}")
