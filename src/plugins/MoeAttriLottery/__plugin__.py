@@ -12,10 +12,18 @@ from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
+import little_helper
 
 from .lottery import MoeLot
 
 MoeLottery = PluginPlanner("0.1.0")
+little_helper.register(
+    "MoeLottery",
+    {
+        "cmd": ".今日人设",
+        "text": "抽取今日人设\n标签来源：萌娘百科",
+    },
+)
 
 
 class QuoteConfig(BaseModel):
@@ -38,7 +46,7 @@ async def draw_attrs(event: GroupMessageEvent, adapter: Adapter, logger: Generic
     if (
         cd_table.get(event.sender.user_id, "")
         == (now_date := time.strftime("%Y-%m-%d", time.localtime()))
-        and event.sender.user_id != checker_factory.owner
+        and event.sender.user_id != checker_factory.OWNER
     ):
         await adapter.send_reply("今天已经抽过了噢")
         return

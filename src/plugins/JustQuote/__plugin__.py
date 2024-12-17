@@ -10,10 +10,18 @@ from melobot.protocols.onebot.v11 import on_command, Adapter
 from pydantic import BaseModel
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
+import little_helper
 
 from .maker import QuoteMaker
 
 Quoter = PluginPlanner("0.1.0")
+little_helper.register(
+    "JustQuote",
+    {
+        "cmd": ".{q|quote}",
+        "text": "将回复的消息图片化",
+    },
+)
 
 
 class QuoteConfig(BaseModel):

@@ -59,7 +59,7 @@ async def auto_update_meta(event: HeartBeatMetaEvent):
 
 @OneBotInfoProvider.use
 @on_command(
-    ".", " ", "botinfo", checker=lambda e: e.sender.user_id == checker_factory.owner
+    ".", " ", "botinfo", checker=checker_factory.get_owner_checker()
 )
 async def echo_info(adapter: Adapter):
     await adapter.send_reply(

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
+import little_helper
 
 
 EmergencyStop = PluginPlanner("0.1.0")
@@ -26,11 +27,19 @@ if cfgloader.config.triggered:
     # 防止被自动重启，总之手动复位就行
     sys.exit(0)
 
+little_helper.register(
+    "EmergencyStop",
+    {
+        "cmd": cfgloader.config.trigger_word,
+        "text": "紧急停止 Bot 程序，下次启动前需要手动复位\n*Owner Only*",
+    },
+)
+
 
 @EmergencyStop.use
 @on_full_match(
     cfgloader.config.trigger_word,
-    checker=lambda e: e.sender.user_id == checker_factory.owner,
+    checker=checker_factory.get_owner_checker(),
 )
 async def trigger():
     cfgloader.config.triggered = True

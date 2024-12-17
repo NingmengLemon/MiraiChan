@@ -20,11 +20,15 @@ from melobot.protocols.onebot.v11.adapter.segment import (
     ImageSegment,
 )
 from configloader import ConfigLoader, ConfigLoaderMetadata
+import little_helper
 from .core import WaifuManager
 from .models import ConfigModel
 from .graph import render
 
 DailyWaifu = PluginPlanner("0.1.0")
+little_helper.register(
+    "DailyWaifu", {"cmd": ".{waifu|今日老婆}", "text": "抽取今天的群U老婆"}
+)
 # inspired by kmua bot
 cfgloader = ConfigLoader(
     ConfigLoaderMetadata(model=ConfigModel, filename="waifu_conf.json")

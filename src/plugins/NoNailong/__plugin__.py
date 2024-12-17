@@ -22,11 +22,27 @@ from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
 from lemony_utils.templates import async_http
 from lemony_utils.images import text_to_imgseg, bytes_to_b64_url
+import little_helper
 
 from .models import NLConfig, ImgRec, PredictResult
 from .utils import preprocess, get_reply, calc_hash, draw_boxs, fetch_image
 
 NoNailong = PluginPlanner("0.1.0")
+little_helper.register(
+    "AntiNailong",
+    {
+        "cmd": ".recognize [--image|-i]",
+        "text": "尝试识别回复的消息中的图片\n*Owner Only*",
+    },
+    {
+        "cmd": ".{notnl|并非乃龙}",
+        "text": "将回复的消息或被判定为乃龙的消息中的图片标注为非乃龙\n*Owner Only*",
+    },
+    {
+        "cmd": ".{reportnl|这是乃龙}",
+        "text": "同上，但标注为乃龙\n*Owner Only*",
+    },
+)
 
 
 cfgloader = ConfigLoader(
@@ -104,7 +120,7 @@ def record_img(
     ".",
     " ",
     "recognize",
-    checker=lambda e: e.user_id == checker_factory.owner,
+    checker=checker_factory.get_owner_checker(),
 )
 async def test_recognize(
     adapter: Adapter, event: GroupMessageEvent, args: ParseArgs = GetParseArgs()
@@ -128,7 +144,7 @@ async def test_recognize(
     if not result.data:
         await adapter.send_reply("识别结果为空")
         return
-    if args.vals and args.vals[0] == "image":
+    if args.vals and args.vals[0] in ("--image", "-i"):
         drawn_img = await asyncio.to_thread(draw_boxs, img, result.data)
         await adapter.send_reply(
             ImageSegment(file=bytes_to_b64_url(drawn_img.getvalue()))
@@ -244,7 +260,7 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
     ".",
     " ",
     ["reportnl", "这是乃龙"],
-    checker=lambda e: e.user_id == checker_factory.owner,
+    checker=checker_factory.get_owner_checker(),
 )
 async def report(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
     msg = await get_reply(adapter, event)
@@ -271,7 +287,7 @@ async def report(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
     ".",
     " ",
     ["notnl", "并非乃龙"],
-    checker=lambda e: e.user_id == checker_factory.owner,
+    checker=checker_factory.get_owner_checker(),
 )
 async def report_not(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
     msg = await get_reply(adapter, event)

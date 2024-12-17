@@ -6,6 +6,7 @@ from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 from pydantic import BaseModel
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
+import little_helper
 
 
 class AliasProviderConfigModel(BaseModel):
@@ -40,6 +41,13 @@ def if_alias_exists(alias: str):
 
 
 AliasProvider = PluginPlanner("0.1.0", funcs=[set_alias, get_alias, if_alias_exists])
+little_helper.register(
+    "AliasProvider",
+    {
+        "cmd": ".setalias <alias>",
+        "text": "设定Bot对你的称呼",
+    },
+)
 
 
 @AliasProvider.use
