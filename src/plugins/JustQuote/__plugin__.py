@@ -76,7 +76,7 @@ async def quote(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogge
         return
     file = os.path.join(
         path,
-        f"{time.strftime("%Y%m%d-%H%M%S", time.localtime())}_{event.user_id}_{event.group_id}.png",
+        f"{time.strftime("%Y%m%d-%H%M%S", time.localtime())}_{sender.user_id}_{event.group_id}.png",
     )
     async with aiofiles.open(file, "wb+") as fp:
         await fp.write(imagebytes)
