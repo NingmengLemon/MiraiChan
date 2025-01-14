@@ -20,7 +20,16 @@ async def patch_echo_data_missing(raw_dict: _RawData, _: Exception):
         raw_dict["data"] = None
 
 
+async def patch_echo_get_group_member_list_none(raw_dict: _RawData, _: Exception):
+    if raw_dict.get("action_type") == "get_group_member_list":
+        for i in raw_dict["data"]:
+            for k, v in list(i.items()):
+                if v is None:
+                    i[k] = ""
+
+
 def patch_all(adapter: Adapter):
     adapter.when_validate_error("event")(patch_event_anonymous_missing)
     adapter.when_validate_error("echo")(patch_echo_data_missing)
+    adapter.when_validate_error("echo")(patch_echo_get_group_member_list_none)
     return adapter
