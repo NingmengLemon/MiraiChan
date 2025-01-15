@@ -10,6 +10,7 @@ from melobot.protocols.onebot.v11.adapter.segment import (
     TextSegment,
     Segment,
     ImageRecvSegment,
+    AtSegment,
 )
 
 from PIL import Image, ImageOps, ImageDraw
@@ -74,7 +75,9 @@ class QuoteMaker:
 
     @classmethod
     async def _fetch_all_imgs(cls, segs: Iterable[Segment], maxsize=-1):
-        urls = [str(seg.data["url"]) for seg in segs if isinstance(seg, ImageRecvSegment)]
+        urls = [
+            str(seg.data["url"]) for seg in segs if isinstance(seg, ImageRecvSegment)
+        ]
         get_logger().debug(f"{urls=}")
         return {
             k: v
@@ -125,9 +128,19 @@ class QuoteMaker:
 
         sender = msg["sender"]
         msgsegs = msg["message"]
-        msgtext = " ".join(
-            (seg.data["text"] for seg in msgsegs if isinstance(seg, TextSegment))
-        ).strip()
+        msgtexts: list[str] = []
+        for seg in msgsegs:
+            if isinstance(seg, TextSegment):
+                msgtexts.append(seg.data["text"])
+            elif isinstance(seg, AtSegment):
+                msgtexts.append(
+                    "@"
+                    + str(seg.raw["data"].get("name") or seg.data["qq"])
+                    .removeprefix("@")
+                    .strip()
+                    + " "
+                )
+        msgtext = " ".join(msgtexts).strip()
         authortext = (
             f"—— {sender.card}\n({sender.nickname})"
             if sender.card
