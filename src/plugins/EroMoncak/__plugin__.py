@@ -49,6 +49,6 @@ async def repeat_ero(event: MessageEvent):
         len(text) > 1
         and is_hans(text[0])
         and get_pinyin(text[0])[0] == "se4"
-        and await AliasProvider.if_alias_exists((alias := text[1:].strip()))
+        and AliasProvider.if_alias_exists((alias := text[1:].strip()))
     ):
         await send_text(f"涩{alias}")
