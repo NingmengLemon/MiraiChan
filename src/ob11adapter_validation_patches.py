@@ -21,6 +21,11 @@ async def patch_echo_data_missing(raw_dict: _RawData, _: Exception):
 
 
 async def patch_echo_get_group_member_list_none(raw_dict: _RawData, _: Exception):
+    """
+    Lagrange.OneBot 作为实现端时，get_group_member_list 的 echo 的 成员信息中的 card 字段可能为 None
+
+    把别的字段也顺便检查了
+    """
     if raw_dict.get("action_type") == "get_group_member_list":
         for i in raw_dict["data"]:
             for k, v in list(i.items()):
