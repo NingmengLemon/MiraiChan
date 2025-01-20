@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:224845969c1d23c7536f82f1fd45918c8412d5ddcb0e61f94d527b753f785086"
+content_hash = "sha256:716deb46f4ad428b646a30a881e553be9e2c9a242ceda824624a9d712a913f64"
 
 [[metadata.targets]]
 requires_python = "==3.12.*"
@@ -991,6 +991,16 @@ dependencies = [
 files = [
     {file = "rich-13.9.4-py3-none-any.whl", hash = "sha256:6049d5e6ec054bf2779ab3358186963bac2ea89175919d699e378b99738c2a90"},
     {file = "rich-13.9.4.tar.gz", hash = "sha256:439594978a49a09530cff7ebc4b5c7103ef57baf48d5ea3184f21d9a2befa098"},
+]
+
+[[package]]
+name = "romajitable"
+version = "0.0.1"
+summary = "A converted one small script from JS"
+groups = ["default"]
+files = [
+    {file = "romajitable-0.0.1-py3-none-any.whl", hash = "sha256:5f3e9fa5e7bea2f069b514facff6adaa300ac0bd09dcef3338792ae2984ae413"},
+    {file = "romajitable-0.0.1.tar.gz", hash = "sha256:b9eef5f011bff28bf5c6118aa73c4a484758f70566ac85b26853540424792687"},
 ]
 
 [[package]]
