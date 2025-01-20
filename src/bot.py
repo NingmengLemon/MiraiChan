@@ -1,6 +1,5 @@
 import os
 import sys
-from typing import Any
 import asyncio
 
 from melobot import Bot

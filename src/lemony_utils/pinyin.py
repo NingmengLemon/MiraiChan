@@ -1,6 +1,8 @@
 import json
 from pypinyin import pinyin, Style
 
+
+# https://github.com/RUI-LONG/Python-Pinyin-Kana/blob/70f93061786ce538a2b26798e67fa501fd9b9867/pinyin_kana/pinyin_dicts.py#L40
 with open("data/pinyin2ktkn.json", "r", encoding="utf-8") as fp:
     PY2KTKN_MAP: dict[str, str] = json.load(fp)
 
