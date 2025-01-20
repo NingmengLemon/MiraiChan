@@ -10,7 +10,7 @@ from melobot.utils import lock
 
 import romajitable
 
-from .client import tts
+from .client import VoicevoxEngineClient
 from lemony_utils.images import bytes_to_b64_url
 from lemony_utils.pinyin import pinyin_to_katakana
 
@@ -60,10 +60,14 @@ async def do_tts(event: MessageEvent, adapter: Adapter, logger: GenericLogger):
         text = "".join(pinyin_to_katakana(text))
     text = re.sub(r"(?=[a-z]*[aeiou])[a-z]{2,}", en2ktkn, text, flags=re.IGNORECASE)
     logger.debug(f"final text to tts: {text!r}")
-    audiobytes = await tts(text)
-    if not audiobytes:
-        await adapter.send_reply("不是有效的消息")
-        return
+
+    async with VoicevoxEngineClient() as session:
+        accent_data = await session.audio_query(text, 1)
+        if not accent_data["kana"]:
+            await adapter.send_reply("不是有效的消息")
+            return
+        logger.debug(f"kana from vv: {accent_data["kana"]!r}")
+        audiobytes = await session.synthesis(accent_data, 1)
     audiob64url = bytes_to_b64_url(audiobytes)
     await adapter.send(RecordSegment(file=audiob64url))
 

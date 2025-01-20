@@ -1,22 +1,45 @@
 import aiohttp
-from melobot import get_logger
+from yarl import URL
+
+from .annotations import Speaker, AudioQueryResult
 
 
-logger = get_logger()
+class VoicevoxEngineClient(aiohttp.ClientSession):
+    def __init__(self, base_url: str | URL = "http://127.0.0.1:50021", **kwargs):
+        super().__init__(base_url=base_url, **kwargs)
 
-
-async def tts(text: str, base_url="http://127.0.0.1:50021", speaker: int = 1):
-    async with aiohttp.ClientSession(base_url) as session:
-        async with session.post(
+    async def audio_query(self, text: str, speaker: int = 1) -> AudioQueryResult:
+        async with self.post(
             "audio_query", params={"text": text, "speaker": speaker}
         ) as resp:
-            d = await resp.json()
-        logger.debug(f"kana from vv: {d["kana"]!r}")
-        if not d["kana"]:
-            return
-        async with session.post(
+            return await resp.json()
+
+    async def synthesis(
+        self,
+        accent_data: AudioQueryResult,
+        speaker: int = 1,
+        enable_interrogative_upspeak=True,
+    ):
+        async with self.post(
             "synthesis",
-            params={"speaker": speaker, "enable_interrogative_upspeak": 1},
-            json=d,
+            params={
+                "speaker": speaker,
+                "enable_interrogative_upspeak": int(enable_interrogative_upspeak),
+            },
+            json=accent_data,
         ) as resp:
             return await resp.read()
+
+    async def simple_tts(self, text: str, speaker: int = 1):
+        data = await self.audio_query(text, speaker)
+        return await self.synthesis(data, speaker)
+
+    async def get_speakers(self) -> list[Speaker]:
+        async with self.post("speakers") as resp:
+            return await resp.json()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
