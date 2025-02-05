@@ -8,7 +8,7 @@ from melobot.typ import AsyncCallable
 from yarl import URL
 
 from .consts import http_headers
-from multimedia_sslcontext import SSL_CONTEXT
+from qqntimg_sslcontext import SSL_CONTEXT
 
 
 UrlStr = URL | str
