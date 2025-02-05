@@ -96,6 +96,7 @@ class MessageSegment(SQLModel, table=True):
 
 class Image(SQLModel, table=True):
     fileid: str = Field(primary_key=True)
+    timestamp: float = Field(default_factory=time.time)
     # 在下载完成前用 None 占位
     path: str | None = None
     hash: str | None = None
