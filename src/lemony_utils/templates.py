@@ -1,13 +1,14 @@
 import functools
-from typing import Callable, Literal, NotRequired, AsyncGenerator, Optional
+from typing import Literal, NotRequired, AsyncGenerator, Optional
 from contextlib import asynccontextmanager
 
-from aiohttp import ClientSession, ClientResponse
+from aiohttp import ClientSession, ClientResponse, TCPConnector
 from aiohttp.client import _RequestOptions
 from melobot.typ import AsyncCallable
 from yarl import URL
 
 from .consts import http_headers
+from multimedia_sslcontext import SSL_CONTEXT
 
 
 UrlStr = URL | str
@@ -23,7 +24,9 @@ async def async_http(
     json: Optional[dict] = None,
     **kwargs,
 ) -> AsyncGenerator[ClientResponse, None]:
-    async with ClientSession(headers=headers) as http_session:
+    async with ClientSession(
+        headers=headers, connector=TCPConnector(ssl=SSL_CONTEXT)
+    ) as http_session:
         if json:
             kwargs["json"] = json
         if params:
@@ -59,7 +62,9 @@ def async_reqtemplate(
                 url, reqargs = _, {}
             reqargs.setdefault("method", "get")
             async with (
-                ClientSession(headers=http_headers)
+                ClientSession(
+                    headers=http_headers, connector=TCPConnector(ssl=SSL_CONTEXT)
+                )
                 if session is None
                 else dummy_session_context(session)
             ) as session:
