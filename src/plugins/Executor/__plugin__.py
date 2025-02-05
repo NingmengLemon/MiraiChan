@@ -32,7 +32,7 @@ def run_shell_command(command):
 
 
 @Executor.use
-@on_start_match(".shell", checker=checker_factory.get_owner_checker())
+@on_start_match(".shell ", checker=checker_factory.get_owner_checker())
 async def run_shell(event: MessageEvent, adapter: Adapter, logger: GenericLogger):
     if len(_ := event.text.split(maxsplit=1)) != 2:
         return

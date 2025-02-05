@@ -45,7 +45,7 @@ def en2ktkn(m: re.Match) -> str:
 
 
 @vvtts.use
-@on_start_match(".tts")
+@on_start_match(".tts ")
 @lock()
 async def do_tts(event: MessageEvent, adapter: Adapter, logger: GenericLogger):
     text = event.text.strip().removeprefix(".tts").strip()
@@ -72,8 +72,9 @@ async def do_tts(event: MessageEvent, adapter: Adapter, logger: GenericLogger):
     await adapter.send(RecordSegment(file=audiob64url))
 
 
-@on_command(".", " ", "tts_setstyle")
-async def set_style(
+# args support
+@on_command(".", " ", "speak")
+async def speak_msg(
     event: MessageEvent,
     adapter: Adapter,
     logger: GenericLogger,
