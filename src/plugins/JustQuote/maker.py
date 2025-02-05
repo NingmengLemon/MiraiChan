@@ -96,9 +96,6 @@ class QuoteMaker:
     @staticmethod
     async def fetch_image(url: str, maxsize=-1):
         try:
-            url = url.replace(
-                "https://multimedia.nt.qq.com.cn/", "http://multimedia.nt.qq.com.cn/"
-            )
             async with async_http(url, "get", headers=http_headers) as resp:
                 resp.raise_for_status()
                 if (
