@@ -4,7 +4,7 @@ from melobot.plugin import PluginPlanner
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.handle import on_start_match
-from sqlmodel import select, col, func, and_
+from sqlmodel import select, col, func, and_, not_
 
 from recorder_models import User, Group, Message, MessageSegment, Image
 import checker_factory
@@ -26,6 +26,7 @@ async def query(event: GroupMessageEvent, adapter: Adapter) -> None:
                     Message.group_id == event.group_id,
                     MessageSegment.type == "text",
                     col(MessageSegment.data)["text"].icontains(words),
+                    not_(col(MessageSegment.data)["text"].startswith(".recquery")),
                 )
             )
             .distinct()
