@@ -47,6 +47,15 @@ def do_md5(d: bytes):
     return hashlib.md5(d).hexdigest()
 
 
+def get_fileid(url: URL):
+    if url.host == "multimedia.nt.qq.com.cn":
+        return url.query["fileid"]
+    elif url.host.endswith("qpic.cn"):
+        return max(url.parts, key=len)
+    logger.warning(f"url {url} is not known url pattern")
+    return str(url)
+
+
 async def retrieve_image(url: URL, dest: str):
     if not posixpath.exists(dest):
         os.makedirs(dest)
@@ -68,7 +77,7 @@ async def handle_image(url: str | URL):
     # for image under <https://multimedia.nt.qq.com.cn> only
     url = URL(url)  # .with_scheme("http")
     dest = posixpath.join(IMG_LOCATION, time.strftime("%Y-%m", time.localtime()))
-    fileid = url.query["fileid"]
+    fileid = get_fileid(url)
     try:
         path, md5 = await retrieve_image(url, dest)
     except Exception as e:
@@ -181,7 +190,7 @@ async def do_record(event: MessageEvent, adapter: Adapter):
         for i, seg in enumerate(event.message):
             if isinstance(seg, ImageSegment):
                 url = URL(str(seg.data["url"]))
-                ensure_image(sess, url.query["fileid"])
+                ensure_image(sess, get_fileid(url))
                 imgs_to_fetch.append(url)
             dicted = seg.to_dict()
             message.segments.append(
