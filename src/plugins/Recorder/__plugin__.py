@@ -4,6 +4,7 @@ import mimetypes
 import os
 import posixpath
 import time
+from typing import cast
 
 import aiofiles
 from melobot import get_bot
@@ -56,40 +57,66 @@ def get_fileid(url: URL):
     return str(url)
 
 
-async def retrieve_image(url: URL, dest: str):
-    if not posixpath.exists(dest):
-        os.makedirs(dest)
-    async with async_http(url, "get", headers=http_headers) as resp:
-        resp.raise_for_status()
-        data = await resp.read()
-        extension = mimetypes.guess_extension(resp.headers["Content-Type"])
-        filename = (md5 := await asyncio.to_thread(do_md5, data)) + (
-            extension if extension else ".jpg"
-        )
-        path = posixpath.join(dest, filename)
-        if not posixpath.exists(path):
-            async with aiofiles.open(path, "wb+") as fp:
-                await fp.write(data)
-    return path, md5
-
-
 async def handle_image(url: str | URL):
-    # for image under <https://multimedia.nt.qq.com.cn> only
     url = URL(url)  # .with_scheme("http")
     dest = posixpath.join(IMG_LOCATION, time.strftime("%Y-%m", time.localtime()))
     fileid = get_fileid(url)
     try:
-        path, md5 = await retrieve_image(url, dest)
+        if not posixpath.exists(dest):
+            os.makedirs(dest)
+        async with async_http(url, "get", headers=http_headers) as resp:
+            resp.raise_for_status()
+            data = await resp.read()
+            extension = mimetypes.guess_extension(resp.headers["Content-Type"])
+        filename = (md5 := await asyncio.to_thread(do_md5, data)) + (
+            extension if extension else ".jpg"
+        )
+        path = posixpath.join(dest, filename)
     except Exception as e:
         logger.warning(f"Exception while fetching img: {e}")
     else:
+        do_write = True
+        logger.debug(f"Image(fileid={fileid!r}) download ok, now saving...")
         with recorder.session as sess:
             img = sess.exec(select(Image).where(Image.fileid == fileid)).one()
+            former_imgs = sess.exec(
+                select(Image)
+                .where(Image.hash == md5)
+                .order_by(col(Image.timestamp).desc())
+            ).all()
+            # 找到从前可能存在的有效图片路径
+            former_existing_path = None
+            missing_images: list[Image] = []
+            for i in former_imgs:
+                if i.path and posixpath.exists(i.path):
+                    former_existing_path = i.path
+                else:
+                    missing_images.append(i)
+
+            if former_existing_path:
+                path = former_existing_path
+                do_write = False
+                logger.debug(
+                    f"Former image record found as {path!r}, dont save new one"
+                )
+            if missing_images:
+                for i in missing_images:
+                    i.path = path
+                sess.add_all(missing_images)
+                logger.debug(
+                    f"Refresh paths of {len(missing_images)} former images, cuz they are missing"
+                )
+            if do_write and posixpath.exists(path):
+                logger.debug(f"Image already exists as {path!r}, dont write")
+                do_write = False
             img.hash = md5
             img.path = path
             sess.add(img)
             sess.commit()
-        logger.debug(f"Image {fileid} saved to {dest}")
+        if do_write:
+            async with aiofiles.open(path, "wb+") as fp:
+                await fp.write(data)
+            logger.debug(f"Image(fileid={fileid!r}) saved as {path!r}")
 
 
 def ensure_user(session: Session, uid: int, name: str | None = None):
