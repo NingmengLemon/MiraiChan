@@ -2,12 +2,9 @@ import json
 
 from melobot import get_bot
 from melobot.plugin import PluginPlanner
-from melobot.log import GenericLogger
-from melobot.protocols.onebot.v11.handle import on_command
+from melobot.handle import on_command, GetParseArgs
 from melobot.protocols.onebot.v11.adapter import Adapter
-from melobot.protocols.onebot.v11.handle import GetParseArgs
-from melobot.protocols.onebot.v11.utils import ParseArgs
-from melobot.protocols.onebot.v11.adapter.event import MessageEvent
+from melobot.utils.parse import CmdArgs
 
 from arknights_datasource import ArknSource
 from lemony_utils.images import text_to_imgseg
@@ -39,7 +36,7 @@ async def _():
 @on_command(".", " ", ["arkquery", "aq"])
 async def query(
     adapter: Adapter,
-    args: ParseArgs = GetParseArgs(),
+    args: CmdArgs = GetParseArgs(),
 ):
     if len(args.vals) < 1:
         await adapter.send_reply("不正确的指令格式")

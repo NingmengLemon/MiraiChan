@@ -2,7 +2,8 @@ import asyncio
 import subprocess
 
 from melobot import PluginPlanner, GenericLogger
-from melobot.protocols.onebot.v11 import on_start_match, Adapter
+from melobot.protocols.onebot.v11 import  Adapter
+from melobot.handle import on_start_match
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 
 from lemony_utils.images import text_to_imgseg
@@ -53,4 +54,4 @@ async def run_shell(event: MessageEvent, adapter: Adapter, logger: GenericLogger
 
 @on_start_match(".pyexec", checker=checker_factory.get_owner_checker())
 async def exec_py(event: MessageEvent, adapter: Adapter, logger: GenericLogger):
-    return
+    raise NotImplementedError()

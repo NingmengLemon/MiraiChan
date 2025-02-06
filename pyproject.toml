@@ -6,7 +6,7 @@ authors = [
     { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
 ]
 dependencies = [
-    "melobot[onebot]>=3.0.0",
+    "melobot[onebot]>=3.1.0",
     "pypinyin>=0.53.0",
     "aiofiles>=24.1.0",
     "aiohttp>=3.10.10",

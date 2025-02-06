@@ -1,7 +1,8 @@
 import atexit
 from melobot import get_logger
 from melobot.plugin import PluginPlanner
-from melobot.protocols.onebot.v11 import on_start_match, Adapter
+from melobot.handle import on_start_match
+from melobot.protocols.onebot.v11 import Adapter
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 from pydantic import BaseModel
 

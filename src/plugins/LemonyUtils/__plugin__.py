@@ -3,14 +3,14 @@ from typing import Any
 
 from melobot.plugin import PluginPlanner
 from melobot.log import GenericLogger
-from melobot.protocols.onebot.v11.handle import on_command, GetParseArgs
+from melobot.handle import on_command, GetParseArgs
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.segment import (
     ReplySegment,
     JsonSegment,
     XmlSegment,
 )
-from melobot.protocols.onebot.v11.utils import ParseArgs
+from melobot.utils.parse import CmdArgs
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 
 from lemony_utils.images import text_to_imgseg
@@ -74,7 +74,7 @@ async def getmsg(
     adapter: Adapter,
     event: GroupMessageEvent,
     logger: GenericLogger,
-    args: ParseArgs = GetParseArgs(),
+    args: CmdArgs = GetParseArgs(),
 ):
     if not (msg := await get_reply(adapter, event)):
         return
@@ -100,9 +100,7 @@ async def getmsg(
 
 
 @LemonyUtils.use
-@on_command(
-    ".", " ", "withdraw", checker=checker_factory.get_owner_checker()
-)
+@on_command(".", " ", "withdraw", checker=checker_factory.get_owner_checker())
 async def withdraw(event: MessageEvent, adapter: Adapter):
     msg = event.get_segments(ReplySegment)
     if not msg:

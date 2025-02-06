@@ -2,14 +2,9 @@ import atexit
 import time
 from typing import Literal
 
-from melobot import PluginPlanner, PluginInfo
-from melobot.log import GenericLogger
+from melobot import PluginPlanner
 from melobot.utils import RWContext
-from melobot.protocols.onebot.v11.handle import (
-    on_full_match,
-    on_start_match,
-    on_command,
-)
+from melobot.handle import on_start_match
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 from melobot.protocols.onebot.v11.adapter import Adapter
 

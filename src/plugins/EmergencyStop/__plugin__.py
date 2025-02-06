@@ -1,7 +1,7 @@
 import sys
 
 from melobot import PluginPlanner, get_logger
-from melobot.protocols.onebot.v11.handle import on_full_match
+from melobot.handle import on_full_match
 from pydantic import BaseModel
 
 from configloader import ConfigLoader, ConfigLoaderMetadata

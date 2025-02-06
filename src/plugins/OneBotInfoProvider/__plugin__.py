@@ -2,11 +2,8 @@ from typing import Any
 import json
 
 from melobot import PluginPlanner, get_bot, get_logger
-from melobot.protocols.onebot.v11 import (
-    Adapter,
-    on_command,
-    on_meta,
-)
+from melobot.protocols.onebot.v11 import Adapter, on_meta
+from melobot.handle import on_command
 from melobot.protocols.onebot.v11.adapter.event import HeartBeatMetaEvent
 
 from ... import checker_factory
@@ -58,9 +55,7 @@ async def auto_update_meta(event: HeartBeatMetaEvent):
 
 
 @OneBotInfoProvider.use
-@on_command(
-    ".", " ", "botinfo", checker=checker_factory.get_owner_checker()
-)
+@on_command(".", " ", "botinfo", checker=checker_factory.get_owner_checker())
 async def echo_info(adapter: Adapter):
     await adapter.send_reply(
         json.dumps(

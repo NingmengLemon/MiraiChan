@@ -11,8 +11,9 @@ from melobot import get_bot
 from melobot.utils import lock, async_interval
 from melobot.plugin import PluginPlanner
 from melobot.log import GenericLogger, get_logger
-from melobot.protocols.onebot.v11.utils import ParseArgs
-from melobot.protocols.onebot.v11.handle import on_command, on_message, GetParseArgs
+from melobot.utils.parse import CmdArgs
+from melobot.handle import on_command, GetParseArgs
+from melobot.protocols.onebot.v11.handle import on_message
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.segment import ImageRecvSegment, ImageSegment
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
@@ -149,7 +150,7 @@ def record_img(
     checker=checker_factory.get_owner_checker(),
 )
 async def test_recognize(
-    adapter: Adapter, event: GroupMessageEvent, args: ParseArgs = GetParseArgs()
+    adapter: Adapter, event: GroupMessageEvent, args: CmdArgs = GetParseArgs()
 ):
     msg = await get_reply(adapter, event)
     if msg is None:
