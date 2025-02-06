@@ -33,8 +33,30 @@ async def patch_echo_get_group_member_list_none(raw_dict: _RawData, _: Exception
                     i[k] = ""
 
 
+async def patch_event_private_empty_record_segment(raw_dict: _RawData, _: Exception):
+    """
+    Lagrange.OneBot 作为实现端时，私聊的语音消息中可能有多个 RecordSegment，且其中一个没有内容
+
+    这会导致 melobot 报一个 KeyError，不知道为什么
+    """
+    if raw_dict.get("message_type") == "private":
+        raw_dict["message"] = [
+            seg
+            for seg in raw_dict["message"]
+            if (
+                seg["type"] != "record"
+                or (
+                    seg["type"] == "record"
+                    and seg["data"]["file"]
+                    and seg["data"]["url"]
+                )
+            )
+        ]
+
+
 def patch_all(adapter: Adapter):
     adapter.when_validate_error("event")(patch_event_anonymous_missing)
+    adapter.when_validate_error("event")(patch_event_private_empty_record_segment)
     adapter.when_validate_error("echo")(patch_echo_data_missing)
     adapter.when_validate_error("echo")(patch_echo_get_group_member_list_none)
     return adapter
