@@ -11,7 +11,7 @@ from melobot.protocols.onebot.v11.adapter.segment import (
     XmlSegment,
 )
 from melobot.utils.parse import CmdArgs
-from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
+from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 
 from lemony_utils.images import text_to_imgseg
 import checker_factory
@@ -72,7 +72,7 @@ async def echo(adapter: Adapter, event: MessageEvent):
 )
 async def getmsg(
     adapter: Adapter,
-    event: GroupMessageEvent,
+    event: MessageEvent,
     logger: GenericLogger,
     args: CmdArgs = GetParseArgs(),
 ):
