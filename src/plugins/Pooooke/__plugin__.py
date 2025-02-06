@@ -1,8 +1,7 @@
-from melobot import get_bot, get_logger
 from melobot.plugin import PluginPlanner
 from melobot.protocols.onebot.v11 import on_notice, Adapter
-from melobot.protocols.onebot.v11.adapter.segment import PokeSegment, Segment
-from melobot.protocols.onebot.v11.adapter.event import MessageEvent, PokeNotifyEvent
+from melobot.handle import on_command
+from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, PokeNotifyEvent
 
 from extended_actions.lagrange import GroupPokeAction, FriendPokeAction
 
@@ -20,3 +19,8 @@ async def poke_back(event: PokeNotifyEvent, adapter: Adapter):
             )
         else:
             await adapter.call_output(FriendPokeAction(user_id=event.user_id))
+
+
+@on_command(".", " ", "ping")
+async def ping(event: GroupMessageEvent, adapter: Adapter):
+    raise NotImplementedError()

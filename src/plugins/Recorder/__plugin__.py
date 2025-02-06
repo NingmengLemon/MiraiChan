@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import json
 import mimetypes
 import os
 import posixpath
@@ -236,7 +237,8 @@ async def do_record(event: MessageEvent, adapter: Adapter):
                 url = URL(str(seg.data["url"]))
                 ensure_image(sess, get_fileid(url))
                 imgs_to_fetch.append(url)
-            dicted = seg.to_dict()
+            dicted = seg._model.model_dump(mode="json")
+            # dicted = json.loads(seg.to_json())
             message.segments.append(
                 MessageSegment(order=i, type=seg.type, data=dicted["data"])
             )

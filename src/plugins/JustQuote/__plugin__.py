@@ -6,7 +6,8 @@ from melobot import PluginPlanner
 from melobot.log import GenericLogger
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, ImageSegment
-from melobot.protocols.onebot.v11 import on_command, Adapter
+from melobot.protocols.onebot.v11 import Adapter
+from melobot.handle import on_command
 from pydantic import BaseModel
 
 from configloader import ConfigLoader, ConfigLoaderMetadata

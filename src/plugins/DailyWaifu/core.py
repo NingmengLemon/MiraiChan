@@ -34,7 +34,13 @@ class WaifuManager:
             dburl,
             connect_args={"check_same_thread": False},
         )
-        SQLModel.metadata.create_all(self._engine)
+        SQLModel.metadata.create_all(
+            self._engine,
+            tables=[
+                SQLModel.metadata.tables[t.__tablename__]
+                for t in (DailyWaifuRel, MarriageRel)
+            ],
+        )
         self._mlock = threading.Lock()
 
     @contextmanager

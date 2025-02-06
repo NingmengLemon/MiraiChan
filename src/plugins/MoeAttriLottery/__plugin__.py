@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from melobot import get_logger
 from melobot.plugin import PluginPlanner
 from melobot.log import GenericLogger
-from melobot.protocols.onebot.v11.handle import on_command
+from melobot.handle import on_command
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 
