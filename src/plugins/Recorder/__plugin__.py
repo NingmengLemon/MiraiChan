@@ -4,7 +4,7 @@ import mimetypes
 import os
 import posixpath
 import time
-from typing import cast
+from pathlib import Path
 
 import aiofiles
 from melobot import get_bot
@@ -19,7 +19,7 @@ from melobot.protocols.onebot.v11.adapter.event import (
 )
 from melobot.protocols.onebot.v11.adapter.segment import ImageSegment
 from yarl import URL
-from sqlmodel import Session, create_engine, SQLModel, select, func, col
+from sqlmodel import Session, create_engine, SQLModel, select, func, col, or_
 
 from lemony_utils.templates import async_http
 from lemony_utils.consts import http_headers
@@ -37,7 +37,7 @@ class Recorder:
 
 
 DB_URL = "sqlite:///data/record/messages.db"
-IMG_LOCATION = "data/record/images"
+IMG_LOCATION = Path("data/record/images")
 os.makedirs(IMG_LOCATION, exist_ok=True)
 
 recorder = Recorder(DB_URL)
@@ -59,11 +59,10 @@ def get_fileid(url: URL):
 
 async def handle_image(url: str | URL):
     url = URL(url)  # .with_scheme("http")
-    dest = posixpath.join(IMG_LOCATION, time.strftime("%Y-%m", time.localtime()))
+    dest = IMG_LOCATION / time.strftime("%Y-%m", time.localtime())
     fileid = get_fileid(url)
     try:
-        if not posixpath.exists(dest):
-            os.makedirs(dest)
+        dest.mkdir(parents=True, exist_ok=True)
         async with async_http(url, "get", headers=http_headers) as resp:
             resp.raise_for_status()
             data = await resp.read()
@@ -71,7 +70,7 @@ async def handle_image(url: str | URL):
         filename = (md5 := await asyncio.to_thread(do_md5, data)) + (
             extension if extension else ".jpg"
         )
-        path = posixpath.join(dest, filename)
+        path = (dest / filename).as_posix()
     except Exception as e:
         logger.warning(f"Exception while fetching img: {e}")
     else:
@@ -88,13 +87,13 @@ async def handle_image(url: str | URL):
             former_existing_path = None
             missing_images: list[Image] = []
             for i in former_imgs:
-                if i.path and posixpath.exists(i.path):
-                    former_existing_path = i.path
+                if i.path and (_ := Path(i.path)).exists():
+                    former_existing_path = _.as_posix()
                 else:
                     missing_images.append(i)
 
             if former_existing_path:
-                path = former_existing_path
+                path = Path(former_existing_path).as_posix()
                 do_write = False
                 logger.debug(
                     f"Former image record found as {path!r}, dont save new one"
@@ -189,6 +188,24 @@ async def update_myself(adapter: Adapter):
     logger.info(f"My name is {myname}, now recording!")
 
 
+@bot.on_loaded
+async def delete_failed():
+    with recorder.session as sess:
+        images = sess.exec(
+            select(Image).where(
+                or_(
+                    col(Image.hash).is_(None),
+                    col(Image.path).is_(None),
+                )
+            )
+        ).all()
+        if images:
+            for i in images:
+                sess.delete(i)
+            sess.commit()
+            logger.debug(f"deleted {len(images)} failed images left from last launch")
+
+
 @RecorderPlugin.use
 @on_message()
 async def do_record(event: MessageEvent, adapter: Adapter):
@@ -229,6 +246,5 @@ async def do_record(event: MessageEvent, adapter: Adapter):
             select(func.count()).select_from(Message)  # pylint: disable=E1102
         ).one()
         logger.debug(f"Recorded new, now exists {count} msgs in db")
-    await asyncio.gather(
-        *[handle_image(u) for u in imgs_to_fetch], fix_group_name(adapter)
-    )
+    await asyncio.gather(*[handle_image(u) for u in imgs_to_fetch])
+    await fix_group_name(adapter)
