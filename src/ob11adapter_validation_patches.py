@@ -35,7 +35,7 @@ async def patch_echo_get_group_member_list_none(raw_dict: _RawData, _: Exception
 
 async def patch_event_private_empty_record_segment(raw_dict: _RawData, _: Exception):
     """
-    Lagrange.OneBot 作为实现端时，私聊的语音消息中可能有多个 RecordSegment，且其中一个没有内容
+    Lagrange.OneBot 作为实现端时，私聊的单个语音消息中可能有多个 RecordSegment，且只有其中一个有内容
 
     这会导致 melobot 报一个 KeyError，不知道为什么
     """
