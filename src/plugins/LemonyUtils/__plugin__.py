@@ -3,7 +3,7 @@ from typing import Any
 
 from melobot.plugin import PluginPlanner
 from melobot.log import GenericLogger
-from melobot.handle import on_command, GetParseArgs
+from melobot.handle import on_command
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.segment import (
     ReplySegment,
@@ -74,7 +74,7 @@ async def getmsg(
     adapter: Adapter,
     event: MessageEvent,
     logger: GenericLogger,
-    args: CmdArgs = GetParseArgs(),
+    args: CmdArgs,
 ):
     if not (msg := await get_reply(adapter, event)):
         return

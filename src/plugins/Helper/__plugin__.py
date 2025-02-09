@@ -1,6 +1,6 @@
 from typing import cast
 from melobot import PluginPlanner, get_bot
-from melobot.handle import on_command, GetParseArgs
+from melobot.handle import on_command
 from melobot.utils.parse import CmdArgs
 from melobot.protocols.onebot.v11 import Adapter
 
@@ -30,7 +30,7 @@ def split_page_by_height(s: str, page_height: int):
 @on_command(".", " ", "show_help")
 async def show_help(
     adapter: Adapter,
-    args: CmdArgs = GetParseArgs(),
+    args: CmdArgs,
 ):
     plugin = cast(str, args.vals[0]) if args.vals else None
     if plugin and plugin[0].isdigit():

@@ -2,7 +2,7 @@ import json
 
 from melobot import get_bot
 from melobot.plugin import PluginPlanner
-from melobot.handle import on_command, GetParseArgs
+from melobot.handle import on_command
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.utils.parse import CmdArgs
 
@@ -36,7 +36,7 @@ async def _():
 @on_command(".", " ", ["arkquery", "aq"])
 async def query(
     adapter: Adapter,
-    args: CmdArgs = GetParseArgs(),
+    args: CmdArgs,
 ):
     if len(args.vals) < 1:
         await adapter.send_reply("不正确的指令格式")

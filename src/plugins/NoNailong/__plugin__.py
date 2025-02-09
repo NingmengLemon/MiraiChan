@@ -12,7 +12,7 @@ from melobot.utils import lock, async_interval
 from melobot.plugin import PluginPlanner
 from melobot.log import GenericLogger, get_logger
 from melobot.utils.parse import CmdArgs
-from melobot.handle import on_command, GetParseArgs
+from melobot.handle import on_command
 from melobot.protocols.onebot.v11.handle import on_message
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.segment import ImageRecvSegment, ImageSegment
@@ -150,7 +150,7 @@ def record_img(
     checker=checker_factory.get_owner_checker(),
 )
 async def test_recognize(
-    adapter: Adapter, event: GroupMessageEvent, args: CmdArgs = GetParseArgs()
+    adapter: Adapter, event: GroupMessageEvent, args: CmdArgs
 ):
     msg = await get_reply(adapter, event)
     if msg is None:
