@@ -49,8 +49,9 @@ class Group(SQLModel, table=True):
 
 class Message(SQLModel, table=True):
     store_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    store_time: float = Field(default_factory=time.time, index=True)
     message_id: int = Field(index=True)
-    timestamp: float = Field(default_factory=time.time, index=True)
+    timestamp: float = Field(index=True)
     message_type: str = Field(default="group")
 
     sender_id: int = Field(foreign_key="user.id", index=True)

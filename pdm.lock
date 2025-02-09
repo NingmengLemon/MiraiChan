@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:716deb46f4ad428b646a30a881e553be9e2c9a242ceda824624a9d712a913f64"
+content_hash = "sha256:154ede9b64098e863f65e6fc68736fee0f22e89a5e3a03789ca26766b5c4791f"
 
 [[metadata.targets]]
 requires_python = "==3.12.*"
@@ -555,7 +555,7 @@ files = [
 
 [[package]]
 name = "melobot"
-version = "3.1.0"
+version = "3.1.1"
 requires_python = ">=3.10"
 summary = "A bot framework with much high level features."
 groups = ["default"]
@@ -567,26 +567,26 @@ dependencies = [
     "typing-extensions>=4.10.0",
 ]
 files = [
-    {file = "melobot-3.1.0-py3-none-any.whl", hash = "sha256:b84d91e1f39c73e1d0c8b14b87cfc24fdd9e0dab1b447f5ac3bcc982ff91e69d"},
-    {file = "melobot-3.1.0.tar.gz", hash = "sha256:74885e64a9a7d115b551de7fd98b90bac51ca7730499ebee6e9d0dc265ae92ac"},
+    {file = "melobot-3.1.1-py3-none-any.whl", hash = "sha256:522e41c1c5d87fc98c50cc9a107482dca4b603ff965475f1a7281185ec5e98e8"},
+    {file = "melobot-3.1.1.tar.gz", hash = "sha256:f5a286fd5c0508b514e58c525e1afba6eaabd93ed447224bb73cb8c29569abc9"},
 ]
 
 [[package]]
 name = "melobot"
-version = "3.1.0"
+version = "3.1.1"
 extras = ["onebot"]
 requires_python = ">=3.10"
 summary = "A bot framework with much high level features."
 groups = ["default"]
 dependencies = [
     "aiohttp<4,>=3.10.10",
-    "melobot==3.1.0",
+    "melobot==3.1.1",
     "pydantic<3,>=2.9.2",
     "websockets<15,>=14.1",
 ]
 files = [
-    {file = "melobot-3.1.0-py3-none-any.whl", hash = "sha256:b84d91e1f39c73e1d0c8b14b87cfc24fdd9e0dab1b447f5ac3bcc982ff91e69d"},
-    {file = "melobot-3.1.0.tar.gz", hash = "sha256:74885e64a9a7d115b551de7fd98b90bac51ca7730499ebee6e9d0dc265ae92ac"},
+    {file = "melobot-3.1.1-py3-none-any.whl", hash = "sha256:522e41c1c5d87fc98c50cc9a107482dca4b603ff965475f1a7281185ec5e98e8"},
+    {file = "melobot-3.1.1.tar.gz", hash = "sha256:f5a286fd5c0508b514e58c525e1afba6eaabd93ed447224bb73cb8c29569abc9"},
 ]
 
 [[package]]

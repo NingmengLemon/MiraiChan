@@ -1,6 +1,5 @@
 import asyncio
 import hashlib
-import json
 import mimetypes
 import os
 import posixpath
@@ -54,8 +53,17 @@ def get_fileid(url: URL):
         return url.query["fileid"]
     elif url.host.endswith("qpic.cn"):
         return max(url.parts, key=len)
-    logger.warning(f"url {url} is not known url pattern")
+    # logger.warning(f"url {url} is not known url pattern")
     return str(url)
+
+
+def get_filepath(fileid: str):
+    with recorder.session as sess:
+        file = sess.exec(select(Image).where(Image.fileid == fileid)).one_or_none()
+        if file:
+            return file.path
+        else:
+            return None
 
 
 async def handle_image(url: str | URL):
@@ -166,7 +174,7 @@ def get_session():
     return recorder.session
 
 
-RecorderPlugin = PluginPlanner("0.1.0", funcs=[get_session])
+RecorderPlugin = PluginPlanner("0.1.0", funcs=[get_session, get_fileid, get_filepath])
 bot = get_bot()
 
 
@@ -237,8 +245,7 @@ async def do_record(event: MessageEvent, adapter: Adapter):
                 url = URL(str(seg.data["url"]))
                 ensure_image(sess, get_fileid(url))
                 imgs_to_fetch.append(url)
-            dicted = seg._model.model_dump(mode="json")
-            # dicted = json.loads(seg.to_json())
+            dicted = seg.to_dict()
             message.segments.append(
                 MessageSegment(order=i, type=seg.type, data=dicted["data"])
             )
