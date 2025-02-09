@@ -1,7 +1,7 @@
 import re
 from melobot.plugin import PluginPlanner
 from melobot.log import GenericLogger
-from melobot.handle import on_start_match, on_command, GetParseArgs
+from melobot.handle import on_start_match, on_command
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import RecordSegment
@@ -78,6 +78,6 @@ async def speak_msg(
     event: MessageEvent,
     adapter: Adapter,
     logger: GenericLogger,
-    args: CmdArgs = GetParseArgs(),
+    args: CmdArgs,
 ):
     raise NotImplementedError()
