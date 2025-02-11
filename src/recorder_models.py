@@ -4,6 +4,7 @@ import uuid
 
 from sqlmodel import Relationship, SQLModel, Field, JSON, CheckConstraint
 from sqlalchemy import Column
+from sqlalchemy.ext.asyncio.session import AsyncAttrs
 
 __all__ = [
     "UserGroupLink",
@@ -11,17 +12,17 @@ __all__ = [
     "Group",
     "Message",
     "MessageSegment",
-    "Image",
+    "MediaFile",
     "TABLES",
 ]
 
 
-class UserGroupLink(SQLModel, table=True):
+class UserGroupLink(SQLModel, AsyncAttrs, table=True):
     user_id: int | None = Field(default=None, primary_key=True, foreign_key="user.id")
     group_id: int | None = Field(default=None, primary_key=True, foreign_key="group.id")
 
 
-class User(SQLModel, table=True):
+class User(SQLModel, AsyncAttrs, table=True):
     id: int = Field(primary_key=True)
     name: str | None
 
@@ -38,7 +39,7 @@ class User(SQLModel, table=True):
     )
 
 
-class Group(SQLModel, table=True):
+class Group(SQLModel, AsyncAttrs, table=True):
     id: int = Field(primary_key=True)
     name: str | None = None
     members: list[User] = Relationship(
@@ -47,7 +48,7 @@ class Group(SQLModel, table=True):
     messages: list["Message"] = Relationship(back_populates="group")
 
 
-class Message(SQLModel, table=True):
+class Message(SQLModel, AsyncAttrs, table=True):
     store_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     store_time: float = Field(default_factory=time.time, index=True)
     message_id: int = Field(index=True)
@@ -84,7 +85,7 @@ class Message(SQLModel, table=True):
     )
 
 
-class MessageSegment(SQLModel, table=True):
+class MessageSegment(SQLModel, AsyncAttrs, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     order: int = Field(ge=0)
 
@@ -95,7 +96,7 @@ class MessageSegment(SQLModel, table=True):
     message: Message = Relationship(back_populates="segments")
 
 
-class Image(SQLModel, table=True):
+class MediaFile(SQLModel, AsyncAttrs, table=True):
     fileid: str = Field(primary_key=True)
     timestamp: float = Field(default_factory=time.time)
     # 在下载完成前用 None 占位
@@ -105,48 +106,5 @@ class Image(SQLModel, table=True):
 
 TABLES = [
     SQLModel.metadata.tables[t.__tablename__]
-    for t in (UserGroupLink, User, Group, Message, MessageSegment, Image)
+    for t in (UserGroupLink, User, Group, Message, MessageSegment, MediaFile)
 ]
-
-
-def test():
-    from sqlmodel import create_engine, Session
-    import os
-
-    db = "testrecorder.db"
-    if os.path.exists(db):
-        os.remove(db)
-    engine = create_engine(f"sqlite:///{db}")
-    SQLModel.metadata.create_all(engine, tables=TABLES)
-    with Session(engine) as sess:
-        u1 = User(id=45450721, name="Koharu")
-        u2 = User(id=161127, name="Hifumi")
-        g = Group(id=123456, name="Supplementary Classes Club")
-        g.members = [u1, u2]
-        msg1 = Message(
-            message_id=1,
-            message_type="group",
-            sender=u1,
-            group=g,
-            segments=[
-                MessageSegment(
-                    order=0, type="text", data={"content": "Hello, everyone!"}
-                ),
-                MessageSegment(
-                    order=1, type="image", data={"url": "http://example.com/image.png"}
-                ),
-            ],
-        )
-
-        msg2 = Message(
-            message_id=2,
-            message_type="private",
-            sender=u2,
-            receiver=u1,
-            segments=[
-                MessageSegment(order=0, type="text", data={"content": "Hi, Koharu!"})
-            ],
-        )
-
-        sess.add_all([u1, u2, g, msg1, msg2])
-        sess.commit()
