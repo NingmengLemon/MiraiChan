@@ -14,6 +14,7 @@ from melobot import get_bot
 from melobot.plugin import PluginPlanner
 from melobot.typ import AsyncCallable
 from melobot.log import get_logger
+from melobot.utils import lock
 from melobot.protocols.onebot.v11.handle import on_message
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import (
@@ -130,6 +131,7 @@ async def _fetch_mediafile(url: str | URL, dest: Path):
     return data, md5, path
 
 
+@lock()
 async def _store_mediafile(data: bytes, fileid: str, hash_str: str, path: str):
     do_write = True
     logger.debug(f"MediaFile(fileid={fileid!r}) download ok, now saving...")
