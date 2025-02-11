@@ -1,10 +1,11 @@
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from collections.abc import Awaitable
 import uuid
 
 from sqlmodel import Relationship, SQLModel, Field, JSON, CheckConstraint
 from sqlalchemy import Column
-from sqlalchemy.ext.asyncio.session import AsyncAttrs
+from sqlalchemy.ext.asyncio.session import AsyncAttrs as _AsyncAttrs
 
 __all__ = [
     "UserGroupLink",
@@ -16,13 +17,26 @@ __all__ = [
     "TABLES",
 ]
 
+T = TypeVar("T")
+
+
+class AsyncAttrs(_AsyncAttrs, Generic[T]):
+    if TYPE_CHECKING:
+        awaitable_attrs: T
+
 
 class UserGroupLink(SQLModel, AsyncAttrs, table=True):
     user_id: int | None = Field(default=None, primary_key=True, foreign_key="user.id")
     group_id: int | None = Field(default=None, primary_key=True, foreign_key="group.id")
 
 
-class User(SQLModel, AsyncAttrs, table=True):
+class _UserAwaitableAttrs:
+    groups: Awaitable[list["Group"]]
+    sent_messages: Awaitable[list["Message"]]
+    received_messages: Awaitable[list["Message"]]
+
+
+class User(SQLModel, AsyncAttrs[_UserAwaitableAttrs], table=True):
     id: int = Field(primary_key=True)
     name: str | None
 
@@ -39,7 +53,12 @@ class User(SQLModel, AsyncAttrs, table=True):
     )
 
 
-class Group(SQLModel, AsyncAttrs, table=True):
+class _GroupAwaitableAttrs:
+    members: Awaitable[list["User"]]
+    messages: Awaitable[list["Message"]]
+
+
+class Group(SQLModel, AsyncAttrs[_GroupAwaitableAttrs], table=True):
     id: int = Field(primary_key=True)
     name: str | None = None
     members: list[User] = Relationship(
@@ -48,7 +67,14 @@ class Group(SQLModel, AsyncAttrs, table=True):
     messages: list["Message"] = Relationship(back_populates="group")
 
 
-class Message(SQLModel, AsyncAttrs, table=True):
+class _MsgAwaitableAttrs:
+    sender: Awaitable[User]
+    group: Awaitable[Group | None]
+    receiver: Awaitable[User | None]
+    segments: Awaitable["MessageSegment"]
+
+
+class Message(SQLModel, AsyncAttrs[_MsgAwaitableAttrs], table=True):
     store_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     store_time: float = Field(default_factory=time.time, index=True)
     message_id: int = Field(index=True)
@@ -85,7 +111,11 @@ class Message(SQLModel, AsyncAttrs, table=True):
     )
 
 
-class MessageSegment(SQLModel, AsyncAttrs, table=True):
+class _MsgSegAwaitableAttrs:
+    message: Awaitable[Message]
+
+
+class MessageSegment(SQLModel, AsyncAttrs[_MsgSegAwaitableAttrs], table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     order: int = Field(ge=0)
 
