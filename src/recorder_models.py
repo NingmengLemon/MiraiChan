@@ -71,7 +71,7 @@ class _MsgAwaitableAttrs:
     sender: Awaitable[User]
     group: Awaitable[Group | None]
     receiver: Awaitable[User | None]
-    segments: Awaitable["MessageSegment"]
+    segments: Awaitable[list["MessageSegment"]]
 
 
 class Message(SQLModel, AsyncAttrs[_MsgAwaitableAttrs], table=True):

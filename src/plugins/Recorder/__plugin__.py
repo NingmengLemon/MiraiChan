@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import logging
 from typing import Concatenate
 from collections.abc import Callable
 import hashlib
@@ -22,7 +23,7 @@ from melobot.protocols.onebot.v11.adapter.event import (
     GroupMessageEvent,
     PrivateMessageEvent,
 )
-from melobot.protocols.onebot.v11.adapter.segment import ImageSegment
+from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, RecordSegment
 from yarl import URL
 from sqlmodel import SQLModel, Session, select, func, col, or_
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -36,10 +37,10 @@ from .utils import get_context_messages
 
 
 class RecorderCore:
-    def __init__(self, dburl: str):
+    def __init__(self, dburl: str, echo: bool = False):
         self._url = dburl
         self._engine = create_async_engine(
-            dburl, connect_args={"check_same_thread": False}
+            dburl, connect_args={"check_same_thread": False}, echo=echo
         )
         self._startup_event = asyncio.Event()
 
@@ -51,14 +52,15 @@ class RecorderCore:
         if self.started.is_set():
             raise RuntimeError("already started")
         async with self._engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.create_all, tables=TABLES)
+            await conn.run_sync(
+                SQLModel.metadata.create_all, tables=TABLES, checkfirst=True
+            )
         self._startup_event.set()
 
-    @property
-    def session(self):
+    def get_session(self, autoflush=False):
         if not self.started.is_set():
             raise RuntimeError("recorder not started yet")
-        return AsyncSession(self._engine)
+        return AsyncSession(self._engine, autoflush=autoflush)
 
     async def run_sync[
         **P, T
@@ -69,7 +71,7 @@ class RecorderCore:
         **kwargs: P.kwargs,
     ):
         """单开一个 AsyncSession 来执行第一个参数是 Session 的同步函数"""
-        async with self.session as asess:
+        async with self.get_session() as asess:
             return await asess.run_sync(func, *args, **kwargs)
 
     def to_async[
@@ -90,8 +92,10 @@ os.makedirs(IMAGE_LOCATION, exist_ok=True)
 VOICE_LOCATION = Path("data/record/voices")
 os.makedirs(VOICE_LOCATION, exist_ok=True)
 
-recorder = RecorderCore(DB_URL)
 logger = get_logger()
+recorder = RecorderCore(
+    DB_URL, echo=getattr(logger, "level", logging.INFO) == logging.DEBUG
+)
 
 
 def do_md5(d: bytes):
@@ -108,7 +112,7 @@ def url_to_fileid(url: URL):
 
 
 async def get_filepath(fileid: str):
-    async with recorder.session as sess:
+    async with recorder.get_session() as sess:
         file = (
             await sess.exec(select(MediaFile).where(MediaFile.fileid == fileid))
         ).one_or_none()
@@ -135,7 +139,7 @@ async def _fetch_mediafile(url: str | URL, dest: Path):
 async def _store_mediafile(data: bytes, fileid: str, hash_str: str, path: str):
     do_write = True
     logger.debug(f"MediaFile(fileid={fileid!r}) download ok, now saving...")
-    async with recorder.session as sess:
+    async with recorder.get_session() as sess:
         img = (
             await sess.exec(select(MediaFile).where(MediaFile.fileid == fileid))
         ).one()
@@ -220,7 +224,7 @@ async def ensure_mediafile(session: AsyncSession, fileid: str):
 
 
 async def fix_group_name(adapter: Adapter):
-    async with recorder.session as sess:
+    async with recorder.get_session() as sess:
         groups = (await sess.exec(select(Group).where(col(Group.name).is_(None)))).all()
         if not groups:
             return
@@ -239,10 +243,7 @@ async def fix_group_name(adapter: Adapter):
         logger.debug(f"fixed names of {count} groups")
 
 
-def get_session():
-    return recorder.session
-
-
+get_session = recorder.get_session
 run_sync = recorder.run_sync
 to_async = recorder.to_async
 
@@ -277,7 +278,7 @@ async def update_myself(adapter: Adapter):
         return
     myid = login.data["user_id"]
     myname = login.data["nickname"]
-    async with recorder.session as sess:
+    async with recorder.get_session() as sess:
         me = (await sess.exec(select(User).where(User.id == myid))).one_or_none()
         if me is None:
             me = User(id=myid, name=myname)
@@ -291,7 +292,7 @@ async def update_myself(adapter: Adapter):
 @bot.on_loaded
 async def delete_failed():
     await recorder.started.wait()
-    async with recorder.session as sess:
+    async with recorder.get_session() as sess:
         images = (
             await sess.exec(
                 select(MediaFile).where(
@@ -313,7 +314,7 @@ async def delete_failed():
 @on_message()
 async def do_record(event: MessageEvent, adapter: Adapter):
     await recorder.started.wait()
-    async with recorder.session as sess:
+    async with recorder.get_session() as sess:
         user = await ensure_user(sess, event.sender.user_id, event.sender.nickname)
         params = {
             "message_id": event.message_id,
@@ -332,26 +333,29 @@ async def do_record(event: MessageEvent, adapter: Adapter):
         message = Message(**params)
         sess.add(message)
 
-        imgs_to_fetch: list[URL] = []
+        urls_to_fetch: list[URL] = []
+        segments = []
         objs_to_add = []
         for i, seg in enumerate(event.message):
             if isinstance(seg, ImageSegment):
-                # TODO: 处理语音消息段
                 url = URL(str(seg.data["url"]))
                 await ensure_mediafile(sess, url_to_fileid(url))
-                imgs_to_fetch.append(url)
+                urls_to_fetch.append(url)
+            elif isinstance(seg, RecordSegment):
+                pass
+                # TODO: 处理语音消息段
             dicted = seg.to_dict()
-            objs_to_add.append(
-                MessageSegment(
-                    order=i,
-                    type=seg.type,
-                    data=dicted["data"],
-                    message=message,
-                    message_store_id=message.store_id,
-                )
+            dbseg = MessageSegment(
+                order=i,
+                type=seg.type,
+                data=dicted["data"],
+                message_store_id=message.store_id,
             )
+            segments.append(dbseg)
+            objs_to_add.append(dbseg)
         objs_to_add.append(message)
         sess.add_all(objs_to_add)
+        (await message.awaitable_attrs.segments).extend(segments)
         await sess.commit()
         count = (
             await sess.exec(
@@ -359,5 +363,5 @@ async def do_record(event: MessageEvent, adapter: Adapter):
             )
         ).one()
         logger.debug(f"Recorded new, now exists {count} msgs in db")
-    await asyncio.gather(*[handle_mediafile(u) for u in imgs_to_fetch])
+    await asyncio.gather(*[handle_mediafile(u) for u in urls_to_fetch])
     await fix_group_name(adapter)
