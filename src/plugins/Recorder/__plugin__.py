@@ -1,6 +1,6 @@
 import asyncio
 import functools
-import logging
+import sys
 from typing import Concatenate
 from collections.abc import Callable
 import hashlib
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import aiofiles
 from melobot import get_bot
-from melobot.plugin import PluginPlanner
+from melobot.plugin import PluginPlanner, SyncShare
 from melobot.typ import AsyncCallable
 from melobot.log import get_logger
 from melobot.utils import lock
@@ -93,9 +93,7 @@ VOICE_LOCATION = Path("data/record/voices")
 os.makedirs(VOICE_LOCATION, exist_ok=True)
 
 logger = get_logger()
-recorder = RecorderCore(
-    DB_URL, echo=getattr(logger, "level", logging.INFO) == logging.DEBUG
-)
+recorder = RecorderCore(DB_URL, echo="--debug" in sys.argv)
 
 
 def do_md5(d: bytes):
@@ -246,6 +244,7 @@ async def fix_group_name(adapter: Adapter):
 get_session = recorder.get_session
 run_sync = recorder.run_sync
 to_async = recorder.to_async
+ready_event = SyncShare("ready_event", lambda: recorder.started, static=True)
 
 RecorderPlugin = PluginPlanner(
     "0.1.0",
@@ -257,6 +256,7 @@ RecorderPlugin = PluginPlanner(
         run_sync,
         to_async,
     ],
+    shares=[ready_event],
 )
 bot = get_bot()
 
