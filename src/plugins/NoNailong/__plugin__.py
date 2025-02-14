@@ -25,10 +25,11 @@ from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
 from lemony_utils.templates import async_http
 from lemony_utils.images import text_to_imgseg, bytes_to_b64_url
+from lemony_utils.botutils import get_reply
 import little_helper
 
 from .models import NLConfig, ImgRec, PredictResult
-from .utils import preprocess, get_reply, to_hash, draw_boxs, fetch_image
+from .utils import preprocess, to_hash, draw_boxs, fetch_image
 
 NoNailong = PluginPlanner("1.0.0")
 little_helper.register(
@@ -149,11 +150,10 @@ def record_img(
     "recognize",
     checker=checker_factory.get_owner_checker(),
 )
-async def test_recognize(
-    adapter: Adapter, event: GroupMessageEvent, args: CmdArgs
-):
-    msg = await get_reply(adapter, event)
-    if msg is None:
+async def test_recognize(adapter: Adapter, event: GroupMessageEvent, args: CmdArgs):
+    try:
+        msg = await get_reply(adapter, event)
+    except get_reply.GetReplyException:
         await adapter.send_reply("获取消息失败")
         return
     imgs = [s for s in msg.data["message"] if isinstance(s, ImageRecvSegment)]
@@ -291,8 +291,9 @@ async def daemon(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
     checker=checker_factory.get_owner_checker(),
 )
 async def report(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
-    msg = await get_reply(adapter, event)
-    if not msg or not msg.data:
+    try:
+        msg = await get_reply(adapter, event)
+    except get_reply.GetReplyException:
         await adapter.send_reply("获取消息失败")
         return
     orig_msgid = msg.data["message_id"]
@@ -318,8 +319,9 @@ async def report(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogg
     checker=checker_factory.get_owner_checker(),
 )
 async def report_not(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogger):
-    msg = await get_reply(adapter, event)
-    if not msg or not msg.data:
+    try:
+        msg = await get_reply(adapter, event)
+    except get_reply.GetReplyException:
         await adapter.send_reply("获取消息失败")
         return
     orig_msgid = banned_imgrec.get(msg.data["message_id"]) or msg.data["message_id"]

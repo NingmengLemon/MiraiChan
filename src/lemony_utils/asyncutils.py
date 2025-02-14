@@ -1,10 +1,9 @@
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 import threading
 import asyncio
 from asyncio import subprocess
 import functools
-import sys
-import signal
-from typing import Optional, Mapping, Iterable, Any, Callable
+from typing import Any
 
 
 def to_thread_decorator(func):
@@ -19,10 +18,10 @@ class ThreadWithReturn(threading.Thread):
     def __init__(
         self,
         group: None = None,
-        target: Optional[Callable[..., Any]] = None,
-        name: Optional[str] = None,
+        target: Callable[..., Any] | None = None,
+        name: str | None = None,
         args: Iterable[Any] = (),
-        kwargs: Optional[Mapping[str, Any]] = None,
+        kwargs: Mapping[str, Any] | None = None,
         *,
         daemon: bool | None = None,
     ) -> None:
@@ -31,7 +30,7 @@ class ThreadWithReturn(threading.Thread):
         self._kwargs = kwargs
         self._target = target
         self.result: Any = None
-        self.exception: Optional[Exception] = None
+        self.exception: Exception | None = None
 
     def run(self) -> None:
         try:
@@ -95,3 +94,16 @@ class InteractiveProcess:
     @property
     def process(self):
         return self._process
+
+
+async def gather_with_concurrency[
+    T
+](*aws: Awaitable[T], concurrency: int = 4, return_exceptions: bool = False) -> list[T]:
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def wrapper(aw: Awaitable[T]) -> T:
+        async with semaphore:
+            return await aw
+
+    tasks = [wrapper(aw) for aw in aws]
+    return await asyncio.gather(*tasks, return_exceptions=return_exceptions)

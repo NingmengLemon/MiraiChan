@@ -1,9 +1,6 @@
 from io import BytesIO
 
 import imagehash
-from melobot.protocols.onebot.v11.adapter import Adapter
-from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
-from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 from PIL import Image, ImageOps, ImageDraw
 from yarl import URL
 
@@ -25,17 +22,6 @@ def preprocess(img: BytesIO | Image.Image):
     result = BytesIO()
     pimg.save(result, "png")
     return result
-
-
-async def get_reply(adapter: Adapter, event: MessageEvent):
-    if _ := event.get_segments(ReplySegment):
-        msg_id = _[0].data["id"]
-    else:
-        return
-    msg = await (await adapter.with_echo(adapter.get_msg)(msg_id))[0]
-    if not msg.data:
-        return
-    return msg
 
 
 def to_hash(img: bytes | BytesIO | Image.Image | imagehash.ImageHash | str):
