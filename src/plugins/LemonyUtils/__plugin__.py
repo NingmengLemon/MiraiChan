@@ -14,6 +14,7 @@ from melobot.utils.parse import CmdArgs
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 
 from lemony_utils.images import text_to_imgseg
+from lemony_utils.botutils import get_reply
 import checker_factory
 import little_helper
 
@@ -36,23 +37,13 @@ little_helper.register(
 )
 
 
-async def get_reply(adapter: Adapter, event: MessageEvent):
-    if _ := event.get_segments(ReplySegment):
-        msg_id = _[0].data["id"]
-    else:
-        await adapter.send_reply("需要指定目标消息")
-        return
-    msg = await (await adapter.with_echo(adapter.get_msg)(msg_id))[0]
-    if not msg.data:
-        await adapter.send_reply("目标消息数据获取失败")
-        return
-    return msg
-
-
 @LemonyUtils.use
 @on_command(".", " ", "echo", checker=checker_factory.get_owner_checker())
 async def echo(adapter: Adapter, event: MessageEvent):
-    if not (msg := await get_reply(adapter, event)):
+    try:
+        msg = await get_reply(adapter, event)
+    except get_reply.GetReplyException:
+        await adapter.send_reply("获取消息失败")
         return
     await adapter.send(
         [
@@ -76,7 +67,10 @@ async def getmsg(
     logger: GenericLogger,
     args: CmdArgs,
 ):
-    if not (msg := await get_reply(adapter, event)):
+    try:
+        msg = await get_reply(adapter, event)
+    except get_reply.GetReplyException:
+        await adapter.send_reply("获取消息失败")
         return
     msgdata: dict[str, Any] = msg.raw.get("data", {})
     msgdata.pop("raw_message", None)

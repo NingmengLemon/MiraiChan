@@ -53,11 +53,10 @@ class FontCache:
                 self._font_map[size] = ImageFont.truetype(font_file, size=size)
 
     def use(self, size: int):
-        if size in self._font_map:
-            return self._font_map[size]
-        else:
+        size = int(size)
+        if size not in self._font_map:
             self._font_map[size] = ImageFont.truetype(self._font_file, size=size)
-            return self._font_map[size]
+        return self._font_map[size]
 
     @contextmanager
     def usec(self, size: int):
@@ -82,11 +81,12 @@ def wrap_text_by_length(s: str, line_length: int):
 
 def wrap_text_by_width(
     s: str,
-    line_width: int,
+    line_width: int | float,
     font: ImageFont.FreeTypeFont,
 ):
     """根据像素宽度断行"""
     result: list[str] = []
+    line_width = int(line_width)
     for line in s.splitlines():
         if not line:
             result.append("")
@@ -316,3 +316,22 @@ async def text_to_imgseg(text: str, /, **kwargs):
             lambda: bytes_to_b64_url(text_to_image(text, **kwargs)),
         )
     )
+
+
+def crop_to_circle(img: Image.Image):
+    img = img.convert("RGBA")
+    width, height = img.size
+
+    size = min(width, height)
+    left = (width - size) // 2
+    top = (height - size) // 2
+    right = left + size
+    bottom = top + size
+    img_cropped = img.crop((left, top, right, bottom))
+
+    mask = Image.new("L", (size, size), 0)
+    draw = ImageDraw.Draw(mask)
+    draw.ellipse((0, 0, size, size), fill=255)
+    img_cropped.putalpha(mask)
+
+    return img_cropped.copy()

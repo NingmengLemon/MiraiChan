@@ -15,6 +15,7 @@ from sqlmodel import Session, select, col, and_, not_
 from recorder_models import Message, MessageSegment
 import checker_factory
 from lemony_utils.images import text_to_imgseg
+from lemony_utils.botutils import get_reply
 from .. import Recorder
 
 plugin = PluginPlanner("0.1.0")
@@ -72,19 +73,6 @@ async def query(event: GroupMessageEvent, adapter: Adapter) -> None:
     await adapter.send_reply(await text_to_imgseg(result))
 
 
-async def get_reply(adapter: Adapter, event: GroupMessageEvent):
-    if _ := event.get_segments(ReplySegment):
-        msg_id = _[0].data["id"]
-    else:
-        await adapter.send_reply("需要指定目标消息")
-        return
-    msg = await (await adapter.with_echo(adapter.get_msg)(msg_id))[0]
-    if not msg.data:
-        await adapter.send_reply("目标消息数据获取失败")
-        return
-    return msg
-
-
 @plugin.use
 @on_start_match(".getctx", checker=checker_factory.get_owner_checker())
 async def get_ctx(event: GroupMessageEvent, adapter: Adapter) -> None:
@@ -93,8 +81,10 @@ async def get_ctx(event: GroupMessageEvent, adapter: Adapter) -> None:
 
     .getctx [<e>, <l>] <True/False>
     """
-    base_msg = await get_reply(adapter, event)
-    if not base_msg:
+    try:
+        base_msg = await get_reply(adapter, event)
+    except get_reply.GetReplyException:
+        await adapter.send_reply("获取消息失败")
         return
     params = event.text.removeprefix(".getctx")
     if _ := re.search(r"\[\s*(\-?\d+)\s*\,\s*(\-?\d+)\s*\]", params, re.IGNORECASE):
