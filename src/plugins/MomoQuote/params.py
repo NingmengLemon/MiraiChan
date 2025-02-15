@@ -19,6 +19,7 @@ class FontSize(TypedDict):
     text: int
     title: int
     tips: int
+    username: int
 
 
 class DrawingParams(TypedDict):
@@ -49,7 +50,8 @@ default_drawing_params: DrawingParams = {
     "font_size": {
         "text": 28,
         "title": 30,
-        "tips": 26,
+        "tips": 22,
+        "username": 26,
     },
     "padding": 12,
     "border": 2,
