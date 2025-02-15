@@ -12,6 +12,7 @@ from melobot.protocols.onebot.v11.adapter.segment import (
     ImageSegment,
     TextSegment,
     AtSegment,
+    FaceSegment,
 )
 
 from lemony_utils.asyncutils import gather_with_concurrency
@@ -103,6 +104,8 @@ def prepare_quote(
             ):
                 text_genby_mface.remove(text)
                 continue
+            elif isinstance(qseg, FaceSegment):
+                continue
             qmsg["segments"].append(qseg)
         data["messages"].append(qmsg)
     return data, resources
@@ -146,6 +149,7 @@ class QuoteDrawer:
 
         self._widgets: list[list[tuple[tuple[int, int], Avatar | Bubble]]] = []
         # 一个 widget 列表对应一个 msg
+        draw = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
         s = self._scale
         x_avatar = self._dparams["margin"]["to_edge"] * s
         y = 0
@@ -153,6 +157,7 @@ class QuoteDrawer:
             self._dparams["avatar_size"] + self._dparams["margin"]["to_edge"] * 2
         ) * s
         max_bubble_width = 0
+        max_userinfo_width = 0
         last_sender = -1
         for msg in data["messages"]:
             sender = msg["sender_id"]
@@ -174,6 +179,15 @@ class QuoteDrawer:
                 widgets.append(
                     ((x_avatar, y - self._dparams["avatar_size"] / 2 * s), avatar)
                 )
+            userinfo_width = draw.textlength(
+                f"{msg['sender_name']}",
+                font=self._font.use(self._dparams["font_size"]["username"] * s),
+            ) + draw.textlength(
+                f"({sender})",
+                font=self._font.use(self._dparams["font_size"]["tips"] * s),
+            )
+            if userinfo_width > max_userinfo_width:
+                max_userinfo_width = userinfo_width
             widgets.append(((x_bubble, y), bubble))
             self._widgets.append(widgets)
             y += bubble.size[1]
@@ -182,7 +196,7 @@ class QuoteDrawer:
         self._width = (
             x_bubble
             + (self._dparams["padding"] * 2 + self._dparams["margin"]["to_edge"]) * s
-            + max_bubble_width
+            + max(max_bubble_width, max_userinfo_width)
         )
 
     def _msg_to_widgets(self, msg: _QuoteMsg):
@@ -347,7 +361,7 @@ class QuoteFactory:
         )
         w, h = drawer.size
         canvas = Image.new("RGBA", _ensure_int((w, h)), color="#ffffffff")
-        drawer.draw(canvas)
+        drawer.draw(canvas, emoji_source=self._emoji_source)
         result = ImageOps.fit(
             canvas,
             _ensure_int((w / antialias_scale, h / antialias_scale)),
