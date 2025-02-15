@@ -10,9 +10,8 @@ import traceback
 from typing import Annotated, Concatenate
 
 import aiofiles
-from melobot import send_text
+from melobot import send_text, get_logger
 from melobot.adapter.generic import _get_ctx_adapter
-from melobot.log import GenericLogger
 from melobot.plugin import PluginPlanner
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import (
@@ -46,6 +45,9 @@ from .core import (
     gather_resources,
 )
 from .. import Recorder
+
+
+logger = get_logger()
 
 
 class QuoteConfig(BaseModel):
@@ -151,11 +153,13 @@ async def get_reply_from_db(event: GroupMessageEvent):
             )
         ).first()
         if msg:
-            return MsgFromDB(
+            result = MsgFromDB(
                 msg_id=msg_id,
                 sender_id=msg.sender_id,
                 sender_name=(await msg.awaitable_attrs.sender).name,
             )
+            logger.debug(f"Got reply record form db: {result!r}")
+            return result
 
 
 plugin = PluginPlanner("0.1.0")
@@ -177,7 +181,6 @@ def extract_params(event: GroupMessageEvent):
         ascale = _.group(1)
     else:
         ascale = 1.0
-
     return (min(left, right), max(left, right)), (
         sender_only,
         float(scale),
@@ -249,7 +252,6 @@ async def gather_resources_from_recorder(resources: set[str | URL]):
 async def quote(
     adapter: Annotated[Adapter, Reflect()],
     event: Annotated[GroupMessageEvent, Reflect()],
-    logger: GenericLogger,
 ):
     # 拿到消息id
     if not Recorder.ready_event.is_set():
@@ -267,6 +269,8 @@ async def quote(
         except get_reply.GetReplyException:
             await adapter.send_reply("获取目标消息失败")
             return
+        else:
+            logger.debug(f"Got reply message from remote: {target!r}")
     (left, right), (sender_only, scale, ascale) = extract_params(event)
     # 参数范围约束
     llimit, rlimit = cfgloader.config.region_limit
@@ -274,7 +278,7 @@ async def quote(
         not (llimit <= left <= rlimit and llimit <= right <= rlimit)
     ) and event.sender.user_id != checker_factory.OWNER:
         await adapter.send_reply(
-            f"请求的消息区间 `[{left}, {right}]` 超出规定范围 `[{rlimit, llimit}]`"
+            f"请求的消息区间 `[{left}, {right}]` 超出规定范围 `[{rlimit}, {llimit}]`"
         )
         return
     slimit = cfgloader.config.scale_limit

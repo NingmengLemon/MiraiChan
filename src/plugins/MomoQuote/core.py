@@ -98,8 +98,10 @@ def prepare_quote(
                     if mftext := qseg.data.get("summary"):
                         text_genby_mface.add(mftext)
             elif (
-                isinstance(qseg, TextSegment) and qseg.data["text"] in text_genby_mface
+                isinstance(qseg, TextSegment)
+                and (text := qseg.data["text"]) in text_genby_mface
             ):
+                text_genby_mface.remove(text)
                 continue
             qmsg["segments"].append(qseg)
         data["messages"].append(qmsg)
@@ -246,6 +248,7 @@ class QuoteDrawer:
 
     @property
     def size(self):
+        # TODO: 考虑提示文本的宽度
         return (self._width, self._height)
 
     def draw(
