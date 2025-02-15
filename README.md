@@ -33,16 +33,11 @@
 
 ## 开源相关
 
-此项目在 [`d0be68b`](https://github.com/NingmengLemon/MiraiChan/commit/d0be68bebc31db318d62b7a59e995d9a8fbe0f3e) 后在 `AGPL3` 协议下开源发行
+此项目自 [`d0be68b`](https://github.com/NingmengLemon/MiraiChan/commit/d0be68bebc31db318d62b7a59e995d9a8fbe0f3e) 及以后在 `AGPL3` 协议下开源发行
 
 借鉴/参考/修改了以下项目的部分/全部源代码, 许可证与其均兼容.
 
 - [`melobot`](https://github.com/Meloland/melobot)
 - [`Python-Pinyin-Kana`](https://github.com/RUI-LONG/Python-Pinyin-Kana)
-
-涉及使用由以下项目产生的服务:
-
-- [`voicevox_engine`](https://github.com/VOICEVOX/voicevox_engine)
-- [`yolox-onnx-api-server`](https://github.com/nkxingxh/yolox-onnx-api-server) & [`NailongDetection`](https://github.com/nkxingxh/NailongDetection)
 
 > 感谢你们为开源社区做出的贡献 ～(∠・ω< )⌒☆
