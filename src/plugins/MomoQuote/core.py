@@ -1,9 +1,10 @@
 from collections.abc import Iterable
 from io import BytesIO
+from pathlib import Path
 import time
-from typing import TypedDict
+from typing import TypedDict, cast
 
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError, ImageDraw
 from yarl import URL
 from pilmoji.source import BaseSource
 from melobot.protocols.onebot.v11.adapter.segment import (
@@ -14,11 +15,7 @@ from melobot.protocols.onebot.v11.adapter.segment import (
 )
 
 from lemony_utils.asyncutils import gather_with_concurrency
-from lemony_utils.images import (
-    FontCache,
-    _ColorT,
-    bytes_to_b64_url,
-)
+from lemony_utils.images import FontCache, _ColorT
 from lemony_utils.consts import http_headers
 from lemony_utils.templates import async_http
 from recorder_models import Message
@@ -69,20 +66,21 @@ class QuoteData(TypedDict):
     messages: list[_QuoteMsg]
 
 
-def prepare_quote(msgs: list[Message]):
+def prepare_quote(
+    msgs: list[Message], banned_sticker_sets: Iterable[int] = ()
+) -> tuple[QuoteData | None, set[URL | str]]:
     """调用时请保持 msgs 所属的 session 打开"""
+    resources = set[URL | str]()
+    if not msgs:
+        return None, resources
     data: QuoteData = {
-        "group_id": 0,
-        "group_name": None,
+        "group_id": msgs[0].group_id,
+        "group_name": msgs[0].group.name,
         "quote_time": time.time(),
         "messages": [],
     }
-    resources = set[URL | str]()
-    if not msgs:
-        return data, resources
-    data["group_id"] = msgs[0].group_id
-    data["group_name"] = msgs[0].group.name
     for msg in msgs:
+        text_genby_mface = set()
         qmsg: _QuoteMsg = {
             "sender_id": msg.sender_id,
             "sender_name": msg.sender.name,
@@ -91,9 +89,19 @@ def prepare_quote(msgs: list[Message]):
         resources.add(get_avatar_url(msg.sender_id))
         for seg in msg.segments:
             qseg = Segment.resolve(seg.type, seg.data)
-            qmsg["segments"].append(qseg)
             if isinstance(qseg, ImageSegment):
                 resources.add(qseg.data["url"])
+            elif qseg.type == "mface":
+                url = qseg.data.get("url")
+                if url and qseg.data.get("emoji_package_id") not in banned_sticker_sets:
+                    resources.add(url)
+                    if mftext := qseg.data.get("summary"):
+                        text_genby_mface.add(mftext)
+            elif (
+                isinstance(qseg, TextSegment) and qseg.data["text"] in text_genby_mface
+            ):
+                continue
+            qmsg["segments"].append(qseg)
         data["messages"].append(qmsg)
     return data, resources
 
@@ -121,6 +129,7 @@ class QuoteDrawer:
         font: FontCache,
         quote_params: QuoteParams | None = None,
         drawing_params: DrawingParams | None = None,
+        placeholder_img: Path | str | BytesIO = "data/no_data.png",
         scale: float = 1.0,
     ):
         self._data = data
@@ -131,7 +140,7 @@ class QuoteDrawer:
             default_drawing_params if drawing_params is None else drawing_params
         )
         self._scale = scale
-        self._img_missing_img = Image.open("data/no_data.png").convert("RGBA")
+        self._img_missing_img = Image.open(placeholder_img).convert("RGBA")
 
         self._widgets: list[list[tuple[tuple[int, int], Avatar | Bubble]]] = []
         # 一个 widget 列表对应一个 msg
@@ -139,9 +148,8 @@ class QuoteDrawer:
         x_avatar = self._dparams["margin"]["to_edge"] * s
         y = 0
         x_bubble = (
-            x_avatar
-            + (self._dparams["avatar_size"] + self._dparams["margin"]["to_edge"]) * s
-        )
+            self._dparams["avatar_size"] + self._dparams["margin"]["to_edge"] * 2
+        ) * s
         max_bubble_width = 0
         last_sender = -1
         for msg in data["messages"]:
@@ -204,8 +212,10 @@ class QuoteDrawer:
         elements: list[str | Image.Image] = []
         for seg in segs:
             text: str | None = None
-            if isinstance(seg, ImageSegment):
-                bio = self._resources.get(seg.data["url"])
+            if isinstance(seg, ImageSegment) or seg.type == "mface":
+                if not (url := seg.data.get("url")):
+                    continue
+                bio = self._resources.get(url)
                 try:
                     img = (
                         Image.open(bio).convert("RGBA")
@@ -225,8 +235,8 @@ class QuoteDrawer:
                     .strip()
                     + " "
                 )
-            # TODO: 处理商城表情
-            # TODO: 写完处理商城表情之后, 把商城表情过滤列表加上
+            else:
+                text = f"<{cast(str, seg.type).lower().capitalize()}Segment>"
             if text is not None:
                 if elements and isinstance(elements[-1], str):
                     elements[-1] = " ".join([elements[-1], text])
@@ -246,21 +256,57 @@ class QuoteDrawer:
         show_border=False,
     ):
         last_sender = -1
+        s = self._scale
+        devide_s = lambda l: tuple(map(lambda n: int(n / s), l))
+        draw = ImageDraw.Draw(canvas)
         for msg, widgets in zip(self._data["messages"], self._widgets):
             sender = msg["sender_id"]
             for coor, widget in widgets:
-                # TODO: 增加用户的元数据
                 if isinstance(widget, Bubble):
                     widget.draw(
                         canvas,
-                        coor,
+                        devide_s(coor),
                         emoji_source=emoji_source,
                         add_triangle=last_sender != sender,
                         show_border=show_border,
                     )
+                    if sender != last_sender:
+                        x, y = coor
+                        # 用户名
+                        _, _, w, _ = draw.textbbox(
+                            (0, 0),
+                            msg["sender_name"],
+                            font=self._font.use(
+                                self._dparams["font_size"]["username"] * s
+                            ),
+                        )
+                        draw.text(
+                            (x, y - (self._dparams["margin"]["between_msgs"]) * s),
+                            msg["sender_name"],
+                            fill=self._dparams["color"]["tips_text"],
+                            font=self._font.use(
+                                self._dparams["font_size"]["username"] * s
+                            ),
+                            anchor="lb",
+                        )
+                        # QQ号
+                        text = f"({sender})"
+                        draw.text(
+                            (
+                                x + w + self._dparams["margin"]["between_msgs"] * s,
+                                y - self._dparams["margin"]["between_msgs"] * s,
+                            ),
+                            text,
+                            fill=self._dparams["color"]["tips_bg"],
+                            font=self._font.use(self._dparams["font_size"]["tips"] * s),
+                            anchor="lb",
+                        )
                 elif isinstance(widget, Avatar):
                     widget.draw(
-                        canvas, coor, bg_color=bg_color, show_border=show_border
+                        canvas,
+                        devide_s(coor),
+                        bg_color=bg_color,
+                        show_border=show_border,
                     )
             last_sender = sender
         # TODO: 增加本次Quote的元数据
@@ -270,10 +316,12 @@ class QuoteFactory:
     def __init__(
         self,
         font: _FontSource,
+        placeholder_img: Path | str | BytesIO = "data/no_data.png",
         emoji_source: BaseSource | None = None,
     ):
         self._font_cache = font
         self._emoji_source = emoji_source
+        self._phimg = placeholder_img
 
     def draw(
         self,
@@ -282,9 +330,8 @@ class QuoteFactory:
         drawing_params: DrawingParams | None = None,
         quote_params: QuoteParams | None = None,
         scale: float = 1.0,
-        scale_for_antialias: float = 1.0,
+        antialias_scale: float = 1.0,
         resampling_method: Image.Resampling = Image.Resampling.LANCZOS,
-        # TODO: 测试绘图缩放
     ):
         drawer = QuoteDrawer(
             data,
@@ -292,14 +339,15 @@ class QuoteFactory:
             font=self._font_cache,
             quote_params=quote_params,
             drawing_params=drawing_params,
-            scale=scale * scale_for_antialias,
+            placeholder_img=self._phimg,
+            scale=scale * antialias_scale,
         )
         w, h = drawer.size
         canvas = Image.new("RGBA", _ensure_int((w, h)), color="#ffffffff")
         drawer.draw(canvas)
         result = ImageOps.fit(
             canvas,
-            _ensure_int((w / scale_for_antialias, h / scale_for_antialias)),
+            _ensure_int((w / antialias_scale, h / antialias_scale)),
             method=resampling_method,
         )
         return result
@@ -308,8 +356,12 @@ class QuoteFactory:
         self,
         data: QuoteData,
         resources: dict[URL | str, BytesIO],
+        scale: float = 1.0,
+        scale_for_antialias: float = 1.0,
     ):
-        result = self.draw(data, resources)
+        result = self.draw(
+            data, resources, scale=scale, antialias_scale=scale_for_antialias
+        )
         bio = BytesIO()
         result.save(bio, "png")
-        return bytes_to_b64_url(bio.getvalue())
+        return bio
