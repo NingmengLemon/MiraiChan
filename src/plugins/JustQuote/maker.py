@@ -44,9 +44,8 @@ class QuoteMaker:
 
     async def make(self, msg: _GetMsgEchoDataInterface, use_imgs=False):
         sender = msg["sender"]
-
-        avatar_url = f"https://q.qlogo.cn/headimg_dl?dst_uin={sender.user_id}&spec=640&img_type=jpg"
-        # avatar_url = f"https://q1.qlogo.cn/g?b=qq&nk={sender.user_id}&s=640"
+        # avatar_url = f"https://q.qlogo.cn/headimg_dl?dst_uin={sender.user_id}&spec=640&img_type=jpg"
+        avatar_url = f"https://q1.qlogo.cn/g?b=qq&nk={sender.user_id}&s=640"
         avatar = await self.fetch_image(avatar_url)
         image_dict = (await self._fetch_all_imgs(msg["message"])) if use_imgs else None
         return await asyncio.to_thread(
