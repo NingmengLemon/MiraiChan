@@ -344,11 +344,11 @@ async def do_record(event: MessageEvent, adapter: Adapter):
             elif isinstance(seg, RecordSegment):
                 pass
                 # TODO: 处理语音消息段
-            dicted = seg.to_dict()
+            data = seg.raw["data"]
             dbseg = MessageSegment(
                 order=i,
                 type=seg.type,
-                data=dicted["data"],
+                data=data,
                 message_store_id=message.store_id,
             )
             segments.append(dbseg)
