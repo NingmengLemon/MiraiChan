@@ -310,7 +310,7 @@ async def quote(
         sender_only=sender_only,
     )
     if data is None:
-        await adapter.send_reply("没有可用的消息")
+        await adapter.send_reply("数据库中没有可用的消息")
     else:
         await adapter.send("已开始生成图像, 请稍等")
         # TODO: 增加更多参数选项
