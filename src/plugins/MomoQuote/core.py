@@ -258,6 +258,8 @@ class QuoteDrawer:
                     elements[-1] = " ".join([elements[-1], text])
                 else:
                     elements.append(text)
+        if not elements:
+            elements.append("")
         return elements
 
     @property
