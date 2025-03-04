@@ -269,23 +269,23 @@ async def quote(
     if not Recorder.ready_event.is_set():
         await adapter.send_reply("数据库还未就绪")
         return
-    target = await get_reply_from_db(event)
-    if not target:
-        try:
+    try:
+        target = await get_reply_from_db(event)
+        if not target:
             echo = await get_reply(adapter, event)
             target = MsgFromDB(
                 msg_id=echo.data["message_id"],
                 sender_id=echo.data["sender"].user_id,
                 sender_name=echo.data["sender"].nickname,
             )
-        except get_reply.GetReplyException:
-            await adapter.send_reply("获取目标消息失败")
-            return
-        except get_reply.TargetNotSpecifiedError:
-            await adapter.send_reply("需要指定基准消息")
-            return
-        else:
-            logger.debug(f"Got reply message from remote: {target!r}")
+    except get_reply.GetReplyException:
+        await adapter.send_reply("获取目标消息失败")
+        return
+    except get_reply.TargetNotSpecifiedError:
+        await adapter.send_reply("需要指定基准消息")
+        return
+    else:
+        logger.debug(f"Got reply message from remote: {target!r}")
     (left, right), (sender_only, scale, ascale) = extract_params(event)
     # 参数范围约束
     llimit, rlimit = cfgloader.config.region_limit
