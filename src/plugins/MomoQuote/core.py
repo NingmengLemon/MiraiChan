@@ -55,6 +55,7 @@ def get_avatar_url(uid: int):
 
 
 class _QuoteMsg(TypedDict):
+    msg_id: int
     sender_id: int
     sender_name: str | None = None
     segments: list[Segment]
@@ -85,6 +86,7 @@ def prepare_quote(
         qmsg: _QuoteMsg = {
             "sender_id": msg.sender_id,
             "sender_name": msg.sender.name,
+            "msg_id": msg.message_id,
             "segments": [],
         }
         resources.add(get_avatar_url(msg.sender_id))
