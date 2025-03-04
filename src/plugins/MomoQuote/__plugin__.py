@@ -38,6 +38,7 @@ from lemony_utils.images import (
     bytes_to_b64_url,
     FontCache,
 )
+import little_helper
 
 from .core import (
     QuoteFactory,
@@ -48,6 +49,17 @@ from .. import Recorder
 
 
 logger = get_logger()
+
+little_helper.register(
+    "MomoQuote",
+    {
+        "cmd": r".mq [[\d, \d]] [sender_?only] [\dx] [a\dx]",
+        "text": "回复一条消息, 以其为基准进行范围引用. "
+        "\n使用闭区间表示相对引用范围. "
+        "\n添加 'sender_only' flag 将引用消息限制为仅基准消息发送者发送. "
+        "\n添加 \\dx 调整输出尺寸, 添加 a\\dx 调整用于抗锯齿的尺寸",
+    },
+)
 
 
 class QuoteConfig(BaseModel):
@@ -268,6 +280,9 @@ async def quote(
             )
         except get_reply.GetReplyException:
             await adapter.send_reply("获取目标消息失败")
+            return
+        except get_reply.TargetNotSpecifiedError:
+            await adapter.send_reply("需要指定基准消息")
             return
         else:
             logger.debug(f"Got reply message from remote: {target!r}")

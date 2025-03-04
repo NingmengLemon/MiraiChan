@@ -264,7 +264,6 @@ class QuoteDrawer:
 
     @property
     def size(self):
-        # TODO: 考虑提示文本的宽度
         return (self._width, self._height)
 
     def draw(
