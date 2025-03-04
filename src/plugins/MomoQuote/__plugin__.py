@@ -24,7 +24,9 @@ from melobot.handle import on_command
 from melobot.di import Reflect
 from melobot.utils import singleton, unfold_ctx, get_id
 from melobot.session import Rule, enter_session, suspend
-from sqlmodel import Session, select, col
+
+from sqlmodel import select, col
+from sqlmodel import Session as SqlmSession
 from pydantic import BaseModel
 from yarl import URL
 
@@ -214,7 +216,7 @@ rule = SameReplyRule()
 
 
 def just_prepare_quote_data_decorator(banned_sticker_sets: Iterable[int]):
-    def decorator[**P](func: Callable[Concatenate[Session, P], list[Message]]):
+    def decorator[**P](func: Callable[Concatenate[SqlmSession, P], list[Message]]):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             return prepare_quote(func(*args, **kwargs), banned_sticker_sets)
@@ -244,6 +246,13 @@ async def gather_resources_from_recorder(resources: set[str | URL]):
                 result[url] = BytesIO(await fp.read())
     notfounds = resources - set(result.keys())
     return result, notfounds
+
+
+def reset_to_zero_left(left: int, right: int, base_msg: int, msgseq: list[int]):
+    if base_msg not in msgseq:
+        return left, right, base_msg
+    base_i = msgseq.index(base_msg)
+    return left + base_i, right + base_i, msgseq[0]
 
 
 @plugin.use
@@ -327,8 +336,9 @@ async def quote(
     if data is None:
         await adapter.send_reply("数据库中没有可用的消息")
     else:
-        await adapter.send("已开始生成图像, 请稍等")
+        # await adapter.send("已开始生成图像, 请稍等")
         # TODO: 增加更多参数选项
+        start_time = time.perf_counter()
         logger.debug(f"Got QuoteData: {data!r}")
         resources, notfounds = await gather_resources_from_recorder(required_resources)
         logger.debug(f"Got {len(resources)} resources from local")
@@ -344,7 +354,12 @@ async def quote(
         )
 
         imagebytes = result.getvalue()
-        await adapter.send(ImageSegment(file=await b2b64url_async(imagebytes)))
+        await adapter.send(
+            [
+                f"绘图用时 {time.perf_counter()-start_time:.3f}s",
+                ImageSegment(file=await b2b64url_async(imagebytes)),
+            ]
+        )
         if path := cfgloader.config.saveto:
             file = os.path.join(
                 path,
