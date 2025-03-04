@@ -356,7 +356,7 @@ async def quote(
         imagebytes = result.getvalue()
         await adapter.send(
             [
-                f"绘图用时 {time.perf_counter()-start_time:.3f}s",
+                TextSegment(f"绘图用时 {time.perf_counter()-start_time:.3f}s"),
                 ImageSegment(file=await b2b64url_async(imagebytes)),
             ]
         )
