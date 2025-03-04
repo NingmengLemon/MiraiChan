@@ -321,6 +321,7 @@ async def quote(
         )
         return
     # 开始尝试 quote
+    start_query_time = time.perf_counter()
     logger.debug(
         f"Preparing quote of {target}, [{left}, {right}], sender_only={sender_only}, {scale}x, a{ascale}x"
     )
@@ -333,12 +334,13 @@ async def quote(
         edge_l=right,
         sender_only=sender_only,
     )
+    query_time = time.perf_counter() - start_query_time
     if data is None:
         await adapter.send_reply("数据库中没有可用的消息")
     else:
         # await adapter.send("已开始生成图像, 请稍等")
         # TODO: 增加更多参数选项
-        start_time = time.perf_counter()
+        start_draw_time = time.perf_counter()
         logger.debug(f"Got QuoteData: {data!r}")
         resources, notfounds = await gather_resources_from_recorder(required_resources)
         logger.debug(f"Got {len(resources)} resources from local")
@@ -354,10 +356,13 @@ async def quote(
         )
 
         imagebytes = result.getvalue()
+        now_time = time.perf_counter()
         await adapter.send(
             [
-                TextSegment(f"绘图用时 {time.perf_counter()-start_time:.3f}s"),
                 ImageSegment(file=await b2b64url_async(imagebytes)),
+                TextSegment(
+                    f"db: {query_time:.3f}s; draw: {now_time-start_draw_time:.3f}s"
+                ),
             ]
         )
         if path := cfgloader.config.saveto:
