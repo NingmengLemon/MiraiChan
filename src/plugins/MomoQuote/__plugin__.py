@@ -1,54 +1,43 @@
 import asyncio
-from collections.abc import Callable, Iterable
-from dataclasses import dataclass
 import functools
-from io import BytesIO
-import re
 import os
+import re
 import time
 import traceback
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from io import BytesIO
 from typing import Annotated, Concatenate
 
 import aiofiles
-from melobot import send_text, get_logger
+from melobot import get_logger, send_text
 from melobot.adapter.generic import _get_ctx_adapter
+from melobot.di import Reflect
+from melobot.handle import on_command
 from melobot.plugin import PluginPlanner
+from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import (
     ImageSegment,
-    TextSegment,
     ReplySegment,
+    TextSegment,
 )
-from melobot.protocols.onebot.v11.adapter import Adapter
-from melobot.handle import on_command
-from melobot.di import Reflect
-from melobot.utils import singleton, unfold_ctx, get_id
 from melobot.session import Rule, enter_session, suspend
-
-from sqlmodel import select, col
-from sqlmodel import Session as SqlmSession
+from melobot.utils import get_id, singleton, unfold_ctx
 from pydantic import BaseModel
+from sqlmodel import Session as SqlmSession
+from sqlmodel import col, select
 from yarl import URL
 
-from configloader import ConfigLoader, ConfigLoaderMetadata
 import checker_factory
-from recorder_models import Message
-from lemony_utils.botutils import get_reply
-from lemony_utils.images import (
-    SelfHostSource,
-    text_to_imgseg,
-    bytes_to_b64_url,
-    FontCache,
-)
 import little_helper
+from configloader import ConfigLoader, ConfigLoaderMetadata
+from lemony_utils.botutils import auto_report_traceback, get_reply
+from lemony_utils.images import FontCache, SelfHostSource, bytes_to_b64_url
+from recorder_models import Message
 
-from .core import (
-    QuoteFactory,
-    prepare_quote,
-    gather_resources,
-)
 from .. import Recorder
-
+from .core import QuoteFactory, gather_resources, prepare_quote
 
 logger = get_logger()
 
@@ -102,27 +91,6 @@ def to_thread_deco[**P, T](func: Callable[P, T]):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         return await asyncio.to_thread(func, *args, **kwargs)
-
-    return wrapper
-
-
-def auto_report_traceback(func):
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        try:
-            return await func(*args, **kwargs)
-        except Exception:
-            adapter = _get_ctx_adapter()
-            if isinstance(adapter, Adapter):
-                await adapter.send(
-                    [
-                        TextSegment("出现了错误: \n"),
-                        await text_to_imgseg(traceback.format_exc()),
-                    ]
-                )
-            else:
-                await send_text("出现了错误: \n" + traceback.format_exc())
-            raise
 
     return wrapper
 

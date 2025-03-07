@@ -1,28 +1,28 @@
 import asyncio
 import functools
+import math
 from io import BytesIO
 from typing import Iterable
-import math
 
 from melobot import get_logger
 from melobot.protocols.onebot.v11.adapter.echo import _GetMsgEchoDataInterface
 from melobot.protocols.onebot.v11.adapter.segment import (
-    TextSegment,
-    Segment,
-    ImageRecvSegment,
     AtSegment,
+    ImageRecvSegment,
+    Segment,
+    TextSegment,
 )
+from PIL import Image, ImageDraw, ImageOps
+from pilmoji.source import BaseSource, GoogleEmojiSource
 
-from PIL import Image, ImageOps, ImageDraw
-from pilmoji.source import GoogleEmojiSource, BaseSource
-
+from lemony_utils.botutils import cached_avatar_source
+from lemony_utils.consts import http_headers
 from lemony_utils.images import (
     FontCache,
     SelfHostSource,
     draw_multiline_text_auto,
     get_main_color,
 )
-from lemony_utils.consts import http_headers
 from lemony_utils.templates import async_http
 
 _SupportedImgInput = str | BytesIO | Image.Image
@@ -44,9 +44,7 @@ class QuoteMaker:
 
     async def make(self, msg: _GetMsgEchoDataInterface, use_imgs=False):
         sender = msg["sender"]
-        # avatar_url = f"https://q.qlogo.cn/headimg_dl?dst_uin={sender.user_id}&spec=640&img_type=jpg"
-        avatar_url = f"https://q1.qlogo.cn/g?b=qq&nk={sender.user_id}&s=640"
-        avatar = await self.fetch_image(avatar_url)
+        avatar = BytesIO(await cached_avatar_source.get(sender.user_id))
         image_dict = (await self._fetch_all_imgs(msg["message"])) if use_imgs else None
         return await asyncio.to_thread(
             self._make,

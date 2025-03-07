@@ -1,18 +1,22 @@
 import asyncio
 
 from melobot import get_bot
-from melobot.plugin import PluginPlanner
-from melobot.utils import async_interval
 from melobot.handle import on_command
+from melobot.plugin import PluginPlanner
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import (
     AtSegment,
-    TextSegment,
     ImageSegment,
+    TextSegment,
 )
-from configloader import ConfigLoader, ConfigLoaderMetadata
+from melobot.utils import async_interval
+
 import little_helper
+from configloader import ConfigLoader, ConfigLoaderMetadata
+from lemony_utils.botutils import cached_avatar_source
+from lemony_utils.images import bytes_to_b64_url
+
 from .core import WaifuManager
 from .models import ConfigModel
 
@@ -77,7 +81,9 @@ async def draw_waifu(event: GroupMessageEvent, adapter: Adapter):
         [
             TextSegment("你今天的老婆是 @{nickname} ！".format(**waifu)),
             ImageSegment(
-                file=f"https://q1.qlogo.cn/g?b=qq&nk={waifu['user_id']}&s=640"
+                file=await asyncio.to_thread(
+                    bytes_to_b64_url, await cached_avatar_source.get(waifu["user_id"])
+                )
             ),
         ]
     )
