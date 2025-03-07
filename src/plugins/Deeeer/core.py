@@ -10,6 +10,7 @@ from PIL import Image, ImageDraw, ImageOps
 from sqlmodel import Field, Session, SQLModel, select
 
 from lemony_utils.images import FontCache, default_font_cache
+from lemony_utils.time import get_time_period_start
 
 
 class DeerRecord(SQLModel, table=True):
@@ -21,23 +22,6 @@ class DeerRecord(SQLModel, table=True):
 
 
 TABLES = [SQLModel.metadata.tables[DeerRecord.__tablename__]]
-
-
-def get_time_period_start(
-    period: Literal["day", "month", "year"], ts: float | None = None
-) -> float:
-    dt = datetime.now() if ts is None else datetime.fromtimestamp(ts)
-
-    if period == "day":
-        new_dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "month":
-        new_dt = dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    elif period == "year":
-        new_dt = dt.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-    else:
-        raise ValueError(f"Invalid period: {period}")
-
-    return new_dt.timestamp()
 
 
 def query(

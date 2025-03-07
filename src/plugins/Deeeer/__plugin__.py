@@ -8,12 +8,8 @@ from io import BytesIO
 from melobot import get_bot
 from melobot.plugin import PluginPlanner
 from melobot.protocols.onebot.v11.adapter import Adapter
-from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
-from melobot.protocols.onebot.v11.adapter.segment import (
-    AtSegment,
-    ImageSegment,
-    TextSegment,
-)
+from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
+from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, TextSegment
 from melobot.protocols.onebot.v11.handle import on_message
 
 from lemony_utils.botutils import cached_avatar_source
