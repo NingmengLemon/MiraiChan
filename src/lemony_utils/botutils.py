@@ -56,40 +56,6 @@ def get_mface_url(mface_id: str):
     return f"https://gxh.vip.qq.com/club/item/parcel/item/{mface_id[0:2]}/{mface_id}/raw300.gif"
 
 
-class Timer:
-    def __init__(self):
-        self._start: int | None = None
-        self._end: int | None = None
-
-    def __enter__(self):
-        self._start = time.perf_counter_ns()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._end = time.perf_counter_ns()
-
-    @property
-    def result_ns(self):
-        if self._start is None or self._end is None:
-            return None
-        return self._end - self._start
-
-    @property
-    def result_us(self):
-        r = self.result_ns
-        return None if r is None else r / 10**3
-
-    @property
-    def result_ms(self):
-        r = self.result_ns
-        return None if r is None else r / 10**6
-
-    @property
-    def result_s(self):
-        r = self.result_ns
-        return None if r is None else r / 10**9
-
-
 @singleton
 class AvatarCache:
     CACHE_DIR = "data/avatars"
