@@ -1,90 +1,39 @@
 import asyncio
 import functools
-import sys
-from typing import Concatenate
-from collections.abc import Callable
 import hashlib
 import mimetypes
 import os
 import posixpath
+import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import Concatenate
 
 import aiofiles
 from melobot import get_bot
-from melobot.plugin import PluginPlanner, SyncShare
-from melobot.typ import AsyncCallable
 from melobot.log import get_logger
-from melobot.utils import lock
-from melobot.protocols.onebot.v11.handle import on_message
+from melobot.plugin import PluginPlanner, SyncShare
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import (
-    MessageEvent,
     GroupMessageEvent,
+    MessageEvent,
     PrivateMessageEvent,
 )
 from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, RecordSegment
-from yarl import URL
-from sqlmodel import SQLModel, Session, select, func, col, or_
+from melobot.protocols.onebot.v11.handle import on_message
+from melobot.typ import AsyncCallable
+from melobot.utils import lock
+from sqlmodel import col, func, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy.ext.asyncio.engine import create_async_engine
+from yarl import URL
 
-from lemony_utils.templates import async_http
 from lemony_utils.consts import http_headers
-from recorder_models import User, Group, Message, MessageSegment, MediaFile, TABLES
+from lemony_utils.database import AsyncDbCore
+from lemony_utils.templates import async_http
+from recorder_models import TABLES, Group, MediaFile, Message, MessageSegment, User
 
 from .utils import get_context_messages
-
-
-class RecorderCore:
-    def __init__(self, dburl: str, echo: bool = False):
-        self._url = dburl
-        self._engine = create_async_engine(
-            dburl, connect_args={"check_same_thread": False}, echo=echo
-        )
-        self._startup_event = asyncio.Event()
-
-    @property
-    def started(self):
-        return self._startup_event
-
-    async def startup(self):
-        if self.started.is_set():
-            raise RuntimeError("already started")
-        async with self._engine.begin() as conn:
-            await conn.run_sync(
-                SQLModel.metadata.create_all, tables=TABLES, checkfirst=True
-            )
-        self._startup_event.set()
-
-    def get_session(self, autoflush=False):
-        if not self.started.is_set():
-            raise RuntimeError("recorder not started yet")
-        return AsyncSession(self._engine, autoflush=autoflush)
-
-    async def run_sync[
-        **P, T
-    ](
-        self,
-        func: Callable[Concatenate[Session, P], T],
-        *args: P.args,
-        **kwargs: P.kwargs,
-    ):
-        """单开一个 AsyncSession 来执行第一个参数是 Session 的同步函数"""
-        async with self.get_session() as asess:
-            return await asess.run_sync(func, *args, **kwargs)
-
-    def to_async[
-        **P, T
-    ](self, func: Callable[Concatenate[Session, P], T]) -> AsyncCallable[P, T]:
-        """将执行第一个参数是 Session 的同步函数装饰成异步函数, 运行时会单开一个 AsyncSession"""
-
-        @functools.wraps(func)
-        async def wrapped(*args: P.args, **kwargs: P.kwargs):
-            return await self.run_sync(func, *args, **kwargs)
-
-        return wrapped
-
 
 DB_URL = "sqlite+aiosqlite:///data/record/messages.db"
 IMAGE_LOCATION = Path("data/record/images")
@@ -93,7 +42,7 @@ VOICE_LOCATION = Path("data/record/voices")
 os.makedirs(VOICE_LOCATION, exist_ok=True)
 
 logger = get_logger()
-recorder = RecorderCore(DB_URL, echo="--debug" in sys.argv)
+recorder = AsyncDbCore(DB_URL, TABLES, echo="--debug" in sys.argv)
 
 
 def do_md5(d: bytes):

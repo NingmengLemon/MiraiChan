@@ -1,33 +1,34 @@
+import time
 from collections.abc import Iterable
 from io import BytesIO
 from pathlib import Path
-import time
 from typing import TypedDict, cast
 
-from PIL import Image, ImageOps, UnidentifiedImageError, ImageDraw
-from yarl import URL
-from pilmoji.source import BaseSource
 from melobot.protocols.onebot.v11.adapter.segment import (
-    Segment,
-    ImageSegment,
-    TextSegment,
     AtSegment,
     FaceSegment,
+    ImageSegment,
+    Segment,
+    TextSegment,
 )
+from PIL import Image, ImageDraw, ImageOps, UnidentifiedImageError
+from pilmoji.source import BaseSource
+from yarl import URL
 
 from lemony_utils.asyncutils import gather_with_concurrency
-from lemony_utils.images import FontCache, _ColorT
+from lemony_utils.botutils import cached_avatar_source
 from lemony_utils.consts import http_headers
+from lemony_utils.images import FontCache, _ColorT
 from lemony_utils.templates import async_http
 from recorder_models import Message
 
-from .widgets import Avatar, Bubble, _ensure_int
 from .params import (
     DrawingParams,
-    default_drawing_params,
     QuoteParams,
+    default_drawing_params,
     default_quote_params,
 )
+from .widgets import Avatar, Bubble, _ensure_int
 
 
 class SupportDot:
@@ -45,13 +46,11 @@ _FontSource = str | BytesIO
 
 
 async def retrieve_into_bytesio(url: URL | str):
+    data = await cached_avatar_source.get_by_url(url)
+    if data is not None:
+        return BytesIO(data)
     async with async_http(url, "get", headers=http_headers) as resp:
         return BytesIO(await resp.read())
-
-
-def get_avatar_url(uid: int):
-    return f"https://q1.qlogo.cn/g?b=qq&nk={uid}&s=640"
-    # return f"https://q.qlogo.cn/headimg_dl?dst_uin={uid}&spec=640&img_type=jpg"
 
 
 class _QuoteMsg(TypedDict):
@@ -89,7 +88,7 @@ def prepare_quote(
             "msg_id": msg.message_id,
             "segments": [],
         }
-        resources.add(get_avatar_url(msg.sender_id))
+        resources.add(cached_avatar_source.get_url(msg.sender_id))
         for seg in msg.segments:
             qseg = Segment.resolve(seg.type, seg.data)
             if isinstance(qseg, ImageSegment):
@@ -202,7 +201,7 @@ class QuoteDrawer:
         )
 
     def _msg_to_widgets(self, msg: _QuoteMsg):
-        avatar_img = self._resources.get(get_avatar_url(msg["sender_id"]))
+        avatar_img = self._resources.get(cached_avatar_source.get_url(msg["sender_id"]))
         avatar = Avatar(
             (
                 Image.open(avatar_img).convert("RGBA")
