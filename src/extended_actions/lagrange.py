@@ -1,4 +1,4 @@
-from typing import Any, Literal, Type, TypedDict, Unpack, NotRequired
+from typing import Any, Literal, TypedDict, Unpack, NotRequired
 from melobot.protocols.onebot.v11.adapter.action import Action
 from melobot.protocols.onebot.v11.adapter.echo import Echo
 from melobot.protocols.onebot.v11.adapter.segment import Segment
@@ -175,4 +175,4 @@ class _MFaceData(TypedDict):
     summary: str
 
 
-# MfaceSegment = Segment.add_type(Literal["mface"], _MFaceData)
+MfaceSegment = Segment.add_type(Literal["mface"], _MFaceData)

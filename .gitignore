@@ -167,3 +167,4 @@ plugin_config/
 melobot.log*
 *.db
 data/record/
+data/avatars/
