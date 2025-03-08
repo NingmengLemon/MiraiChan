@@ -5,13 +5,14 @@ import time
 import traceback
 
 import aiofiles
-from melobot.adapter.generic import send_image
+from melobot.adapter.generic import send_image, send_text
 from melobot.ctx import EventOrigin
 from melobot.handle import get_event
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, TextSegment
 from melobot.utils import singleton
+from melobot.utils.parse.cmd import CmdArgFormatInfo, CmdArgFormatter
 from yarl import URL
 
 from .asyncutils import async_retry
@@ -124,6 +125,14 @@ def get_adapter():
     return EventOrigin.get_origin(event).adapter
 
 
+async def _report_by_image(text: str):
+    await send_image(
+        "Error Report",
+        raw=await asyncio.to_thread(text_to_image, text),
+        mimetype="image/png",
+    )
+
+
 def auto_report_traceback(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
@@ -131,14 +140,71 @@ def auto_report_traceback(func):
             return await func(*args, **kwargs)
         except Exception:
             tbfmt = traceback.format_exc()
-            await send_image(
-                "Error Report",
-                raw=await asyncio.to_thread(
-                    text_to_image,
-                    "///// 出现了错误, 请联系Bot管理员 ///// \n" + tbfmt,
-                ),
-                mimetype="image/png",
-            )
+            await _report_by_image("///// 出现了错误, 请联系Bot管理员 ///// \n" + tbfmt)
             raise
 
     return wrapper
+
+
+def to_ordinal(n: int) -> str:
+    if not isinstance(n, int) or n <= 0:
+        raise ValueError("positive integer required")
+
+    # 特别处理 11 ~ 13
+    if 11 <= (n % 100) <= 13:
+        suffix = "th"
+    else:
+        last_digit = n % 10
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(last_digit, "th")
+    return f"{n}{suffix}"
+
+
+# reference:
+# https://github.com/aicorein/meloinf/blob/631f28bc7e75d1b297524d03ed9a69e67c0a4881/src/platform/onebot.py#L72
+# 试着用 traceback 的样子写了 (x)
+class DefaultCmdFailCallbacks:
+    @staticmethod
+    async def convert_fail(info: CmdArgFormatInfo) -> None:
+        e_class = f"{info.exc.__class__.__module__}.{info.exc.__class__.__qualname__}"
+        src = repr(info.src) if isinstance(info.src, str) else info.src
+
+        tip = (
+            f"Command <{info.name}>\n"
+            + f"    {to_ordinal(info.idx + 1)} argument "
+            + (f"({info.src_desc}) " if info.src_desc else "")
+            + f"cannot be processed with value {src} given"
+            + (f", {info.src_expect} expected." if info.src_expect else ".")
+            + f"\n{e_class}: {info.exc}"
+        )
+        await _report_by_image(tip)
+
+    @staticmethod
+    async def validate_fail(info: CmdArgFormatInfo) -> None:
+        src = repr(info.src) if isinstance(info.src, str) else info.src
+
+        tip = (
+            f"Command <{info.name}>\n"
+            + f"    {to_ordinal(info.idx + 1)} argument "
+            + (f"({info.src_desc}) " if info.src_desc else "")
+            + f"does not meet the requirement with value {src} given"
+            + (f", {info.src_expect} expected." if info.src_expect else ".")
+        )
+        await _report_by_image(tip)
+
+    @staticmethod
+    async def arg_lack(info: CmdArgFormatInfo) -> None:
+        tip = (
+            f"Command <{info.name}>\n"
+            + f"    {to_ordinal(info.idx + 1)} argument "
+            + (f"({info.src_desc}) " if info.src_desc else "")
+            + (f"is missing. {info.src_expect} expected." if info.src_expect else ".")
+        )
+        await _report_by_image(tip)
+
+
+PrefilledCmdArgFmtter = functools.partial(
+    CmdArgFormatter,
+    convert_fail=DefaultCmdFailCallbacks.convert_fail,
+    validate_fail=DefaultCmdFailCallbacks.validate_fail,
+    arg_lack=DefaultCmdFailCallbacks.arg_lack,
+)

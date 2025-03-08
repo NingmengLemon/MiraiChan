@@ -1,9 +1,14 @@
+import asyncio
 import time
-from datetime import datetime
-from typing import Literal
+import uuid
+from datetime import datetime, timedelta
+from typing import Any, Literal, TypedDict
+from weakref import WeakSet
+
+from melobot.typ import AsyncCallable
 
 
-class Timer:
+class GapTimer:
     def __init__(self):
         self._start: int | None = None
         self._end: int | None = None
@@ -38,9 +43,18 @@ class Timer:
 
 
 def get_time_period_start(
-    period: Literal["day", "month", "year"], ts: float | None = None
-) -> float:
-    dt = datetime.now() if ts is None else datetime.fromtimestamp(ts)
+    period: Literal["day", "month", "year"], time_input: float | datetime | None = None
+):
+    if time_input is None:
+        dt = datetime.now()
+    elif isinstance(time_input, (float, int)):
+        dt = datetime.fromtimestamp(time_input)
+    elif isinstance(time_input, datetime):
+        dt = time_input
+    else:
+        raise TypeError(
+            f"timestamp or datetime obj expected, {type(time_input)!r} given"
+        )
 
     if period == "day":
         new_dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -51,4 +65,4 @@ def get_time_period_start(
     else:
         raise ValueError(f"Invalid period: {period}")
 
-    return new_dt.timestamp()
+    return new_dt

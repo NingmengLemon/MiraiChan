@@ -30,8 +30,9 @@ def query(
     gid: int | None = None,
     time_range: tuple[float, float] | None = None,
 ):
+    now_time = time.time()
     if time_range is None:
-        time_range = (get_time_period_start("month", time.time()), time.time())
+        time_range = (get_time_period_start("month", now_time).timestamp(), now_time)
     extra_wheres = [] if gid is None else [DeerRecord.group_id == gid]
     return [
         (r.timestamp, r.combo)
@@ -173,7 +174,7 @@ class Drawer:
             draw.text(
                 (x + self.GRID_SIZE[0], y + self.GRID_SIZE[1] - self.MARGIN),
                 f"x{count}",
-                font=self._font.use(self.FONT_SIZE),
+                font=self._font.use(self.FONT_SIZE_SMALL),
                 fill="#ff0000ff",
                 anchor="rs",
             )
