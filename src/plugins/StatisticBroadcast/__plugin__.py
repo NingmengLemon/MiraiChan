@@ -3,8 +3,10 @@ import json
 import time
 import uuid
 from datetime import timedelta
+from io import StringIO
 from typing import cast
 
+import yaml
 from apscheduler.job import Job
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.calendarinterval import CalendarIntervalTrigger
@@ -103,12 +105,23 @@ async def send_stat(group_id: int, user_id: int):
                 ).one()
                 if count > 0:
                     result[uid] = count
-    result_json = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
+    # result_json = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
+    _ = StringIO()
+    yaml.dump(
+        result,
+        _,
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+        indent=2,
+        encoding="utf-8",
+    )
+    result_yaml = _.getvalue()
     msg_base = (
         f"{start_time.strftime(TIMESTR_FORMAT)} ~ {end_time.strftime(TIMESTR_FORMAT)}"
         f"\ngroup={group_id}\ntotal={sum(result.values())}\n"
     )
-    msg_full = msg_base + result_json
+    msg_full = msg_base + result_yaml
     msg_short = msg_base + "null"
     with EchoRequireCtx().unfold(True):
         echo = await (await adapter.send_custom(msg_full, user_id=user_id))[0]
@@ -116,7 +129,7 @@ async def send_stat(group_id: int, user_id: int):
             echo = await (await adapter.send_custom(msg_short, user_id=user_id))[0]
         if not echo or not echo.data:
             logger.warning(f"未能成功向 {user_id} 汇报 {group_id} 的统计数据")
-    await asyncio.sleep(2)  # 故意的w
+    await asyncio.sleep(5)  # 故意的w
 
 
 @plugin.use
