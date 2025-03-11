@@ -17,7 +17,7 @@ from melobot.handle.register import FlowDecorator
 from melobot.plugin import PluginPlanner
 from melobot.protocols.onebot.v11.adapter import Adapter, EchoRequireCtx
 from melobot.protocols.onebot.v11.adapter.event import PrivateMessageEvent
-from melobot.utils import lock
+from melobot.utils import RWContext, lock, unfold_ctx
 from melobot.utils.parse.cmd import CmdArgs
 from sqlmodel import func, select
 
@@ -45,14 +45,16 @@ logger = get_logger()
 @bot.on_started
 async def init():
     scheduler.start()
-    for jobdata in cfgloader.config.private_registrations:
+    regs = cfgloader.config.private_registrations
+    for jobdata in regs:
         add_job(jobdata)
+    logger.info(f"广播统计器已启动, 加载了 {len(regs)} 条广播事项")
 
 
 @bot.on_stopped
 async def stop():
     scheduler.shutdown()
-    cfgloader.save_config()
+    logger.info("广播统计器已正常退出")
 
 
 AVAILABLE_CITPARAMS = ["years", "months", "weeks", "days", "hour", "minute", "second"]
@@ -154,7 +156,6 @@ async def send_stat(group_id: int, user_id: int):
     checker=lambda e: isinstance(e, PrivateMessageEvent) and e.is_friend(),
 )
 async def shunt(adapter: Adapter, args: CmdArgs):
-
     if args.vals[0] in ("reg", "unreg"):
         if args.vals[1] == -1:
             await adapter.send_reply("需要指定群号")
@@ -183,7 +184,10 @@ async def check_group_id(adapter: Adapter, group_id: int):
     return True
 
 
-@FlowDecorator()
+rwlock = RWContext()
+
+
+@FlowDecorator(decos=[unfold_ctx(rwlock.read)])
 async def listreg(event: PrivateMessageEvent, adapter: Adapter):
     regs = [
         reg
@@ -204,7 +208,7 @@ async def listreg(event: PrivateMessageEvent, adapter: Adapter):
         await adapter.send_reply("当前还没有订阅任何群聊")
 
 
-@FlowDecorator()
+@FlowDecorator(decos=[unfold_ctx(rwlock.write)])
 async def register(event: PrivateMessageEvent, adapter: Adapter, args: CmdArgs):
     group_id: int = args.vals[1]
     for reg in cfgloader.config.private_registrations:
@@ -222,10 +226,12 @@ async def register(event: PrivateMessageEvent, adapter: Adapter, args: CmdArgs):
     }
     cfgloader.config.private_registrations.append(jobdata)
     add_job(jobdata)
+    cfgloader.save_config()
     await adapter.send_reply(f"已成功订阅群聊 {group_id} 的每日统计")
+    logger.info(f"user {event.user_id} subscribed group {group_id}")
 
 
-@FlowDecorator()
+@FlowDecorator(decos=[unfold_ctx(rwlock.write)])
 async def unregister(event: PrivateMessageEvent, adapter: Adapter, args: CmdArgs):
     group_id: int = args.vals[1]
     for idx, reg in enumerate(cfgloader.config.private_registrations):
@@ -239,4 +245,6 @@ async def unregister(event: PrivateMessageEvent, adapter: Adapter, args: CmdArgs
         await adapter.send_reply("你还没有订阅此群聊")
         return
     cfgloader.config.private_registrations.pop(idx)
+    cfgloader.save_config()
     await adapter.send_reply("已退订此群聊")
+    logger.info(f"user {event.user_id} unsubscribed group {group_id}")
