@@ -36,12 +36,20 @@ little_helper.register(
         "text": "复读回复的消息\n*Owner Only*",
     },
     {
-        "cmd": ".{getmsg|get} [--text]",
+        "cmd": ".{getmsg,get} [--text]",
         "text": "获取回复的消息的数据\n*Owner Only*",
     },
     {
         "cmd": ".withdraw",
         "text": "尝试撤回回复的消息\n*Owner Only*",
+    },
+    {
+        "cmd": ".{reboot,restart,重启}",
+        "text": "重启Bot程序\n*Owner Only*",
+    },
+    {
+        "cmd": ".{poweroff,shutdown,关机}",
+        "text": "关闭Bot程序\n*Owner Only*",
     },
 )
 
@@ -120,7 +128,6 @@ SAYINGS_ON_POWEROFF = [
 SAYINGS_ON_REBOOT = [
     "待会儿见w",
     "正在执行重启, 请坐和放宽w",
-    "再见~",
 ]
 
 
