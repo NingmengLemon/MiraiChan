@@ -19,12 +19,11 @@ from melobot.protocols.onebot.v11.adapter import Adapter, EchoRequireCtx
 from melobot.protocols.onebot.v11.adapter.event import PrivateMessageEvent
 from melobot.utils import RWContext, lock, unfold_ctx
 from melobot.utils.parse.cmd import CmdArgs
-from sqlmodel import func, select
 
 from configloader import ConfigLoader, ConfigLoaderMetadata
 from lemony_utils.botutils import PrefilledCmdArgFmtter
 from lemony_utils.time import get_time_period_start
-from recorder_models import Message
+from recorder_models import Message, User
 
 from .. import Recorder
 from .model import CfgModel, PrivateReg
@@ -48,13 +47,13 @@ async def init():
     regs = cfgloader.config.private_registrations
     for jobdata in regs:
         add_job(jobdata)
-    logger.info(f"广播统计器已启动, 加载了 {len(regs)} 条广播事项")
+    logger.info(f"统计广播器已启动, 加载了 {len(regs)} 条广播事项")
 
 
 @bot.on_stopped
 async def stop():
     scheduler.shutdown()
-    logger.info("广播统计器已正常退出")
+    logger.info("统计广播器已正常退出")
 
 
 AVAILABLE_CITPARAMS = ["years", "months", "weeks", "days", "hour", "minute", "second"]
@@ -78,39 +77,20 @@ def add_job(data: PrivateReg):
 async def send_stat(group_id: int, user_id: int):
     adapter = bot.get_adapter(Adapter)
     if adapter is None:
-        logger.error("没能获取到 OneBot11 适配器")
+        logger.error("未能获取到正确的 Adapter 用于汇报统计")
         return
     adapter = cast(Adapter, adapter)
-    result: dict[int, int] = {}
-    member_list = await (
-        await adapter.with_echo(adapter.get_group_member_list)(group_id=group_id)
-    )[0]
     end_time = get_time_period_start("day", time.time())
     start_time = end_time - timedelta(days=1)
-    base_stmt = (
-        select(func.count())
-        .select_from(Message)
-        .where(
-            Message.group_id == group_id,
-            Message.timestamp >= start_time.timestamp(),
-            Message.timestamp <= end_time.timestamp(),
-        )
+    result = await Recorder.run_sync(
+        Recorder.query_group_msg_count,
+        group_id=group_id,
+        start_time=start_time,
+        end_time=end_time,
     )
-    async with Recorder.get_session() as session:
-        if member_list.data:
-            for member in member_list.data:
-                uid = member["user_id"]
-                count = (
-                    await session.exec(
-                        base_stmt.where(Message.sender_id == member["user_id"])
-                    )
-                ).one()
-                if count > 0:
-                    result[uid] = count
-    # result_json = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
     _ = StringIO()
     yaml.dump(
-        result,
+        dict(result),
         _,
         default_flow_style=False,
         allow_unicode=True,
@@ -121,9 +101,9 @@ async def send_stat(group_id: int, user_id: int):
     result_yaml = _.getvalue()
     msg_base = (
         f"{start_time.strftime(TIMESTR_FORMAT)} ~ {end_time.strftime(TIMESTR_FORMAT)}"
-        f"\ngroup={group_id}\ntotal={sum(result.values())}\n"
+        f"\ngroup={group_id}\ntotal={sum(result.values())}\n---\n"
     )
-    msg_full = msg_base + result_yaml
+    msg_full = msg_base + result_yaml.strip()
     msg_short = msg_base + "null"
     with EchoRequireCtx().unfold(True):
         echo = await (await adapter.send_custom(msg_full, user_id=user_id))[0]
@@ -131,7 +111,7 @@ async def send_stat(group_id: int, user_id: int):
             echo = await (await adapter.send_custom(msg_short, user_id=user_id))[0]
         if not echo or not echo.data:
             logger.warning(f"未能成功向 {user_id} 汇报 {group_id} 的统计数据")
-    await asyncio.sleep(5)  # 故意的w
+    await asyncio.sleep(10)  # 故意的w
 
 
 @plugin.use
@@ -220,8 +200,8 @@ async def register(event: PrivateMessageEvent, adapter: Adapter, args: CmdArgs):
         "group_id": group_id,
         "user_id": event.user_id,
         "days": 1,
-        "hour": 0,
-        "minute": 1,
+        "hour": 21,
+        "minute": 42,
         # 其实汇报时间都可以自定义啊 但是懒得写w
     }
     cfgloader.config.private_registrations.append(jobdata)
