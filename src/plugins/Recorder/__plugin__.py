@@ -6,9 +6,7 @@ import os
 import posixpath
 import sys
 import time
-from collections.abc import Callable
 from pathlib import Path
-from typing import Concatenate
 
 import aiofiles
 from melobot import get_bot
@@ -22,7 +20,6 @@ from melobot.protocols.onebot.v11.adapter.event import (
 )
 from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, RecordSegment
 from melobot.protocols.onebot.v11.handle import on_message
-from melobot.typ import AsyncCallable
 from melobot.utils import lock
 from sqlmodel import col, func, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -33,7 +30,7 @@ from lemony_utils.database import AsyncDbCore
 from lemony_utils.templates import async_http
 from recorder_models import TABLES, Group, MediaFile, Message, MessageSegment, User
 
-from .utils import get_context_messages
+from .utils import get_context_messages, query_group_msg_count
 
 DB_URL = "sqlite+aiosqlite:///data/record/messages.db"
 IMAGE_LOCATION = Path("data/record/images")
@@ -202,6 +199,7 @@ RecorderPlugin = PluginPlanner(
         url_to_fileid,
         get_filepath,
         get_context_messages,
+        query_group_msg_count,
         run_sync,
         to_async,
     ],

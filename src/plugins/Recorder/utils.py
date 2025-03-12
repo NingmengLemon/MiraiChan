@@ -1,8 +1,27 @@
-from typing import Unpack, TypedDict
+from datetime import datetime
+from typing import TypedDict, Unpack
 
-from sqlmodel import select, col, and_, or_, Session
+from sqlmodel import Session, and_, col, desc, func, or_, select
 
-from recorder_models import Message
+from recorder_models import Message, User
+
+
+def query_group_msg_count(
+    session: Session, group_id: int, start_time: datetime, end_time: datetime
+):
+    query = (
+        select(User.id, func.count(Message.message_id).label("message_count"))
+        .join(Message, Message.sender_id == User.id)
+        .where(
+            Message.group_id == group_id,
+            col(Message.timestamp).between(
+                start_time.timestamp(), end_time.timestamp()
+            ),
+        )
+        .group_by(User.id)
+        .order_by(desc("message_count"))
+    )
+    return dict(session.exec(query).all())
 
 
 class RangeContextParams(TypedDict):
