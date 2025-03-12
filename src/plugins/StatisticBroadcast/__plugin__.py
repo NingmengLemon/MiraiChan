@@ -82,7 +82,7 @@ async def send_stat(group_id: int, user_id: int):
     adapter = cast(Adapter, adapter)
     end_time = get_time_period_start("day", time.time())
     start_time = end_time - timedelta(days=1)
-    result = await Recorder.run_sync(
+    result = await Recorder.database.run_sync(
         Recorder.query_group_msg_count,
         group_id=group_id,
         start_time=start_time,

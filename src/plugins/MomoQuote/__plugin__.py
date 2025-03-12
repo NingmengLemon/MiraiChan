@@ -126,7 +126,7 @@ class MsgFromDB:
 
 async def get_reply_from_db(event: GroupMessageEvent):
     msg_id = get_reply_msg_id(event)
-    async with Recorder.get_session() as sess:
+    async with Recorder.database.get_session() as sess:
         msg = (
             await sess.exec(
                 select(Message)
@@ -243,7 +243,7 @@ async def quote(
     event: Annotated[GroupMessageEvent, Reflect()],
 ):
     # 拿到消息id
-    if not Recorder.ready_event.is_set():
+    if not Recorder.database.started.is_set():
         await adapter.send_reply("数据库还未就绪")
         return
     try:
@@ -293,7 +293,7 @@ async def quote(
     logger.debug(
         f"Preparing quote of {target}, [{left}, {right}], sender_only={sender_only}, {scale}x, a{ascale}x"
     )
-    data, required_resources = await Recorder.run_sync(
+    data, required_resources = await Recorder.database.run_sync(
         just_prepare,
         base_msgid=target.msg_id,
         group_id=event.group_id,
