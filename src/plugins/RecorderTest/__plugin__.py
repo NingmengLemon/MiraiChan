@@ -1,21 +1,21 @@
-from collections.abc import Callable
 import functools
 import re
 import time
+from collections.abc import Callable
 from typing import Concatenate
 
 from melobot import get_logger
-from melobot.plugin import PluginPlanner
-from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
-from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
-from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.handle import on_start_match
-from sqlmodel import Session, select, col, and_, not_
+from melobot.plugin import PluginPlanner
+from melobot.protocols.onebot.v11.adapter import Adapter
+from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
+from sqlmodel import Session, and_, col, not_, select
 
-from recorder_models import Message, MessageSegment
 import checker_factory
-from lemony_utils.images import text_to_imgseg
 from lemony_utils.botutils import get_reply
+from lemony_utils.images import text_to_imgseg
+from recorder_models import Message, MessageSegment
+
 from .. import Recorder
 
 plugin = PluginPlanner("0.1.0")
@@ -64,7 +64,7 @@ def query_messages(session: Session, keyword: str, group_id: int):
 @on_start_match(".recquery ", checker=checker_factory.get_owner_checker())
 async def query(event: GroupMessageEvent, adapter: Adapter) -> None:
     words = event.text.removeprefix(".recquery ").strip()
-    result = await Recorder.run_sync(
+    result = await Recorder.database.run_sync(
         query_messages, group_id=event.group_id, keyword=words
     )
     if not result:
@@ -100,7 +100,7 @@ async def get_ctx(event: GroupMessageEvent, adapter: Adapter) -> None:
     else:
         sonly = False
 
-    result = await Recorder.run_sync(
+    result = await Recorder.database.run_sync(
         msgs_return_text(Recorder.get_context_messages),
         base_msgid=base_msg.data["message_id"],
         group_id=event.group_id,

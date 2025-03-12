@@ -187,23 +187,17 @@ async def fix_group_name(adapter: Adapter):
         logger.debug(f"fixed names of {count} groups")
 
 
-get_session = recorder.get_session
-run_sync = recorder.run_sync
-to_async = recorder.to_async
-ready_event = SyncShare("ready_event", lambda: recorder.started, static=True)
+dbcore_share = SyncShare("database", lambda: recorder, static=True)
 
 RecorderPlugin = PluginPlanner(
     "0.1.0",
     funcs=[
-        get_session,
         url_to_fileid,
         get_filepath,
         get_context_messages,
         query_group_msg_count,
-        run_sync,
-        to_async,
     ],
-    shares=[ready_event],
+    shares=[dbcore_share],
 )
 bot = get_bot()
 
