@@ -168,3 +168,4 @@ melobot.log*
 *.db
 data/record/
 data/avatars/
+data/reboot_info.json

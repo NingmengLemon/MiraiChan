@@ -32,8 +32,10 @@ license = { text = "AGPL3" }
 
 
 [tool.pdm.scripts]
-start = { cmd = ["python", "src/bot.py"] }
-dev = { cmd = ["pdm", "run", "start", "--debug"] }
+deploy = { cmd = ["python", "-m", "melobot", "run", "src/bot.py"] }
+dev = { cmd = ["src/bot.py", "--debug"] }
+melobot = { cmd = ["python", "-m", "melobot"] }
+pinit = { cmd = ["melobot", "pinit"] }
 
 
 [tool.pdm]
