@@ -200,8 +200,8 @@ async def register(event: PrivateMessageEvent, adapter: Adapter, args: CmdArgs):
         "group_id": group_id,
         "user_id": event.user_id,
         "days": 1,
-        "hour": 21,
-        "minute": 42,
+        "hour": 0,
+        "minute": 1,
         # 其实汇报时间都可以自定义啊 但是懒得写w
     }
     cfgloader.config.private_registrations.append(jobdata)
