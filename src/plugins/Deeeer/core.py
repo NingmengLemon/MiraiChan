@@ -1,10 +1,10 @@
 import calendar
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
-from typing import Literal
+from typing import cast
 
 from PIL import Image, ImageDraw, ImageOps
 from sqlmodel import Field, Session, SQLModel, select
@@ -21,7 +21,7 @@ class DeerRecord(SQLModel, table=True):
     combo: int = Field(default=1)
 
 
-TABLES = [SQLModel.metadata.tables[DeerRecord.__tablename__]]
+TABLES = [SQLModel.metadata.tables[cast(str, DeerRecord.__tablename__)]]
 
 
 def query(
@@ -33,18 +33,30 @@ def query(
     now_time = time.time()
     if time_range is None:
         time_range = (get_time_period_start("month", now_time).timestamp(), now_time)
-    extra_wheres = [] if gid is None else [DeerRecord.group_id == gid]
-    return [
-        (r.timestamp, r.combo)
-        for r in session.exec(
-            select(DeerRecord).where(
-                DeerRecord.timestamp >= time_range[0],
-                DeerRecord.timestamp <= time_range[1],
-                DeerRecord.user_id == uid,
-                *extra_wheres,
-            )
-        ).all()
-    ]
+    query_stmt = select(
+        DeerRecord.timestamp,
+        DeerRecord.combo,
+    ).where(
+        DeerRecord.timestamp >= time_range[0],
+        DeerRecord.timestamp <= time_range[1],
+        DeerRecord.user_id == uid,
+    )
+    if gid is not None:
+        query_stmt = query_stmt.where(DeerRecord.group_id == gid)
+    return list(session.exec(query_stmt).all())
+
+
+def query_one_day_total(
+    session: Session, date: datetime, uid: int, gid: int | None = None
+):
+    start = get_time_period_start("day", date)
+    end = start + timedelta(days=1)
+    return sum(
+        i[1]
+        for i in query(
+            session, uid, gid, time_range=(start.timestamp(), end.timestamp())
+        )
+    )
 
 
 def record(
