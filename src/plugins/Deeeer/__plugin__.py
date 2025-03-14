@@ -14,15 +14,28 @@ from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, TextSegme
 from melobot.protocols.onebot.v11.handle import on_message
 from melobot.utils.base import to_async
 from melobot.utils.deco import lock
+from pydantic import BaseModel
 
+from configloader import ConfigLoader, ConfigLoaderMetadata
 from lemony_utils.botutils import cached_avatar_source
 from lemony_utils.database import AsyncDbCore
 from lemony_utils.images import bytes_to_b64_url
 
 from .core import TABLES, Drawer, query, query_one_day_total, record
 
+
+class CfgModel(BaseModel):
+    trigger_chars: str = "鹿撸🦌"
+    group_isolation: bool = False
+    daily_limit: int = 100  # < 1 的值记为无限制
+
+
 dburl = "sqlite+aiosqlite:///data/record/deers.db"
 os.makedirs("data/record/", exist_ok=True)
+cfgloader = ConfigLoader(
+    ConfigLoaderMetadata(model=CfgModel, filename="deer_conf.json")
+)
+cfgloader.load_config()
 
 deerdbcore = AsyncDbCore(dburl, TABLES, echo="--debug" in sys.argv)
 drawer = Drawer("data/deer.jpg", "data/correct.png")
@@ -30,8 +43,9 @@ drawer = Drawer("data/deer.jpg", "data/correct.png")
 record_a = deerdbcore.to_async(record)
 query_a = deerdbcore.to_async(query)
 query_one_day_total_a = deerdbcore.to_async(query_one_day_total)
+draw = to_async(drawer.draw)
 
-plugin = PluginPlanner("0.1.1")
+plugin = PluginPlanner("0.1.2")
 bot = get_bot()
 
 
@@ -40,13 +54,11 @@ async def _():
     await deerdbcore.startup()
 
 
-DEER_CHARS = "鹿撸🦌"
+DEER_CHARS = cfgloader.config.trigger_chars
 DEER_JUDGE_REGEX = re.compile(rf"^(?:\s*[{re.escape(DEER_CHARS)}]\s*)+$", re.IGNORECASE)
 DEER_COUNT_REGEX = re.compile(rf"[{re.escape(DEER_CHARS)}]", re.IGNORECASE)
-DAILY_LIMIT = 100
-GROUP_ISOLATION = True
-# TODO: 写成配置文件
-draw = to_async(drawer.draw)
+DAILY_LIMIT = cfgloader.config.daily_limit
+GROUP_ISOLATION = cfgloader.config.group_isolation
 
 
 @plugin.use
@@ -62,11 +74,14 @@ async def deer(event: GroupMessageEvent, adapter: Adapter):
         uid=event.user_id,
         gid=event.group_id if GROUP_ISOLATION else None,
     )
-    if today_total >= DAILY_LIMIT:
-        await adapter.send_reply("今天🦌太多了qwq\n奖励自己太多会变成小迷糊啦(๑>ᴗ<๑)")
-        return
-    elif today_total + combo > DAILY_LIMIT:
-        combo = DAILY_LIMIT - today_total
+    if DAILY_LIMIT >= 1:
+        if today_total >= DAILY_LIMIT:
+            await adapter.send_reply(
+                "今天🦌太多了qwq\n奖励自己太多会变成小迷糊啦(๑>ᴗ<๑)"
+            )
+            return
+        elif today_total + combo > DAILY_LIMIT:
+            combo = DAILY_LIMIT - today_total
 
     await record_a(uid=event.user_id, gid=event.group_id, combo=combo, ts=time.time())
 
