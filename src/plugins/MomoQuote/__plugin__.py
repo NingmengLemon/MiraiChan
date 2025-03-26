@@ -11,7 +11,6 @@ from typing import Annotated, Concatenate
 
 import aiofiles
 from melobot import get_logger, send_text
-from melobot.adapter.generic import _get_ctx_adapter
 from melobot.di import Reflect
 from melobot.handle import on_command
 from melobot.plugin import PluginPlanner
@@ -255,11 +254,11 @@ async def quote(
                 sender_id=echo.data["sender"].user_id,
                 sender_name=echo.data["sender"].nickname,
             )
-    except get_reply.GetReplyException:
-        await adapter.send_reply("获取目标消息失败")
-        return
     except get_reply.TargetNotSpecifiedError:
         await adapter.send_reply("需要指定基准消息")
+        return
+    except get_reply.GetReplyException:
+        await adapter.send_reply("获取目标消息失败")
         return
     else:
         logger.debug(f"Got reply message from remote: {target!r}")
@@ -329,14 +328,14 @@ async def quote(
             [
                 ImageSegment(file=await b2b64url_async(imagebytes)),
                 TextSegment(
-                    f"db: {query_time:.3f}s; draw: {now_time-start_draw_time:.3f}s"
+                    f"db: {query_time:.3f}s; draw: {now_time - start_draw_time:.3f}s"
                 ),
             ]
         )
         if path := cfgloader.config.saveto:
             file = os.path.join(
                 path,
-                f"{time.strftime("%Y%m%d%H%M%S", time.localtime())}_{event.group_id}_{target.msg_id}[{left}-{right}]_{get_id()}.png",
+                f"{time.strftime('%Y%m%d%H%M%S', time.localtime())}_{event.group_id}_{target.msg_id}[{left}-{right}]_{get_id()}.png",
             )
             async with aiofiles.open(file, "wb+") as fp:
                 await fp.write(imagebytes)
