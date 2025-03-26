@@ -2,26 +2,34 @@ import json
 import os
 import random
 import time
+from io import StringIO
 from typing import Any, TypedDict
 
+import yaml
 from melobot.bot import get_bot
 from melobot.bot.base import CLI_RUNTIME, Bot, BotLifeSpan
-from melobot.handle import on_command
-from melobot.log import GenericLogger
-from melobot.plugin import PluginPlanner
-from melobot.protocols.onebot.v11.adapter import Adapter
-from melobot.protocols.onebot.v11.adapter.base import EchoRequireCtx
-from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
+from melobot.handle.register import on_command, on_event
+from melobot.log.base import GenericLogger
+from melobot.plugin.base import PluginPlanner
+from melobot.protocols.onebot.v11.adapter.base import Adapter, EchoRequireCtx
+from melobot.protocols.onebot.v11.adapter.event import (
+    GroupMessageEvent,
+    GroupRecallNoticeEvent,
+    MessageEvent,
+)
 from melobot.protocols.onebot.v11.adapter.segment import (
+    ImageSegment,
     JsonSegment,
     ReplySegment,
+    TextSegment,
     XmlSegment,
 )
 from melobot.utils.deco import unfold_ctx
-from melobot.utils.parse import CmdArgs
+from melobot.utils.parse.cmd import CmdArgs
 
 import checker_factory
 import little_helper
+from extended_actions.lagrange import MfaceSegment
 from lemony_utils.botutils import get_reply
 from lemony_utils.images import text_to_imgseg
 
@@ -65,9 +73,45 @@ async def echo(adapter: Adapter, event: MessageEvent):
     await adapter.send(
         [
             seg
-            for seg in msg.data["message"]
+            for seg in msg.data["message"]  # type: ignore
             if not isinstance(seg, (JsonSegment, XmlSegment))
         ]
+    )
+
+
+@LemonyUtils.use
+@on_command(
+    ".",
+    " ",
+    ["getface"],
+    checker=checker_factory.get_owner_checker(),
+)
+async def getface(
+    adapter: Adapter,
+    event: MessageEvent,
+    logger: GenericLogger,
+    args: CmdArgs,
+):
+    try:
+        msg = await get_reply(adapter, event)
+        if not msg.data:
+            raise get_reply.EmptyResponseError()
+    except get_reply.GetReplyException:
+        await adapter.send_reply("获取消息失败")
+        return
+    mface: MfaceSegment | None = None
+
+    for seg in msg.data["message"]:
+        if seg.type == "mface":
+            mface = MfaceSegment(**seg.data)
+            break
+    else:
+        await adapter.send_reply("消息中没有表情")
+        return
+    info = StringIO()
+    yaml.dump(mface.data, info, allow_unicode=True)
+    await adapter.send_reply(
+        [ImageSegment(file=mface.data["url"]), TextSegment(info.getvalue())]
     )
 
 
@@ -187,3 +231,8 @@ async def startup_check(adapter: Adapter):
         )
     finally:
         os.remove(REBOOT_INFO_PATH)
+
+
+@on_event()
+async def auto_withdraw_reply(adapter: Adapter, event: GroupRecallNoticeEvent):
+    raise NotImplementedError
