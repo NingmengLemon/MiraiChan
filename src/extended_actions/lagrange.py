@@ -1,7 +1,9 @@
-from typing import Any, Literal, TypedDict, Unpack, NotRequired
+from typing import Any, Literal, NotRequired, Self, TypedDict, Unpack
+
 from melobot.protocols.onebot.v11.adapter.action import Action
 from melobot.protocols.onebot.v11.adapter.echo import Echo
 from melobot.protocols.onebot.v11.adapter.segment import Segment
+from pydantic import BaseModel
 
 
 class FriendPokeAction(Action):
@@ -91,7 +93,7 @@ class GetGroupFilesByFolderAction(Action):
         group_id: int
         folder_id: str
 
-    def __init__(self, kwargs: Unpack[Params]):
+    def __init__(self, **kwargs: Unpack[Params]):
         super().__init__("get_group_files_by_folder", kwargs)
 
 
@@ -101,7 +103,7 @@ class GetGroupFileUrlAction(Action):
         file_id: str
         busid: int
 
-    def __init__(self, kwargs: Unpack[Params]):
+    def __init__(self, **kwargs: Unpack[Params]):
         super().__init__("get_group_file_url", kwargs)
 
 
@@ -111,7 +113,7 @@ class SetGroupSpecialTitleAction(Action):
         user_id: int
         special_title: str
 
-    def __init__(self, kwargs: Unpack[Params]):
+    def __init__(self, **kwargs: Unpack[Params]):
         super().__init__("set_group_special_title", kwargs)
 
 
@@ -122,7 +124,7 @@ class SetGroupReactionAction(Action):
         code: str
         is_add: bool
 
-    def __init__(self, kwargs: Unpack[Params]):
+    def __init__(self, **kwargs: Unpack[Params]):
         super().__init__("set_group_reaction", kwargs)
 
 
@@ -175,4 +177,14 @@ class _MFaceData(TypedDict):
     summary: str
 
 
-MfaceSegment = Segment.add_type(Literal["mface"], _MFaceData)
+class MfaceSegment(Segment[Literal["mface"], _MFaceData]):
+    class Model(BaseModel):
+        type: Literal["mface"]
+        data: _MFaceData
+
+    def __init__(self, **kwargs: Unpack[_MFaceData]) -> None:
+        super().__init__("mface", **kwargs)
+
+    @classmethod
+    def resolve(cls, seg_type: Literal["mface"], seg_data: _MFaceData) -> Self:
+        return cls(**seg_data)
