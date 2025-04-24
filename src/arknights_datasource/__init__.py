@@ -1,10 +1,10 @@
 import asyncio
-from contextlib import asynccontextmanager
 import time
+from contextlib import asynccontextmanager
 from typing import Any
 
-from melobot.utils import RWContext, singleton
 from melobot.log import get_logger
+from melobot.utils import RWContext, singleton
 
 from . import enemies, items, operators
 
@@ -54,7 +54,7 @@ class ArknSource:
 
     @staticmethod
     @asynccontextmanager
-    async def use[T: Any](obj: T):
+    async def use(obj: Any):
         try:
             yield obj
         finally:

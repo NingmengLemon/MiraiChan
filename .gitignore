@@ -169,3 +169,5 @@ melobot.log*
 data/record/
 data/avatars/
 data/reboot_info.json
+pdm.lock
+uv.lock

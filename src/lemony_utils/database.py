@@ -3,7 +3,7 @@ import functools
 from collections.abc import Callable
 from typing import Concatenate
 
-from melobot.typ import AsyncCallable
+from melobot.typ.base import AsyncCallable
 from sqlalchemy.ext.asyncio.engine import create_async_engine
 from sqlalchemy.schema import Table
 from sqlmodel import Session, SQLModel
@@ -47,9 +47,7 @@ class AsyncDbCore:
             raise self.NotStarted()
         return AsyncSession(self._engine, autoflush=autoflush)
 
-    async def run_sync[
-        **P, T
-    ](
+    async def run_sync[**P, T](
         self,
         func: Callable[Concatenate[Session, P], T],
         *args: P.args,
@@ -59,9 +57,9 @@ class AsyncDbCore:
         async with self.get_session() as asess:
             return await asess.run_sync(func, *args, **kwargs)
 
-    def to_async[
-        **P, T
-    ](self, func: Callable[Concatenate[Session, P], T]) -> AsyncCallable[P, T]:
+    def to_async[**P, T](
+        self, func: Callable[Concatenate[Session, P], T]
+    ) -> AsyncCallable[P, T]:
         """将执行第一个参数是 Session 的同步函数装饰成异步函数, 运行时会单开一个 AsyncSession"""
 
         @functools.wraps(func)

@@ -56,13 +56,13 @@ async def retrieve_into_bytesio(url: URL | str):
 class _QuoteMsg(TypedDict):
     msg_id: int
     sender_id: int
-    sender_name: str | None = None
+    sender_name: str | None
     segments: list[Segment]
 
 
 class QuoteData(TypedDict):
     group_id: int
-    group_name: str | None = None
+    group_name: str | None
     quote_time: float
     messages: list[_QuoteMsg]
 

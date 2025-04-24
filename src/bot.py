@@ -1,13 +1,13 @@
+import asyncio
 import os
 import sys
-import asyncio
 
-from melobot import Bot
+from melobot import Bot, add_import_fallback
 from melobot.log import Logger, LogLevel
 from melobot.protocols.onebot.v11 import Adapter, ForwardWebSocketIO
-
 from pydantic import BaseModel
 
+add_import_fallback("_sqlite3")
 if "src" in os.listdir():
     sys.path.insert(0, "src")
 
