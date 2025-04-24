@@ -153,8 +153,8 @@ async def shunt(adapter: Adapter, args: CmdArgs):
 
 
 async def check_group_id(adapter: Adapter, group_id: int):
-    group_list_echo = await (await adapter.with_echo(adapter.get_group_list)())[0]
-    if not group_list_echo.data:
+    group_list_echo = await (await adapter.get_group_list())[0]
+    if group_list_echo is None or group_list_echo.data is None:
         return False
     for group in group_list_echo.data:
         if group["group_id"] == group_id:
@@ -179,7 +179,7 @@ async def listreg(event: PrivateMessageEvent, adapter: Adapter):
             "当前已订阅: \n"
             + "\n".join(
                 [
-                    f"{reg["group_id"]} at {reg['hour']:02d}:{reg['minute']:02d}/{reg['days']}d"
+                    f"{reg['group_id']} at {reg['hour']:02d}:{reg['minute']:02d}/{reg['days']}d"
                     for reg in regs
                 ]
             )

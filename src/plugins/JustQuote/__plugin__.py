@@ -1,17 +1,18 @@
 import base64
 import os
 import time
+
 import aiofiles
 from melobot import PluginPlanner
-from melobot.log import GenericLogger
-from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
-from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, ImageSegment
-from melobot.protocols.onebot.v11 import Adapter
 from melobot.handle import on_command
+from melobot.log import GenericLogger
+from melobot.protocols.onebot.v11 import Adapter
+from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
+from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, ReplySegment
 from pydantic import BaseModel
 
-from configloader import ConfigLoader, ConfigLoaderMetadata
 import little_helper
+from configloader import ConfigLoader, ConfigLoaderMetadata
 
 from .maker import QuoteMaker
 
@@ -38,7 +39,8 @@ cfgloader = ConfigLoader(
     ConfigLoaderMetadata(model=QuoteConfig, filename="quoter_conf.json")
 )
 cfgloader.load_config()
-os.makedirs(cfgloader.config.saveto, exist_ok=True)
+if cfgloader.config.saveto:
+    os.makedirs(cfgloader.config.saveto, exist_ok=True)
 maker = QuoteMaker(
     font=cfgloader.config.font,
     bg_mask=cfgloader.config.mask,
@@ -54,8 +56,8 @@ async def quote(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogge
     else:
         await adapter.send_reply("需要指定目标消息")
         return
-    msg = await (await adapter.with_echo(adapter.get_msg)(msg_id))[0]
-    if not msg.data:
+    msg = await (await adapter.get_msg(msg_id))[0]
+    if msg is None or msg.data is None:
         await adapter.send_reply("目标消息数据获取失败")
         return
     sender = msg.data["sender"]
@@ -77,7 +79,7 @@ async def quote(adapter: Adapter, event: GroupMessageEvent, logger: GenericLogge
         return
     file = os.path.join(
         path,
-        f"{time.strftime("%Y%m%d-%H%M%S", time.localtime())}_{sender.user_id}_{event.group_id}.png",
+        f"{time.strftime('%Y%m%d-%H%M%S', time.localtime())}_{sender.user_id}_{event.group_id}.png",
     )
     async with aiofiles.open(file, "wb+") as fp:
         await fp.write(imagebytes)
