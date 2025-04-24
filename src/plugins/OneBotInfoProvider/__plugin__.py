@@ -1,13 +1,12 @@
-from typing import Any
 import json
+from typing import Any
 
 from melobot import PluginPlanner, get_bot, get_logger
-from melobot.protocols.onebot.v11 import Adapter, on_meta
 from melobot.handle import on_command
+from melobot.protocols.onebot.v11 import Adapter, on_meta
 from melobot.protocols.onebot.v11.adapter.event import HeartBeatMetaEvent
 
 from ... import checker_factory
-
 
 store: dict[str, Any] = {}
 
@@ -17,22 +16,22 @@ logger = get_logger()
 
 @bot.on_loaded
 async def get_onebot_login_info(adapter: Adapter) -> None:
-    echo = await (await adapter.with_echo(adapter.get_login_info)())[0]
-    if echo.data:
+    echo = await (await adapter.get_login_info())[0]
+    if echo is None or echo.data is None:
+        logger.warning("获取 OneBot 账号信息失败")
+    else:
         store.update(echo.data)
         logger.info("已获得 OneBot 账号信息")
-    else:
-        logger.warning("获取 OneBot 账号信息失败")
 
 
 @bot.on_loaded
 async def get_onebot_app_info(adapter: Adapter) -> None:
-    echo = await (await adapter.with_echo(adapter.get_version_info)())[0]
-    if echo.data:
-        store.update(echo.data)
-        logger.info("已获得 Onebot 实现端信息")
+    echo = await (await adapter.get_version_info())[0]
+    if echo is None or echo.data is None:
+        logger.warning("获取 OneBot 账号信息失败")
     else:
-        logger.warning("获取 Onebot 实现端信息失败")
+        store.update(echo.data)
+        logger.info("已获得 OneBot 账号信息")
 
 
 def get_info():

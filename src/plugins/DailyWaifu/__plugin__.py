@@ -66,12 +66,11 @@ async def draw_waifu(event: GroupMessageEvent, adapter: Adapter):
     if manager.query_dwrels(event.group_id, src=me.user_id, dst=None):
         await adapter.send_reply("你今天已经抽过了噢w")
         return
-    usersecho = await (
-        await adapter.with_echo(adapter.get_group_member_list)(event.group_id)
-    )[0]
-    if (users := usersecho.data) is None:
+    usersecho = (await (await adapter.get_group_member_list(event.group_id)))[0]
+    if usersecho is None or usersecho.data is None:
         await adapter.send_reply("获取群成员列表失败")
         return
+    users = usersecho.data
     waifu = manager.draw_waifu(event.group_id, users)
     if waifu is None:
         await adapter.send_reply("已经没有可以当作老婆的群u了ww")

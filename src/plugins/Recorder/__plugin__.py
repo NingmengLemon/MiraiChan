@@ -173,11 +173,11 @@ async def fix_group_name(adapter: Adapter):
         if not groups:
             return
         handles = await asyncio.gather(
-            *[adapter.with_echo(adapter.get_group_info)(group_id=g.id) for g in groups]
+            *[adapter.get_group_info(group_id=g.id) for g in groups]
         )
         count = 0
         for echo, group in zip(await asyncio.gather(*[h[0] for h in handles]), groups):
-            if echo.data is None:
+            if echo is None or echo.data is None:
                 continue
             if echo.data["group_id"] == group.id:
                 group.name = echo.data["group_name"]
@@ -213,8 +213,8 @@ async def _():
 @bot.on_loaded
 async def update_myself(adapter: Adapter):
     await recorder.started.wait()
-    login = await (await adapter.with_echo(adapter.get_login_info)())[0]
-    if login.data is None:
+    login = await (await adapter.get_login_info())[0]
+    if login is None or login.data is None:
         logger.warning("Failed to get login info")
         return
     myid = login.data["user_id"]

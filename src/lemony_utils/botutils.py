@@ -37,8 +37,8 @@ class _GetReply:
             msg_id = _[0].data["id"]
         else:
             raise cls.TargetNotSpecifiedError()
-        msg = await (await adapter.with_echo(adapter.get_msg)(msg_id))[0]
-        if not msg.data:
+        msg = (await (await adapter.get_msg(msg_id)))[0]
+        if msg is None:
             raise cls.EmptyResponseError(msg)
         return msg
 

@@ -7,11 +7,12 @@ from melobot.log import Logger, LogLevel
 from melobot.protocols.onebot.v11 import Adapter, ForwardWebSocketIO
 from pydantic import BaseModel
 
-add_import_fallback("_sqlite3")
 if "src" in os.listdir():
     sys.path.insert(0, "src")
 
-if sys.platform != "win32":
+if sys.platform == "win32":
+    add_import_fallback("_sqlite3")
+else:
     import uvloop
 
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())

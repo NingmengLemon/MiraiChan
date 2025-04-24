@@ -28,7 +28,6 @@ class RelNotExistsError(Exception):
 
 
 class WaifuManager:
-
     def __init__(self, dburl: str):
         self._engine = create_engine(
             dburl,
@@ -48,9 +47,9 @@ class WaifuManager:
         with Session(self._engine) as session, self._mlock as _:  # 死锁注意
             yield session
 
-    def filter_waifuable[
-        T: _UserSeq
-    ](self, gid: int, users: T, exclude_daily=True) -> T:
+    def filter_waifuable[T: _UserSeq](
+        self, gid: int, users: T, exclude_daily=True
+    ) -> T:
         exclude = set[int]()
         with self._get_session() as sess:
             for e in sess.exec(select(MarriageRel).where(MarriageRel.gid == gid)).all():
