@@ -1,8 +1,8 @@
-from http.cookies import Morsel, SimpleCookie
-from typing import Iterable, TypedDict
+from collections.abc import Iterable
+from http.cookies import Morsel
+from typing import TypedDict
 
 from aiohttp.cookiejar import CookieJar
-import aiohttp
 
 
 class _DictedCookieItem(TypedDict):
@@ -12,7 +12,7 @@ class _DictedCookieItem(TypedDict):
 
 
 def cookiedicts_from_session(cj: CookieJar):
-    '''产生的东西可以序列化成JSON也可以递给 cookiedicts_to_morsels'''
+    """产生的东西可以序列化成JSON也可以递给 cookiedicts_to_morsels"""
     result: list[_DictedCookieItem] = []
     for cookie in cj:
         result.append(
@@ -22,8 +22,8 @@ def cookiedicts_from_session(cj: CookieJar):
 
 
 def cookiedicts_to_morsels(cookies: Iterable[_DictedCookieItem]):
-    '''产生的东西可以递给 loadable_tuples_from_morsels'''
-    result: list[Morsel] = []
+    """产生的东西可以递给 loadable_tuples_from_morsels"""
+    result: list[Morsel[str]] = []
     for cookie in cookies:
         ms = Morsel()
         ms.set(cookie["key"], cookie["value"], cookie["value"])
@@ -33,5 +33,5 @@ def cookiedicts_to_morsels(cookies: Iterable[_DictedCookieItem]):
 
 
 def loadable_tuples_from_morsels(morsels: Iterable[Morsel]):
-    '''产生的东西可以递给 ClientSession 初始化方法的 cookies 参数'''
+    """产生的东西可以递给 ClientSession 初始化方法的 cookies 参数"""
     return ((m.key, m) for m in morsels)

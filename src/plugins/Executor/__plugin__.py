@@ -1,14 +1,15 @@
 import asyncio
 import subprocess
 
-from melobot import PluginPlanner, GenericLogger
-from melobot.protocols.onebot.v11 import  Adapter
-from melobot.handle import on_start_match
+from melobot.handle.register import on_start_match
+from melobot.log.base import GenericLogger
+from melobot.plugin.base import PluginPlanner
+from melobot.protocols.onebot.v11 import Adapter
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 
-from lemony_utils.images import text_to_imgseg
 import checker_factory
 import little_helper
+from lemony_utils.images import text_to_imgseg
 
 Executor = PluginPlanner("0.1.0")
 little_helper.register(

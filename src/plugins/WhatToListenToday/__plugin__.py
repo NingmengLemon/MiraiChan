@@ -67,7 +67,7 @@ def gen_reply(data: DrawResp):
     if (album := data["album"]) and (album != title):
         reply.append(f"出自专辑「{album}」\n")
     if dura := data["duration"]:
-        reply.append(f"时长 {dura//60:.0f} 分 {dura%60:0>2.0f} 秒\n")
+        reply.append(f"时长 {dura // 60:.0f} 分 {dura % 60:0>2.0f} 秒\n")
     if cfgloader.config.share_link:
         reply += [
             "如果你在电砖内网，那么现在就可以听w\n",
@@ -95,7 +95,7 @@ def parse_constrains(cmd: str) -> _ConstrainDict:
 @on_start_match([".wtlt", ".今天听什么"])
 async def entrance(
     adapter: Adapter,
-    event: MessageEvent,
+    event: GroupMessageEvent,
 ):
     cmd = event.text
     args = cmd.split(maxsplit=1)[1:]
@@ -114,7 +114,7 @@ async def draw(
 ):
     async with record_lock.read():
         if (
-            draw_cdtable.get(event.sender.user_id, 0) > time.time()
+            draw_cdtable.get(event.sender.user_id, 0.0) > time.time()
             and event.sender.user_id != checker_factory.OWNER
         ):
             await adapter.send_reply("请至少听完这首歌……！")
@@ -139,9 +139,7 @@ async def draw(
 def gen_status(data: StatusResp):
     return """后端工作状态：{status}
 库存总计：{count}
-已运行：{online:.2f}秒""".format(
-        **data
-    )
+已运行：{online:.2f}秒""".format(**data)
 
 
 async def opts(adapter: Adapter, event: MessageEvent, cmd: str):

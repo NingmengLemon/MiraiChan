@@ -7,7 +7,7 @@ from typing import Any, TypedDict
 
 import yaml
 from melobot.bot import get_bot
-from melobot.bot.base import CLI_RUNTIME, Bot, BotLifeSpan
+from melobot.bot.base import Bot, BotLifeSpan
 from melobot.handle.register import on_command, on_event
 from melobot.log.base import GenericLogger
 from melobot.plugin.base import PluginPlanner
@@ -203,7 +203,7 @@ class RebootInfo(TypedDict):
     decos=[unfold_ctx(lambda: EchoRequireCtx().unfold(True))],
 )
 async def restart_bot(event: MessageEvent, adapter: Adapter, bot: Bot):
-    if CLI_RUNTIME not in os.environ:
+    if not bot.is_restartable():
         await adapter.send_reply("当前启动方式不支持重启w")
         return
     await (await adapter.send(random.choice(SAYINGS_ON_REBOOT)))[0]

@@ -98,9 +98,9 @@ class InteractiveProcess:
         return self._process
 
 
-async def gather_with_concurrency[
-    T
-](*aws: Awaitable[T], concurrency: int = 4, return_exceptions: bool = False) -> list[T]:
+async def gather_with_concurrency[T](
+    *aws: Awaitable[T], concurrency: int = 4, return_exceptions: bool = False
+) -> list[T]:
     semaphore = asyncio.Semaphore(concurrency)
 
     async def wrapper(aw: Awaitable[T]) -> T:
@@ -111,14 +111,12 @@ async def gather_with_concurrency[
     return await asyncio.gather(*tasks, return_exceptions=return_exceptions)
 
 
-def async_retry[
-    **P, T
-](
+def async_retry[**P, T](
     exceptions: type[Exception] | tuple[type[Exception], ...] = Exception,
     max_retries: int = 3,
     initial_delay: float = 1,
     exp_backoff: bool = True,
-    max_delay: float = None,
+    max_delay: float | None = None,
 ):
     def decorator(func: AsyncCallable[P, T]):
         @functools.wraps(func)
