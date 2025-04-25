@@ -8,9 +8,9 @@ class PrivateReg(TypedDict):
     user_id: int
     group_id: int
 
-    days: int = 1
-    hour: int = 0
-    minute: int = 0
+    days: int
+    hour: int
+    minute: int
 
 
 class CfgModel(BaseModel):

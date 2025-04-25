@@ -15,7 +15,7 @@ from melobot.handle import on_command
 from melobot.handle.base import flow_to
 from melobot.handle.register import FlowDecorator
 from melobot.plugin import PluginPlanner
-from melobot.protocols.onebot.v11.adapter import Adapter, EchoRequireCtx
+from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import PrivateMessageEvent
 from melobot.utils import RWContext, lock, unfold_ctx
 from melobot.utils.parse.cmd import CmdArgs
@@ -23,7 +23,6 @@ from melobot.utils.parse.cmd import CmdArgs
 from configloader import ConfigLoader, ConfigLoaderMetadata
 from lemony_utils.botutils import PrefilledCmdArgFmtter
 from lemony_utils.time import get_time_period_start
-from recorder_models import Message, User
 
 from .. import Recorder
 from .model import CfgModel, PrivateReg
@@ -105,12 +104,11 @@ async def send_stat(group_id: int, user_id: int):
     )
     msg_full = msg_base + result_yaml.strip()
     msg_short = msg_base + "null"
-    with EchoRequireCtx().unfold(True):
-        echo = await (await adapter.send_custom(msg_full, user_id=user_id))[0]
-        if not echo or not echo.data:
-            echo = await (await adapter.send_custom(msg_short, user_id=user_id))[0]
-        if not echo or not echo.data:
-            logger.warning(f"未能成功向 {user_id} 汇报 {group_id} 的统计数据")
+    echo = await (await adapter.send_custom(msg_full, user_id=user_id))[0]
+    if not echo or not echo.data:
+        echo = await (await adapter.send_custom(msg_short, user_id=user_id))[0]
+    if not echo or not echo.data:
+        logger.warning(f"未能成功向 {user_id} 汇报 {group_id} 的统计数据")
     await asyncio.sleep(10)  # 故意的w
 
 
