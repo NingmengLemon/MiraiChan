@@ -11,7 +11,7 @@ from melobot.bot.base import Bot, BotLifeSpan
 from melobot.handle.register import on_command, on_event
 from melobot.log.base import GenericLogger
 from melobot.plugin.base import PluginPlanner
-from melobot.protocols.onebot.v11.adapter.base import Adapter, EchoRequireCtx
+from melobot.protocols.onebot.v11.adapter.base import Adapter
 from melobot.protocols.onebot.v11.adapter.event import (
     GroupMessageEvent,
     GroupRecallNoticeEvent,
@@ -24,7 +24,6 @@ from melobot.protocols.onebot.v11.adapter.segment import (
     TextSegment,
     XmlSegment,
 )
-from melobot.utils.deco import unfold_ctx
 from melobot.utils.parse.cmd import CmdArgs
 
 import checker_factory
@@ -84,7 +83,7 @@ async def echo(adapter: Adapter, event: MessageEvent):
     ".",
     " ",
     ["getface"],
-    checker=checker_factory.get_owner_checker(),
+    # checker=checker_factory.get_owner_checker(),
 )
 async def getface(
     adapter: Adapter,
@@ -181,7 +180,6 @@ SAYINGS_ON_REBOOT = [
     " ",
     ["关机", "shutdown", "poweroff"],
     checker=checker_factory.get_owner_checker(),
-    decos=[unfold_ctx(lambda: EchoRequireCtx().unfold(True))],
 )
 async def stop_bot(adapter: Adapter, bot: Bot) -> None:
     await (await adapter.send(random.choice(SAYINGS_ON_POWEROFF)))[0]
@@ -200,7 +198,6 @@ class RebootInfo(TypedDict):
     " ",
     ["重启", "restart", "reboot"],
     checker=checker_factory.get_owner_checker(),
-    decos=[unfold_ctx(lambda: EchoRequireCtx().unfold(True))],
 )
 async def restart_bot(event: MessageEvent, adapter: Adapter, bot: Bot):
     if not bot.is_restartable():
