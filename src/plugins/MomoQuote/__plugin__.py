@@ -3,7 +3,6 @@ import functools
 import os
 import re
 import time
-import traceback
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from io import BytesIO
@@ -137,7 +136,8 @@ async def get_reply_from_db(event: GroupMessageEvent):
             result = MsgFromDB(
                 msg_id=msg_id,
                 sender_id=msg.sender_id,
-                sender_name=(await msg.awaitable_attrs.sender).name,
+                sender_name=(await msg.awaitable_attrs.sender).name
+                or str(msg.sender_id),
             )
             logger.debug(f"Got reply record form db: {result!r}")
             return result

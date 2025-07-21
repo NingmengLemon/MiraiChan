@@ -1,4 +1,4 @@
-from typing import TypedDict, Literal
+from typing import Literal, TypedDict
 
 from pydantic import BaseModel
 
@@ -16,7 +16,7 @@ class DrawResp(TypedDict):
     album: str | None
     artists: list[str]
     albumartists: list[str]
-    duration: float = 0
+    duration: float
     filename: str
     session: str
     href: str

@@ -334,7 +334,7 @@ class QuoteDrawer:
 class QuoteFactory:
     def __init__(
         self,
-        font: _FontSource,
+        font: FontCache,
         placeholder_img: Path | str | BytesIO = "data/no_data.png",
         emoji_source: BaseSource | None = None,
     ):
