@@ -24,6 +24,7 @@ from melobot.protocols.onebot.v11.adapter.segment import (
     TextSegment,
     XmlSegment,
 )
+from melobot.typ import BetterABC
 from melobot.utils.parse.cmd import CmdArgs
 
 import checker_factory
