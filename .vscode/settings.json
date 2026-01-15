@@ -3,6 +3,7 @@
   "files.exclude": {
     "**/__pycache__": true,
     "**/*_cache": true,
-    "**/.venv": true
+    "**/.venv": true,
+    "**/*.egg-info": true
   }
 }
