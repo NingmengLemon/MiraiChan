@@ -19,7 +19,7 @@ from lemony_utils.asyncutils import gather_with_concurrency
 from lemony_utils.botutils import cached_avatar_source
 from lemony_utils.consts import http_headers
 from lemony_utils.images import FontCache, _ColorT
-from lemony_utils.templates import async_http
+from lemony_utils.request import async_http
 from recorder_models import Message
 
 from .params import (

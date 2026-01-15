@@ -4,7 +4,8 @@ import math
 import random
 from contextlib import contextmanager
 from io import BytesIO
-from typing import Any, Generator, Iterable, Literal, Type
+from typing import Any, Literal
+from collections.abc import Iterable, Generator
 from urllib.parse import quote_plus
 
 from melobot.protocols.onebot.v11.adapter.segment import ImageSegment
@@ -13,9 +14,11 @@ from pilmoji import Pilmoji
 from pilmoji.source import BaseSource, HTTPBasedSource
 
 type _FontFileT = str | BytesIO
-type _ColorTupleT = tuple[int, int, int] | tuple[int, int, int, int]
+type _4IntTupleT = tuple[int, int, int, int]
+type _3IntTupleT = tuple[int, int, int]
+type _ColorTupleT = _3IntTupleT | _4IntTupleT
 type _ColorT = int | _ColorTupleT | str
-type _BboxT = tuple[int, int, int, int]
+type _BboxT = _4IntTupleT
 
 
 class SelfHostSource(HTTPBasedSource):
@@ -29,7 +32,7 @@ class SelfHostSource(HTTPBasedSource):
         super().__init__()
         self._cdn = cdn.rstrip("/") + "/"
 
-    def get_discord_emoji(self, id: int, /):  # pylint: disable=W0622
+    def get_discord_emoji(self, id: int, /):
         return None
 
     def get_emoji(self, emoji: str, /):
@@ -68,6 +71,56 @@ class FontCache:
 
 _t2i_default_font = FontCache("data/fonts/sarasa-mono-sc-semibold.ttf")
 default_font_cache = _t2i_default_font
+
+
+def ensure_4inttuple(obj: tuple[Any, Any, Any, Any]) -> _4IntTupleT:
+    return (int(obj[0]), int(obj[1]), int(obj[2]), int(obj[3]))
+
+
+def ensure_4inttuple_color(
+    color: _ColorT
+    | tuple[float | int, float | int, float | int, float | int]
+    | tuple[float | int, float | int, float | int],  # 兼容不规范的输入
+) -> _4IntTupleT:
+    """确保颜色是 RGBA 四元组形式"""
+    if isinstance(color, int):
+        if color <= 0xFFFFFF:
+            r = (color >> 16) & 0xFF
+            g = (color >> 8) & 0xFF
+            b = color & 0xFF
+            a = 255
+        else:
+            r = (color >> 24) & 0xFF
+            g = (color >> 16) & 0xFF
+            b = (color >> 8) & 0xFF
+            a = color & 0xFF
+        return (r, g, b, a)
+    elif isinstance(color, str):
+        color = color.lstrip("#")
+        if len(color) == 6:
+            r = int(color[0:2], 16)
+            g = int(color[2:4], 16)
+            b = int(color[4:6], 16)
+            a = 255
+        elif len(color) == 8:
+            r = int(color[0:2], 16)
+            g = int(color[2:4], 16)
+            b = int(color[4:6], 16)
+            a = int(color[6:8], 16)
+        else:
+            raise ValueError(f"Invalid color string: {color}")
+        return (r, g, b, a)
+    elif isinstance(color, tuple):
+        if len(color) == 3:
+            r, g, b = color
+            a = 255
+        elif len(color) == 4:
+            r, g, b, a = color
+        else:
+            raise ValueError(f"Invalid color tuple: {color}")
+        return ensure_4inttuple((r, g, b, a))
+    else:
+        raise TypeError(f"Unsupported color type: {type(color)}")
 
 
 def wrap_text_by_length(s: str, line_length: int):
@@ -150,7 +203,7 @@ def draw_multiline_text_auto(
     align: Literal["left", "right", "center"] = "left",
     spacing: int = 4,
     sticky: str | None = None,
-    emoji_source: BaseSource | Type[BaseSource] | None = None,
+    emoji_source: BaseSource | type[BaseSource] | None = None,
     **kwargs,
 ):
     """尽可能地在给定的bbox中绘制横向文本框，若达到最小字号后仍无法满足，绘制高度会超出预期高度
@@ -175,15 +228,24 @@ def draw_multiline_text_auto(
         spacing=spacing,
         align=align,
     )
-    xy = calc_bbox(actual_bbox=finalbbox, expected_bbox=bbox, sticky=sticky)
+    xy = calc_bbox(
+        actual_bbox=ensure_4inttuple(finalbbox), expected_bbox=bbox, sticky=sticky
+    )
 
-    for kw in ("anchor", "direction", "font_size", "font"):
+    for kw in (
+        # 这些参数会导致计算错误, Pilmoji 也不支持
+        "width",
+        "anchor",
+        "direction",
+        "font_size",
+        "font",
+    ):
         kwargs.pop(kw, None)
     with (
         Pilmoji(
             image=draw._image,
             source=emoji_source,
-            draw=draw,  # pylint: disable=W0212
+            draw=draw,
         )
         if emoji_source
         else dummy_context_wrapper(draw)
@@ -244,8 +306,17 @@ def draw_outline(
                 draw.text((x + dx, y + dy), text, fill=outline_color, **kwargs)
 
 
-def calc_bbox(actual_bbox: _BboxT, expected_bbox: _BboxT, sticky: str | None):
-    """根据给定的 小bbox (`actual_bbox`) 和 大bbox (`expected_bbox`) 和 停靠方向
+def calc_bbox(
+    actual_bbox: _BboxT,
+    expected_bbox: _BboxT,
+    sticky: str | None = None,
+) -> tuple[int, int]:
+    """
+    根据给定的
+    - 小bbox (`actual_bbox`)
+    - 大bbox (`expected_bbox`)
+    - 停靠方向 (`sticky`), 定义参考 tkinter 的 grid 布局中的 sticky 参数
+
     计算小bbox左上角点的坐标"""
     aw, ah = actual_bbox[2] - actual_bbox[0], actual_bbox[3] - actual_bbox[1]
     ew, eh = expected_bbox[2] - expected_bbox[0], expected_bbox[3] - expected_bbox[1]
@@ -295,10 +366,15 @@ def text_to_image(
         font = _t2i_default_font.use(font)
     if wrap is not None and wrap > 0:
         text = "\n".join(wrap_text_by_width(text, wrap, font))
-    img = Image.new("RGBA", (1000, 1000))
+
+    # dummy image to calculate text bbox
+    # 经过测试发现 dummy image 的大小不会影响 getbbox 的结果
+    img = Image.new("RGBA", (10, 10))
     draw = ImageDraw.Draw(img)
     left, top, right, bottom = draw.multiline_textbbox((0, 0), text, font)
     width, height = right - left + 2 * margin, bottom - top + 2 * margin
+
+    # create final image
     img = Image.new("RGBA", (int(width), int(height)), color=bg_color)
     draw = ImageDraw.Draw(img)
     draw_point = (0 + margin, 0 + margin)

@@ -23,7 +23,7 @@ from lemony_utils.images import (
     draw_multiline_text_auto,
     get_main_color,
 )
-from lemony_utils.templates import async_http
+from lemony_utils.request import async_http
 
 _SupportedImgInput = str | BytesIO | Image.Image
 _FontSource = str | BytesIO
