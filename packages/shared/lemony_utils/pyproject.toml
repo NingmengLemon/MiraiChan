@@ -1,0 +1,19 @@
+[project]
+name = "lemony_utils"
+version = "0.1.0"
+description = "Lemoneko's utility library for MiraiChan"
+authors = [
+    { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
+]
+dependencies = [
+    "melobot[onebot]>=3.3.0",
+    "aiohttp>=3.13.3",
+    "pillow>=12.1.0",
+    "pypinyin>=0.55.0",
+    "sqlalchemy[asyncio,aiosqlite,postgresql-asyncpg,mypy]>=2.0.45",
+    "sqlmodel>=0.0.31",
+    "yarl>=1.22.0",
+]
+requires-python = ">=3.12,<3.14"
+readme = "README.md"
+license = { text = "AGPL3" }
