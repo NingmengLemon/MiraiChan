@@ -5,7 +5,8 @@ import sys
 from melobot import Bot, add_import_fallback
 from melobot.log import Logger, LogLevel
 from melobot.protocols.onebot.v11 import Adapter, ForwardWebSocketIO
-from pydantic import BaseModel
+
+from .config import GlobalConfigModel
 
 if "src" in os.listdir():
     sys.path.insert(0, "src")
@@ -18,19 +19,6 @@ else:
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 from lemony_utils.validation_patches.ob11 import patch_all
-
-
-class ForwWsIOConfigModel(BaseModel):
-    url: str
-    access_token: str | None = None
-
-
-class GlobalConfigModel(BaseModel):
-    forwwsio: ForwWsIOConfigModel
-    debug: bool = False
-    plugins: list[str] = []
-    load_depth: int = 3
-
 
 with open("./config.json", "rb") as fp:
     cfg = GlobalConfigModel.model_validate_json(fp.read())

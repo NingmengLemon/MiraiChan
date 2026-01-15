@@ -16,8 +16,8 @@ from melobot.utils.parse.cmd import CmdArgFormatInfo, CmdArgFormatter
 from yarl import URL
 
 from .asyncutils import async_retry
-from .images import text_to_image
-from .templates import async_http, http_headers
+from .images import text_to_image, 
+from .request import async_http, http_headers
 
 
 @singleton

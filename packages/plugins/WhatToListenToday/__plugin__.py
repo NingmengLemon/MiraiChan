@@ -13,7 +13,7 @@ import checker_factory
 import little_helper
 
 from .models import WTLTConfig, DrawResp, StatusResp
-from lemony_utils.templates import async_http
+from lemony_utils.request import async_http
 
 WhatToListen = PluginPlanner("0.1.0")
 little_helper.register(
