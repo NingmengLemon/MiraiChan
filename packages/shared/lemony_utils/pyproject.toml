@@ -10,7 +10,7 @@ dependencies = [
     "aiohttp>=3.13.3",
     "pillow>=12.1.0",
     "pypinyin>=0.55.0",
-    "sqlalchemy[asyncio,aiosqlite,postgresql-asyncpg]>=2.0.45",
+    "sqlalchemy[asyncio,aiosqlite]>=2.0.45",
     "sqlmodel>=0.0.31",
     "yarl>=1.22.0",
 ]

@@ -8,6 +8,7 @@ authors = [
 dependencies = [
     "miraichan",
     "lemony_utils",
+    "lemony_settings",
     # workspace members above
     "melobot[onebot]>=3.3.0",
     "pypinyin>=0.53.0",
@@ -34,12 +35,14 @@ license = { text = "AGPL3" }
 members = [
     "packages/miraichan",
     "packages/shared/lemony_utils",
+    "packages/shared/lemony_settings",
     # "packages/plugins/*",
 ]
 
 [tool.uv.sources]
 miraichan = { workspace = true }
 lemony_utils = { workspace = true }
+lemony_settings = { workspace = true }
 
 [tool.pdm.scripts]
 deploy = { cmd = ["python", "-m", "melobot", "run", "src/bot.py"] }

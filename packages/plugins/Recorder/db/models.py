@@ -29,14 +29,12 @@ class AsyncAttrs(_AsyncAttrs, Generic[T]):
         awaitable_attrs: T  # type: ignore
 
 
-class Base(
-    SQLModel, AsyncAttrs[T], registry=recorder_registry, metadata=recorder_metadata
-):
+class Base(SQLModel, registry=recorder_registry, metadata=recorder_metadata):
     if TYPE_CHECKING:
         __tablename__: ClassVar[str]  # type: ignore
 
 
-class UserGroupLink(SQLModel, AsyncAttrs, table=True):
+class UserGroupLink(Base, table=True):
     user_id: int | None = Field(default=None, primary_key=True, foreign_key="user.id")
     group_id: int | None = Field(default=None, primary_key=True, foreign_key="group.id")
 
@@ -47,7 +45,7 @@ class _UserAwaitableAttrs:
     received_messages: Awaitable[list["Message"]]
 
 
-class User(SQLModel, AsyncAttrs[_UserAwaitableAttrs], table=True):
+class User(Base, AsyncAttrs[_UserAwaitableAttrs], table=True):
     id: int = Field(primary_key=True)
     name: str | None
 
@@ -69,7 +67,7 @@ class _GroupAwaitableAttrs:
     messages: Awaitable[list["Message"]]
 
 
-class Group(SQLModel, AsyncAttrs[_GroupAwaitableAttrs], table=True):
+class Group(Base, AsyncAttrs[_GroupAwaitableAttrs], table=True):
     id: int = Field(primary_key=True)
     name: str | None = None
     members: list[User] = Relationship(
@@ -85,7 +83,7 @@ class _MsgAwaitableAttrs:
     segments: Awaitable[list["MessageSegment"]]
 
 
-class Message(SQLModel, AsyncAttrs[_MsgAwaitableAttrs], table=True):
+class Message(Base, AsyncAttrs[_MsgAwaitableAttrs], table=True):
     store_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     store_time: float = Field(default_factory=time.time, index=True)
     message_id: int = Field(index=True)
@@ -126,7 +124,7 @@ class _MsgSegAwaitableAttrs:
     message: Awaitable[Message]
 
 
-class MessageSegment(SQLModel, AsyncAttrs[_MsgSegAwaitableAttrs], table=True):
+class MessageSegment(Base, AsyncAttrs[_MsgSegAwaitableAttrs], table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     order: int = Field(ge=0)
 
@@ -137,7 +135,7 @@ class MessageSegment(SQLModel, AsyncAttrs[_MsgSegAwaitableAttrs], table=True):
     message: Message = Relationship(back_populates="segments")
 
 
-class MediaFile(SQLModel, AsyncAttrs, table=True):
+class MediaFile(Base, table=True):
     fileid: str = Field(primary_key=True)
     timestamp: float = Field(default_factory=time.time)
     # 在下载完成前用 None 占位

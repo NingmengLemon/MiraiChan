@@ -17,7 +17,7 @@ from yarl import URL
 
 from lemony_utils.asyncutils import gather_with_concurrency
 from lemony_utils.botutils import cached_avatar_source
-from lemony_utils.consts import http_headers
+from lemony_utils.request import http_headers
 from lemony_utils.images import FontCache, _ColorT
 from lemony_utils.request import async_http
 from recorder_models import Message

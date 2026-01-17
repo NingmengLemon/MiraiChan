@@ -5,7 +5,7 @@ import time
 import traceback
 
 import aiofiles
-from melobot.adapter.generic import send_image, send_text
+from melobot.adapter.generic import send_image
 from melobot.ctx import EventOrigin
 from melobot.handle import get_event
 from melobot.protocols.onebot.v11.adapter import Adapter
@@ -16,7 +16,7 @@ from melobot.utils.parse.cmd import CmdArgFormatInfo, CmdArgFormatter
 from yarl import URL
 
 from .asyncutils import async_retry
-from .images import text_to_image, 
+from .images import text_to_image
 from .request import async_http, http_headers
 
 
