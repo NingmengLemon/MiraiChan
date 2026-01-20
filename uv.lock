@@ -475,6 +475,7 @@ version = "0.1.0"
 source = { editable = "packages/shared/lemony_settings" }
 dependencies = [
     { name = "melobot", extra = ["onebot"] },
+    { name = "packaging" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "tomli" },
@@ -484,6 +485,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "melobot", extras = ["onebot"], specifier = ">=3.3.0" },
+    { name = "packaging", specifier = ">=25.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "tomli", specifier = ">=2.4.0" },
