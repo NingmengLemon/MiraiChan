@@ -433,12 +433,12 @@ class TestSavingFileLock:
         assert watcher is not None
 
         # 在保存过程中检查文件是否被标记
-        marked_during_save = False
-        original_write = (
-            getattr(settings.save, "__wrapped__", None)
-            if hasattr(settings.save, "__wrapped__")
-            else settings.save
-        )
+        # marked_during_save = False
+        # original_write = (
+        #     getattr(settings.save, "__wrapped__", None)
+        #     if hasattr(settings.save, "__wrapped__")
+        #     else settings.save
+        # )
 
         config_file = (config_dir / "lock_test" / "default.toml").resolve()
 

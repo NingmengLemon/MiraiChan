@@ -22,7 +22,7 @@ Lemony Settings - 配置管理库
     >>> init_global_settings(preference="toml", config_path="configs")
     >>>
     >>> # 获取配置实例
-    >>> settings = require("my_plugin", MyPluginSettings)
+    >>> settings = require(MyPluginSettings, "my_plugin")
     >>>
     >>> # 注册事件回调
     >>> @on_settings_event(SettingsEventType.RELOADED, identifier="my_plugin")
