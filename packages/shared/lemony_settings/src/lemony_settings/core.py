@@ -19,40 +19,9 @@ class BaseSettings(BaseModel):
     所有设置模型的基类.
 
     每个字段都需要有一个默认值, 以确保设置模型可以被正确初始化.
-    支持 auto_save: 当字段被修改时, 如果启用了 auto_save, 会自动保存到文件.
     """
 
-    # 内部引用, 用于 auto_save 功能
-    _settings_ref: "LemonySettings | None" = None
-
     model_config = {"validate_assignment": True}
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        # 检查是否是模型字段 (排除私有属性)
-        is_model_field = (
-            not name.startswith("_") and name in self.__class__.model_fields
-        )
-
-        old_value: Any = None
-        if is_model_field:
-            old_value = getattr(self, name, None) if hasattr(self, name) else None
-
-        # 调用父类的 __setattr__ 来设置值
-        super().__setattr__(name, value)
-
-        # 如果是模型字段且值发生了变化, 触发 auto_save
-        if is_model_field:
-            try:
-                settings_ref: "LemonySettings | None" = object.__getattribute__(
-                    self, "_settings_ref"
-                )
-            except AttributeError:
-                # _settings_ref 尚未设置 (模型刚初始化时)
-                settings_ref = None
-            if settings_ref is not None:
-                new_value = getattr(self, name)
-                if old_value != new_value:
-                    settings_ref._on_value_changed(name, old_value, new_value)
 
 
 _SETTINGS_TABLE: dict[tuple[str, str], "LemonySettings"] = {}
@@ -82,7 +51,6 @@ class LemonySettings[SettingModelT: BaseSettings]:
             _Sentinel.NOT_LOADED
         )
         self._model = model
-        self._is_saving = False  # 防止保存时触发重载
         _SETTINGS_TABLE[(identifier, namespace)] = self
         # value 由插件自己进行懒加载
         # 在加载前就尝试读取 value 需要报错
@@ -145,44 +113,6 @@ class LemonySettings[SettingModelT: BaseSettings]:
             )
         return self._value
 
-    def _on_value_changed(
-        self, field_name: str, old_value: Any, new_value: Any
-    ) -> None:
-        """
-        当配置值被修改时调用.
-        用于触发 auto_save 和事件通知.
-        """
-        from .events import (
-            SettingsChangeEvent,
-            SettingsEventType,
-            get_event_emitter,
-        )
-
-        # 触发 AFTER_CHANGE 事件
-        emitter = get_event_emitter()
-        event = SettingsChangeEvent(
-            event_type=SettingsEventType.AFTER_CHANGE,
-            identifier=self._identifier,
-            namespace=self._namespace,
-            old_value=None,  # 这里只传递字段级别的变化信息
-            new_value=None,
-            changed_fields=[field_name],
-        )
-        emitter.emit_sync(event)
-
-        # 检查是否启用 auto_save
-        try:
-            global_settings = get_global_settings()
-            if global_settings.filed.auto_save and not self._is_saving:
-                self.save()
-                logger.debug(
-                    f"Auto-saved settings '{self._identifier}:{self._namespace}' "
-                    f"after field '{field_name}' changed."
-                )
-        except RuntimeError:
-            # GlobalSettings 尚未初始化, 跳过 auto_save
-            pass
-
     # 规划的的文件目录结构:
     # configs/  # 或许可以接收命令行参数来指定别的目录
     #   global.toml
@@ -201,9 +131,8 @@ class LemonySettings[SettingModelT: BaseSettings]:
         从指定路径加载配置文件并返回对应的设置模型实例.
         """
         readwriter = get_read_writer(format)
-        data = readwriter.read(path, self._model)
         try:
-            model_instance = self._model.model_validate(data)
+            model_instance = readwriter.read(path, self._model)
         except ValidationError as e:
             raise ValueError(f"Failed to validate config data: {e}") from e
         return model_instance
@@ -233,7 +162,6 @@ class LemonySettings[SettingModelT: BaseSettings]:
         )
 
         # 标记正在保存, 防止触发重载
-        self._is_saving = True
         watcher = get_file_watcher()
         if watcher is not None:
             watcher.mark_saving(config_file)
@@ -266,7 +194,6 @@ class LemonySettings[SettingModelT: BaseSettings]:
             emitter.emit_sync(event)
             raise
         finally:
-            self._is_saving = False
             if watcher is not None:
                 watcher.unmark_saving(config_file)
 
@@ -290,10 +217,6 @@ class LemonySettings[SettingModelT: BaseSettings]:
                 f"config file {self._identifier}:{self._namespace} does not exist. "
                 f"Initialized with default values and saved as {config_file!r}.",
             )
-
-        # 设置 settings 引用, 以便 auto_save 功能工作
-        if self._value is not _Sentinel.NOT_LOADED:
-            object.__setattr__(self._value, "_settings_ref", self)
 
 
 def resolve_config_path(
@@ -341,8 +264,8 @@ class GlobalSettings(BaseModel):
     # 比如, 开发者可以把它做成命令行参数传入.
 
     # 下面的字段是可持久化字段的数据模型.
-    filed: "FiledGlobalSettings" = Field(
-        default_factory=lambda: FiledGlobalSettings(),
+    persistent: "PersistentGlobalSettings" = Field(
+        default_factory=lambda: PersistentGlobalSettings(),
         description=textwrap.dedent(
             """
             全局设置的文件相关设置.
@@ -361,20 +284,11 @@ class GlobalSettings(BaseModel):
             id_ns=None,
         )
         readwriter = get_read_writer(self.preference)
-        readwriter.write(config_file, self.filed)
+        readwriter.write(config_file, self.persistent)
 
 
-class FiledGlobalSettings(BaseModel):
+class PersistentGlobalSettings(BaseModel):
     # 这些设定会保存到 configs/global.{preference} 文件中.
-    auto_save: bool = Field(
-        default=True,
-        description=textwrap.dedent(
-            """
-            是否启用自动保存功能.
-            启用后, 当设置值被修改时, 会自动保存到配置文件中.
-            """,
-        ).strip(),
-    )
     auto_reload: bool = Field(
         default=False,
         description=textwrap.dedent(
@@ -400,6 +314,7 @@ def require[T: BaseSettings](
             model=model,
         )
         _SETTINGS_TABLE[key] = settings
+        settings.load()
     return _SETTINGS_TABLE[key].value
 
 
@@ -429,16 +344,16 @@ def init_global_settings(
     if global_config_file.exists():
         filed_global_settings = readwriter.read(
             global_config_file,
-            FiledGlobalSettings,
+            PersistentGlobalSettings,
         )
     else:
-        filed_global_settings = FiledGlobalSettings()
+        filed_global_settings = PersistentGlobalSettings()
         readwriter.write(global_config_file, filed_global_settings)
 
     global_settings = GlobalSettings(
         preference=preference,
         config_path=config_path_resolved,
-        filed=filed_global_settings,
+        persistent=filed_global_settings,
     )
     _global_settings = global_settings
 

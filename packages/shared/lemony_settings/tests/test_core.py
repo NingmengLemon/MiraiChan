@@ -211,30 +211,28 @@ class TestLemonySettings:
 
 
 class TestRequire:
-    def test_require_creates_new_settings(self, tmp_path: Path) -> None:
-        """测试 require 创建新设置."""
+    def test_require_creates_and_loads_new_settings(self, tmp_path: Path) -> None:
+        """测试 require 创建并自动加载新设置."""
         init_global_settings(preference="toml", config_path=tmp_path / "configs")
 
-        # 第一次创建需要先 load
-        key = ("require_test", "default")
-        assert key not in _SETTINGS_TABLE
+        # require 应该自动创建并加载配置
+        value = require(MyTestSettings, "require_test")
 
-        # require 返回的是 value, 但会先触发异常因为没有 load
-        with pytest.raises(RuntimeError, match="has not been loaded"):
-            require(MyTestSettings, "require_test")
+        # 应该返回默认值
+        assert value.name == "default_name"
+        assert value.value == 42
+
+        # 配置文件应该已被创建
+        config_file = tmp_path / "configs" / "require_test" / "default.toml"
+        assert config_file.exists()
 
     def test_require_returns_same_instance(self, tmp_path: Path) -> None:
         """测试 require 返回相同实例."""
         init_global_settings(preference="toml", config_path=tmp_path / "configs")
 
-        # 手动创建并加载
-        settings = LemonySettings(
-            identifier="same_test",
-            namespace="default",
-            model=MyTestSettings,
-        )
-        settings.load()
+        # 第一次调用 require 会创建并加载
+        value1 = require(MyTestSettings, "same_test", namespace="default")
 
-        # require 应该返回相同的 value
-        value = require(MyTestSettings, "same_test", namespace="default")
-        assert value is settings.value
+        # 第二次调用应该返回相同的 value
+        value2 = require(MyTestSettings, "same_test", namespace="default")
+        assert value1 is value2

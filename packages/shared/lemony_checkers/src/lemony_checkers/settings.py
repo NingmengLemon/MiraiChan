@@ -215,7 +215,7 @@ def set_global_mode(mode: Literal["whitelist", "blacklist"]) -> None:
 
 
 def add_global_rule(
-    rule_type: Literal["private", "group"],
+    rule_type: Literal["user", "group"],
     action: Literal["allow", "deny"],
     ids: list[int] | None = None,
 ) -> Rule:
@@ -223,7 +223,7 @@ def add_global_rule(
     添加全局规则.
 
     Args:
-        rule_type: 规则类型 ("private" 私聊规则, "group" 群聊规则)
+        rule_type: 规则类型 ("user" 用户规则, "group" 群组规则)
         action: 动作 ("allow" 允许, "deny" 拒绝)
         ids: ID列表 (用户ID或群组ID), None 表示匹配所有
 
@@ -233,31 +233,33 @@ def add_global_rule(
     settings = get_checker_global_settings()
     rule = Rule(action=action, ids=ids)
 
-    if rule_type == "private":
-        settings.rules.private = [*settings.rules.private, rule]
+    if rule_type == "user":
+        settings.rules.user_rules = [*settings.rules.user_rules, rule]
     else:
-        settings.rules.group = [*settings.rules.group, rule]
+        settings.rules.group_rules = [*settings.rules.group_rules, rule]
 
     logger.info(f"Global {rule_type} rule added: action={action}, ids={ids}")
     return rule
 
 
 def remove_global_rule(
-    rule_type: Literal["private", "group"],
+    rule_type: Literal["user", "group"],
     index: int,
 ) -> Rule | None:
     """
     移除指定索引的全局规则.
 
     Args:
-        rule_type: 规则类型 ("private" 或 "group")
+        rule_type: 规则类型 ("user" 或 "group")
         index: 规则索引
 
     Returns:
         Rule | None: 被移除的规则, 如果索引无效则返回 None
     """
     settings = get_checker_global_settings()
-    rules = settings.rules.private if rule_type == "private" else settings.rules.group
+    rules = (
+        settings.rules.user_rules if rule_type == "user" else settings.rules.group_rules
+    )
 
     if index < 0 or index >= len(rules):
         return None
@@ -265,16 +267,16 @@ def remove_global_rule(
     removed = rules[index]
     new_rules = [r for i, r in enumerate(rules) if i != index]
 
-    if rule_type == "private":
-        settings.rules.private = new_rules
+    if rule_type == "user":
+        settings.rules.user_rules = new_rules
     else:
-        settings.rules.group = new_rules
+        settings.rules.group_rules = new_rules
 
     logger.info(f"Global {rule_type} rule removed at index {index}")
     return removed
 
 
-def clear_global_rules(rule_type: Literal["private", "group"] | None = None) -> int:
+def clear_global_rules(rule_type: Literal["user", "group"] | None = None) -> int:
     """
     清除全局规则.
 
@@ -287,13 +289,13 @@ def clear_global_rules(rule_type: Literal["private", "group"] | None = None) -> 
     settings = get_checker_global_settings()
     count = 0
 
-    if rule_type is None or rule_type == "private":
-        count += len(settings.rules.private)
-        settings.rules.private = []
+    if rule_type is None or rule_type == "user":
+        count += len(settings.rules.user_rules)
+        settings.rules.user_rules = []
 
     if rule_type is None or rule_type == "group":
-        count += len(settings.rules.group)
-        settings.rules.group = []
+        count += len(settings.rules.group_rules)
+        settings.rules.group_rules = []
 
     logger.info(
         f"Cleared {count} global rules"
@@ -343,7 +345,6 @@ def set_command_enabled(plugin_name: str, command_name: str, enabled: bool) -> N
         enabled: 是否启用
     """
     settings = get_checker_plugin_settings(plugin_name)
-    # 使用新 dict 触发 auto_save
     settings.commands = {**settings.commands, command_name: enabled}
     logger.info(
         f"Command '{command_name}' in plugin '{plugin_name}' enabled set to: {enabled}"
@@ -373,7 +374,7 @@ def remove_command_setting(plugin_name: str, command_name: str) -> bool:
 
 def add_plugin_rule(
     plugin_name: str,
-    rule_type: Literal["private", "group"],
+    rule_type: Literal["user", "group"],
     action: Literal["allow", "deny"],
     ids: list[int] | None = None,
 ) -> Rule:
@@ -382,7 +383,7 @@ def add_plugin_rule(
 
     Args:
         plugin_name: 插件名称
-        rule_type: 规则类型 ("private" 私聊规则, "group" 群聊规则)
+        rule_type: 规则类型 ("user" 用户规则, "group" 群组规则)
         action: 动作 ("allow" 允许, "deny" 拒绝)
         ids: ID列表 (用户ID或群组ID), None 表示匹配所有
 
@@ -392,10 +393,10 @@ def add_plugin_rule(
     settings = get_checker_plugin_settings(plugin_name)
     rule = Rule(action=action, ids=ids)
 
-    if rule_type == "private":
-        settings.rules.private = [*settings.rules.private, rule]
+    if rule_type == "user":
+        settings.rules.user_rules = [*settings.rules.user_rules, rule]
     else:
-        settings.rules.group = [*settings.rules.group, rule]
+        settings.rules.group_rules = [*settings.rules.group_rules, rule]
 
     logger.info(
         f"Plugin '{plugin_name}' {rule_type} rule added: action={action}, ids={ids}"
@@ -405,7 +406,7 @@ def add_plugin_rule(
 
 def remove_plugin_rule(
     plugin_name: str,
-    rule_type: Literal["private", "group"],
+    rule_type: Literal["user", "group"],
     index: int,
 ) -> Rule | None:
     """
@@ -413,14 +414,16 @@ def remove_plugin_rule(
 
     Args:
         plugin_name: 插件名称
-        rule_type: 规则类型 ("private" 或 "group")
+        rule_type: 规则类型 ("user" 或 "group")
         index: 规则索引
 
     Returns:
         Rule | None: 被移除的规则, 如果索引无效则返回 None
     """
     settings = get_checker_plugin_settings(plugin_name)
-    rules = settings.rules.private if rule_type == "private" else settings.rules.group
+    rules = (
+        settings.rules.user_rules if rule_type == "user" else settings.rules.group_rules
+    )
 
     if index < 0 or index >= len(rules):
         return None
@@ -428,17 +431,17 @@ def remove_plugin_rule(
     removed = rules[index]
     new_rules = [r for i, r in enumerate(rules) if i != index]
 
-    if rule_type == "private":
-        settings.rules.private = new_rules
+    if rule_type == "user":
+        settings.rules.user_rules = new_rules
     else:
-        settings.rules.group = new_rules
+        settings.rules.group_rules = new_rules
 
     logger.info(f"Plugin '{plugin_name}' {rule_type} rule removed at index {index}")
     return removed
 
 
 def clear_plugin_rules(
-    plugin_name: str, rule_type: Literal["private", "group"] | None = None
+    plugin_name: str, rule_type: Literal["user", "group"] | None = None
 ) -> int:
     """
     清除插件规则.
@@ -453,13 +456,13 @@ def clear_plugin_rules(
     settings = get_checker_plugin_settings(plugin_name)
     count = 0
 
-    if rule_type is None or rule_type == "private":
-        count += len(settings.rules.private)
-        settings.rules.private = []
+    if rule_type is None or rule_type == "user":
+        count += len(settings.rules.user_rules)
+        settings.rules.user_rules = []
 
     if rule_type is None or rule_type == "group":
-        count += len(settings.rules.group)
-        settings.rules.group = []
+        count += len(settings.rules.group_rules)
+        settings.rules.group_rules = []
 
     logger.info(
         f"Cleared {count} rules from plugin '{plugin_name}'"

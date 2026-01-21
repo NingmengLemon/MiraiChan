@@ -307,13 +307,13 @@ class TestGlobalRules:
         config_dir = tmp_path / "configs"
         init_global_settings(preference="toml", config_path=config_dir)
 
-        rule = add_global_rule("private", "deny", [123])
+        rule = add_global_rule("user", "deny", [123])
         assert rule.action == "deny"
         assert rule.ids == [123]
 
         settings = get_checker_global_settings()
-        assert len(settings.rules.private) == 1
-        assert settings.rules.private[0].action == "deny"
+        assert len(settings.rules.user_rules) == 1
+        assert settings.rules.user_rules[0].action == "deny"
 
     def test_add_global_rule_match_all(self, tmp_path: Path) -> None:
         """测试添加匹配所有的规则."""
@@ -328,23 +328,23 @@ class TestGlobalRules:
         config_dir = tmp_path / "configs"
         init_global_settings(preference="toml", config_path=config_dir)
 
-        add_global_rule("private", "deny", [123])
-        add_global_rule("private", "allow", [456])
+        add_global_rule("user", "deny", [123])
+        add_global_rule("user", "allow", [456])
 
-        removed = remove_global_rule("private", 0)
+        removed = remove_global_rule("user", 0)
         assert removed is not None
         assert removed.ids == [123]
 
         settings = get_checker_global_settings()
-        assert len(settings.rules.private) == 1
-        assert settings.rules.private[0].ids == [456]
+        assert len(settings.rules.user_rules) == 1
+        assert settings.rules.user_rules[0].ids == [456]
 
     def test_remove_invalid_index(self, tmp_path: Path) -> None:
         """测试移除无效索引."""
         config_dir = tmp_path / "configs"
         init_global_settings(preference="toml", config_path=config_dir)
 
-        removed = remove_global_rule("private", 99)
+        removed = remove_global_rule("user", 99)
         assert removed is None
 
     def test_clear_global_rules(self, tmp_path: Path) -> None:
@@ -352,30 +352,30 @@ class TestGlobalRules:
         config_dir = tmp_path / "configs"
         init_global_settings(preference="toml", config_path=config_dir)
 
-        add_global_rule("private", "deny", [123])
+        add_global_rule("user", "deny", [123])
         add_global_rule("group", "allow", [456])
 
         count = clear_global_rules()
         assert count == 2
 
         settings = get_checker_global_settings()
-        assert len(settings.rules.private) == 0
-        assert len(settings.rules.group) == 0
+        assert len(settings.rules.user_rules) == 0
+        assert len(settings.rules.group_rules) == 0
 
     def test_clear_specific_rule_type(self, tmp_path: Path) -> None:
         """测试清除特定类型规则."""
         config_dir = tmp_path / "configs"
         init_global_settings(preference="toml", config_path=config_dir)
 
-        add_global_rule("private", "deny", [123])
+        add_global_rule("user", "deny", [123])
         add_global_rule("group", "allow", [456])
 
-        count = clear_global_rules("private")
+        count = clear_global_rules("user")
         assert count == 1
 
         settings = get_checker_global_settings()
-        assert len(settings.rules.private) == 0
-        assert len(settings.rules.group) == 1
+        assert len(settings.rules.user_rules) == 0
+        assert len(settings.rules.group_rules) == 1
 
 
 class TestPluginSettings:
@@ -447,11 +447,11 @@ class TestPluginRules:
         config_dir = tmp_path / "configs"
         init_global_settings(preference="toml", config_path=config_dir)
 
-        rule = add_plugin_rule("test_plugin", "private", "allow", [123])
+        rule = add_plugin_rule("test_plugin", "user", "allow", [123])
         assert rule.action == "allow"
 
         settings = get_checker_plugin_settings("test_plugin")
-        assert len(settings.rules.private) == 1
+        assert len(settings.rules.user_rules) == 1
 
     def test_remove_plugin_rule(self, tmp_path: Path) -> None:
         """测试移除插件规则."""
@@ -463,19 +463,19 @@ class TestPluginRules:
         assert removed is not None
 
         settings = get_checker_plugin_settings("test_plugin")
-        assert len(settings.rules.group) == 0
+        assert len(settings.rules.group_rules) == 0
 
     def test_clear_plugin_rules(self, tmp_path: Path) -> None:
         """测试清除插件规则."""
         config_dir = tmp_path / "configs"
         init_global_settings(preference="toml", config_path=config_dir)
 
-        add_plugin_rule("test_plugin", "private", "allow", [111])
+        add_plugin_rule("test_plugin", "user", "allow", [111])
         add_plugin_rule("test_plugin", "group", "deny", [222])
 
         count = clear_plugin_rules("test_plugin")
         assert count == 2
 
         settings = get_checker_plugin_settings("test_plugin")
-        assert len(settings.rules.private) == 0
-        assert len(settings.rules.group) == 0
+        assert len(settings.rules.user_rules) == 0
+        assert len(settings.rules.group_rules) == 0

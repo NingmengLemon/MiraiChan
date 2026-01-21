@@ -117,7 +117,7 @@ class ConfigFileWatcher:
         """处理文件变更."""
         from .core import (
             _SETTINGS_TABLE,
-            FiledGlobalSettings,
+            PersistentGlobalSettings,
             get_global_settings,
             resolve_config_path,
         )
@@ -143,18 +143,18 @@ class ConfigFileWatcher:
             # 重载全局配置 (只重载 filed 部分)
             try:
                 readwriter = get_read_writer(global_settings.preference)
-                new_filed = readwriter.read(changed_file, FiledGlobalSettings)
-                old_filed = global_settings.filed
+                new_filed = readwriter.read(changed_file, PersistentGlobalSettings)
+                old_filed = global_settings.persistent
 
                 # 检测变更的字段
                 changed_fields = []
-                for field_name in FiledGlobalSettings.model_fields:
+                for field_name in PersistentGlobalSettings.model_fields:
                     if getattr(new_filed, field_name) != getattr(old_filed, field_name):
                         changed_fields.append(field_name)
 
                 if changed_fields:
-                    # 更新 filed (需要绕过 frozen)
-                    object.__setattr__(global_settings, "filed", new_filed)
+                    # 更新 persistent (需要绕过 frozen)
+                    object.__setattr__(global_settings, "persistent", new_filed)
 
                     event = SettingsChangeEvent(
                         event_type=SettingsEventType.RELOADED,
@@ -286,7 +286,7 @@ async def start_watcher() -> None:
     from .core import get_global_settings
 
     global_settings = get_global_settings()
-    if not global_settings.filed.auto_reload:
+    if not global_settings.persistent.auto_reload:
         logger.debug("auto_reload is disabled, skipping watcher start.")
         return
 

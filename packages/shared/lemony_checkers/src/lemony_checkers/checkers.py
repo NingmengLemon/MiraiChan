@@ -88,30 +88,30 @@ def _check_rules(
     # 1. 检查全局规则
     if is_group:
         # 群聊: 先检查群组规则
-        result = _match_rules(global_settings.rules.group, group_id)
+        result = _match_rules(global_settings.rules.group_rules, group_id)
         if result != CheckResult.DEFAULT:
             return result
         # 再检查用户规则
-        result = _match_rules(global_settings.rules.private, user_id)
+        result = _match_rules(global_settings.rules.user_rules, user_id)
         if result != CheckResult.DEFAULT:
             return result
     else:
         # 私聊: 只检查用户规则
-        result = _match_rules(global_settings.rules.private, user_id)
+        result = _match_rules(global_settings.rules.user_rules, user_id)
         if result != CheckResult.DEFAULT:
             return result
 
     # 2. 检查插件规则
     if plugin_settings is not None:
         if is_group:
-            result = _match_rules(plugin_settings.rules.group, group_id)
+            result = _match_rules(plugin_settings.rules.group_rules, group_id)
             if result != CheckResult.DEFAULT:
                 return result
-            result = _match_rules(plugin_settings.rules.private, user_id)
+            result = _match_rules(plugin_settings.rules.user_rules, user_id)
             if result != CheckResult.DEFAULT:
                 return result
         else:
-            result = _match_rules(plugin_settings.rules.private, user_id)
+            result = _match_rules(plugin_settings.rules.user_rules, user_id)
             if result != CheckResult.DEFAULT:
                 return result
 

@@ -75,7 +75,7 @@ class TestCheckRules:
     def test_global_private_rule(self) -> None:
         """测试全局私聊规则."""
         global_settings = CheckerGlobalSettings(
-            rules=RuleSet(private=[Rule(action="deny", ids=[123])])
+            rules=RuleSet(user_rules=[Rule(action="deny", ids=[123])])
         )
         result = _check_rules(global_settings, None, user_id=123, group_id=None)
         assert result == CheckResult.DENY
@@ -83,7 +83,7 @@ class TestCheckRules:
     def test_global_group_rule(self) -> None:
         """测试全局群聊规则."""
         global_settings = CheckerGlobalSettings(
-            rules=RuleSet(group=[Rule(action="allow", ids=[999])])
+            rules=RuleSet(group_rules=[Rule(action="allow", ids=[999])])
         )
         result = _check_rules(global_settings, None, user_id=123, group_id=999)
         assert result == CheckResult.ALLOW
@@ -92,7 +92,7 @@ class TestCheckRules:
         """测试插件规则在全局规则之后."""
         global_settings = CheckerGlobalSettings()  # 无规则
         plugin_settings = CheckerPluginSettings(
-            rules=RuleSet(private=[Rule(action="deny", ids=[123])])
+            rules=RuleSet(user_rules=[Rule(action="deny", ids=[123])])
         )
         result = _check_rules(
             global_settings, plugin_settings, user_id=123, group_id=None
@@ -102,10 +102,10 @@ class TestCheckRules:
     def test_global_rule_priority(self) -> None:
         """测试全局规则优先于插件规则."""
         global_settings = CheckerGlobalSettings(
-            rules=RuleSet(private=[Rule(action="allow", ids=[123])])
+            rules=RuleSet(user_rules=[Rule(action="allow", ids=[123])])
         )
         plugin_settings = CheckerPluginSettings(
-            rules=RuleSet(private=[Rule(action="deny", ids=[123])])
+            rules=RuleSet(user_rules=[Rule(action="deny", ids=[123])])
         )
         # 全局规则先匹配
         result = _check_rules(
@@ -270,7 +270,7 @@ class TestLemonyChecker:
         init_global_settings(preference="toml", config_path=config_dir)
 
         settings = get_checker_global_settings()
-        settings.rules = RuleSet(group=[Rule(action="deny", ids=[98765])])
+        settings.rules = RuleSet(group_rules=[Rule(action="deny", ids=[98765])])
 
         checker = LemonyChecker()
         event = MockGroupMessageEvent(user_id=12345, group_id=98765)
