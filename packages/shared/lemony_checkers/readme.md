@@ -216,6 +216,68 @@ LemonyChecker.check()
 | `reload_global_settings()` | 重新加载全局配置 |
 | `reload_plugin_settings(name)` | 重新加载插件配置 |
 
+### 编程式配置 API
+
+提供编程方式动态修改配置的接口，修改会自动保存到配置文件。
+
+#### 全局配置
+
+| 函数 | 说明 |
+|------|------|
+| `set_owner(user_id)` | 设置 Owner (传入 None 清除) |
+| `add_admin(user_id)` | 添加管理员 |
+| `remove_admin(user_id)` | 移除管理员 |
+| `set_global_mode(mode)` | 设置全局权限模式 |
+| `add_global_rule(rule_type, action, ids)` | 添加全局规则 |
+| `remove_global_rule(rule_type, index)` | 移除指定索引的全局规则 |
+| `clear_global_rules(rule_type)` | 清除全局规则 |
+
+#### 插件配置
+
+| 函数 | 说明 |
+|------|------|
+| `set_plugin_enabled(plugin_name, enabled)` | 设置插件是否启用 |
+| `set_plugin_mode(plugin_name, mode)` | 设置插件权限模式 |
+| `set_command_enabled(plugin_name, cmd, enabled)` | 设置命令是否启用 |
+| `remove_command_setting(plugin_name, cmd)` | 移除命令设置 (恢复默认) |
+| `add_plugin_rule(plugin_name, rule_type, action, ids)` | 添加插件规则 |
+| `remove_plugin_rule(plugin_name, rule_type, index)` | 移除指定索引的插件规则 |
+| `clear_plugin_rules(plugin_name, rule_type)` | 清除插件规则 |
+
+#### 示例
+
+```python
+from lemony_checkers import (
+    set_owner,
+    add_admin,
+    remove_admin,
+    add_global_rule,
+    set_plugin_enabled,
+    set_command_enabled,
+    add_plugin_rule,
+)
+
+# 设置 Owner 和 Admin
+set_owner(123456789)
+add_admin(111111111)
+add_admin(222222222)
+
+# 添加全局规则 - 拒绝特定用户
+add_global_rule("private", "deny", [666666666])
+
+# 添加全局规则 - 允许特定群组
+add_global_rule("group", "allow", [987654321])
+
+# 禁用某个插件
+set_plugin_enabled("my_plugin", False)
+
+# 禁用某个命令
+set_command_enabled("my_plugin", "dangerous_cmd", False)
+
+# 为插件添加特定规则
+add_plugin_rule("my_plugin", "private", "allow", [999999999])
+```
+
 ## 📝 配置模型
 
 ### CheckerGlobalSettings
@@ -243,7 +305,7 @@ class CheckerPluginSettings(BaseSettings):
 ```python
 class Rule(BaseModel):
     action: Literal["allow", "deny"]
-    ids: list[int] = []  # 空列表表示匹配所有
+    ids: list[int] | None = None  # None 表示匹配所有, 空列表表示空规则
 ```
 
 ## 🔗 依赖

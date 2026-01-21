@@ -4,9 +4,12 @@
 
 from pathlib import Path
 
-import pytest
-from lemony_checkers.models import Rule, RuleSet
 from lemony_checkers.settings import (
+    add_admin,
+    add_global_rule,
+    add_plugin_rule,
+    clear_global_rules,
+    clear_plugin_rules,
     get_admins,
     get_checker_global_settings,
     get_checker_plugin_settings,
@@ -15,6 +18,16 @@ from lemony_checkers.settings import (
     is_owner,
     reload_global_settings,
     reload_plugin_settings,
+    remove_admin,
+    remove_command_setting,
+    remove_global_rule,
+    remove_plugin_rule,
+    set_command_enabled,
+    set_global_mode,
+    # 编程式 API
+    set_owner,
+    set_plugin_enabled,
+    set_plugin_mode,
 )
 from lemony_settings import init_global_settings
 
@@ -200,3 +213,269 @@ class TestReload:
         # reload 返回的值应该与原值相等
         assert reloaded.enabled == settings.enabled
         assert reloaded.mode == settings.mode
+
+
+# ============================================================================
+# 编程式 API 测试
+# ============================================================================
+
+
+class TestSetOwner:
+    """测试 set_owner 函数."""
+
+    def test_set_owner(self, tmp_path: Path) -> None:
+        """测试设置 Owner."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        set_owner(123456)
+        assert get_owner() == 123456
+
+    def test_clear_owner(self, tmp_path: Path) -> None:
+        """测试清除 Owner."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        set_owner(123456)
+        assert get_owner() == 123456
+
+        set_owner(None)
+        assert get_owner() is None
+
+
+class TestAdminManagement:
+    """测试管理员管理函数."""
+
+    def test_add_admin(self, tmp_path: Path) -> None:
+        """测试添加管理员."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        result = add_admin(111)
+        assert result is True
+        assert 111 in get_admins()
+
+    def test_add_duplicate_admin(self, tmp_path: Path) -> None:
+        """测试添加重复管理员."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        add_admin(111)
+        result = add_admin(111)
+        assert result is False
+        assert get_admins().count(111) == 1
+
+    def test_remove_admin(self, tmp_path: Path) -> None:
+        """测试移除管理员."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        add_admin(111)
+        result = remove_admin(111)
+        assert result is True
+        assert 111 not in get_admins()
+
+    def test_remove_nonexistent_admin(self, tmp_path: Path) -> None:
+        """测试移除不存在的管理员."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        result = remove_admin(999)
+        assert result is False
+
+
+class TestGlobalMode:
+    """测试全局模式设置."""
+
+    def test_set_global_mode(self, tmp_path: Path) -> None:
+        """测试设置全局模式."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        set_global_mode("whitelist")
+        assert get_checker_global_settings().mode == "whitelist"
+
+        set_global_mode("blacklist")
+        assert get_checker_global_settings().mode == "blacklist"
+
+
+class TestGlobalRules:
+    """测试全局规则管理."""
+
+    def test_add_global_rule(self, tmp_path: Path) -> None:
+        """测试添加全局规则."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        rule = add_global_rule("private", "deny", [123])
+        assert rule.action == "deny"
+        assert rule.ids == [123]
+
+        settings = get_checker_global_settings()
+        assert len(settings.rules.private) == 1
+        assert settings.rules.private[0].action == "deny"
+
+    def test_add_global_rule_match_all(self, tmp_path: Path) -> None:
+        """测试添加匹配所有的规则."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        rule = add_global_rule("group", "allow", None)
+        assert rule.ids is None
+
+    def test_remove_global_rule(self, tmp_path: Path) -> None:
+        """测试移除全局规则."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        add_global_rule("private", "deny", [123])
+        add_global_rule("private", "allow", [456])
+
+        removed = remove_global_rule("private", 0)
+        assert removed is not None
+        assert removed.ids == [123]
+
+        settings = get_checker_global_settings()
+        assert len(settings.rules.private) == 1
+        assert settings.rules.private[0].ids == [456]
+
+    def test_remove_invalid_index(self, tmp_path: Path) -> None:
+        """测试移除无效索引."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        removed = remove_global_rule("private", 99)
+        assert removed is None
+
+    def test_clear_global_rules(self, tmp_path: Path) -> None:
+        """测试清除全局规则."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        add_global_rule("private", "deny", [123])
+        add_global_rule("group", "allow", [456])
+
+        count = clear_global_rules()
+        assert count == 2
+
+        settings = get_checker_global_settings()
+        assert len(settings.rules.private) == 0
+        assert len(settings.rules.group) == 0
+
+    def test_clear_specific_rule_type(self, tmp_path: Path) -> None:
+        """测试清除特定类型规则."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        add_global_rule("private", "deny", [123])
+        add_global_rule("group", "allow", [456])
+
+        count = clear_global_rules("private")
+        assert count == 1
+
+        settings = get_checker_global_settings()
+        assert len(settings.rules.private) == 0
+        assert len(settings.rules.group) == 1
+
+
+class TestPluginSettings:
+    """测试插件配置管理."""
+
+    def test_set_plugin_enabled(self, tmp_path: Path) -> None:
+        """测试设置插件启用状态."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        set_plugin_enabled("test_plugin", False)
+        assert get_checker_plugin_settings("test_plugin").enabled is False
+
+        set_plugin_enabled("test_plugin", True)
+        assert get_checker_plugin_settings("test_plugin").enabled is True
+
+    def test_set_plugin_mode(self, tmp_path: Path) -> None:
+        """测试设置插件模式."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        set_plugin_mode("test_plugin", "whitelist")
+        assert get_checker_plugin_settings("test_plugin").mode == "whitelist"
+
+        set_plugin_mode("test_plugin", None)
+        assert get_checker_plugin_settings("test_plugin").mode is None
+
+
+class TestCommandSettings:
+    """测试命令设置管理."""
+
+    def test_set_command_enabled(self, tmp_path: Path) -> None:
+        """测试设置命令启用状态."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        set_command_enabled("test_plugin", "cmd1", False)
+        settings = get_checker_plugin_settings("test_plugin")
+        assert settings.commands.get("cmd1") is False
+
+    def test_remove_command_setting(self, tmp_path: Path) -> None:
+        """测试移除命令设置."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        set_command_enabled("test_plugin", "cmd1", False)
+        result = remove_command_setting("test_plugin", "cmd1")
+        assert result is True
+
+        settings = get_checker_plugin_settings("test_plugin")
+        assert "cmd1" not in settings.commands
+
+    def test_remove_nonexistent_command_setting(self, tmp_path: Path) -> None:
+        """测试移除不存在的命令设置."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        # 先确保插件配置存在
+        get_checker_plugin_settings("test_plugin")
+        result = remove_command_setting("test_plugin", "nonexistent")
+        assert result is False
+
+
+class TestPluginRules:
+    """测试插件规则管理."""
+
+    def test_add_plugin_rule(self, tmp_path: Path) -> None:
+        """测试添加插件规则."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        rule = add_plugin_rule("test_plugin", "private", "allow", [123])
+        assert rule.action == "allow"
+
+        settings = get_checker_plugin_settings("test_plugin")
+        assert len(settings.rules.private) == 1
+
+    def test_remove_plugin_rule(self, tmp_path: Path) -> None:
+        """测试移除插件规则."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        add_plugin_rule("test_plugin", "group", "deny", [456])
+        removed = remove_plugin_rule("test_plugin", "group", 0)
+        assert removed is not None
+
+        settings = get_checker_plugin_settings("test_plugin")
+        assert len(settings.rules.group) == 0
+
+    def test_clear_plugin_rules(self, tmp_path: Path) -> None:
+        """测试清除插件规则."""
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        add_plugin_rule("test_plugin", "private", "allow", [111])
+        add_plugin_rule("test_plugin", "group", "deny", [222])
+
+        count = clear_plugin_rules("test_plugin")
+        assert count == 2
+
+        settings = get_checker_plugin_settings("test_plugin")
+        assert len(settings.rules.private) == 0
+        assert len(settings.rules.group) == 0

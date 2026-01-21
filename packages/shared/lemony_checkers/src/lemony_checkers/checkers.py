@@ -12,7 +12,7 @@ from melobot.log import get_logger
 from melobot.protocols.onebot.v11 import GroupMessageEvent, MessageEvent
 from melobot.utils.check import Checker
 
-from .models import CheckerGlobalSettings, CheckerPluginSettings, Rule, RuleSet
+from .models import CheckerGlobalSettings, CheckerPluginSettings, Rule
 from .settings import (
     get_checker_global_settings,
     get_checker_plugin_settings,
@@ -32,7 +32,7 @@ class CheckResult(Enum):
 
 
 # 失败回调类型
-type FailCallback = Callable[[MessageEvent], Awaitable[None]] | None
+type FailCallback = Callable[[MessageEvent], Awaitable[None]]
 
 
 def _match_rules(
@@ -141,7 +141,7 @@ def _get_effective_mode(
 
 class LemonyChecker(Checker[MessageEvent]):
     """
-    Lemony 权限检查器.
+    柠檬味的权限检查器.
 
     基于配置文件的权限检查, 支持:
     - 全局规则和插件特定规则
@@ -170,7 +170,7 @@ class LemonyChecker(Checker[MessageEvent]):
         plugin_name: str | None = None,
         command_name: str | None = None,
         *,
-        fail_cb: FailCallback = None,
+        fail_cb: FailCallback | None = None,
         allow_admin: bool = True,
     ) -> None:
         """
@@ -291,7 +291,7 @@ class OwnerChecker(Checker[MessageEvent]):
     只有 Owner 可以通过检查.
     """
 
-    def __init__(self, *, fail_cb: FailCallback = None) -> None:
+    def __init__(self, *, fail_cb: FailCallback | None = None) -> None:
         super().__init__()
         self._fail_cb = fail_cb
 
@@ -315,7 +315,7 @@ class AdminChecker(Checker[MessageEvent]):
     Owner 和 Admin 都可以通过检查.
     """
 
-    def __init__(self, *, fail_cb: FailCallback = None) -> None:
+    def __init__(self, *, fail_cb: FailCallback | None = None) -> None:
         super().__init__()
         self._fail_cb = fail_cb
 

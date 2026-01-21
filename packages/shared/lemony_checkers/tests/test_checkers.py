@@ -1,6 +1,7 @@
 """
 测试 checkers 模块.
 """
+# pyright: reportArgumentType=false
 
 from pathlib import Path
 from unittest.mock import AsyncMock
