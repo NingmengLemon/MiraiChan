@@ -1,0 +1,14 @@
+[project]
+name = "lemony_llm_provider"
+version = "0.1.0"
+description = "Lemoneko's LLM provider library for MiraiChan"
+authors = [
+    { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
+]
+dependencies = [
+    "openai>=2.15.0",
+]
+
+requires-python = ">=3.12,<3.14"
+readme = "README.md"
+license = { text = "AGPL3" }
