@@ -4,6 +4,7 @@ requires-python = "==3.12.*"
 
 [manifest]
 members = [
+    "lemony-checkers",
     "lemony-settings",
     "lemony-utils",
     "miraichan",
@@ -470,6 +471,29 @@ wheels = [
 ]
 
 [[package]]
+name = "lemony-checkers"
+version = "0.1.0"
+source = { editable = "packages/shared/lemony_checkers" }
+dependencies = [
+    { name = "lemony-settings" },
+    { name = "melobot", extra = ["onebot"] },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "tomli" },
+    { name = "watchfiles" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.3.0" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "tomli", specifier = ">=2.4.0" },
+    { name = "watchfiles", specifier = ">=1.1.1" },
+]
+
+[[package]]
 name = "lemony-settings"
 version = "0.1.0"
 source = { editable = "packages/shared/lemony_settings" }
@@ -699,6 +723,7 @@ dependencies = [
     { name = "aiosqlite" },
     { name = "apscheduler" },
     { name = "graphviz" },
+    { name = "lemony-checkers" },
     { name = "lemony-settings" },
     { name = "lemony-utils" },
     { name = "lxml" },
@@ -737,6 +762,7 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.21.0" },
     { name = "apscheduler", specifier = ">=3.11.0" },
     { name = "graphviz", specifier = ">=0.20.3" },
+    { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "lxml", specifier = ">=5.3.0" },

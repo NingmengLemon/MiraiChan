@@ -9,6 +9,7 @@ dependencies = [
     "miraichan",
     "lemony_utils",
     "lemony_settings",
+    "lemony_checkers",
     # workspace members above
     "melobot[onebot]>=3.3.0",
     "pypinyin>=0.53.0",
@@ -36,6 +37,7 @@ members = [
     "packages/miraichan",
     "packages/shared/lemony_utils",
     "packages/shared/lemony_settings",
+    "packages/shared/lemony_checkers",
     # "packages/plugins/*",
 ]
 
@@ -43,6 +45,7 @@ members = [
 miraichan = { workspace = true }
 lemony_utils = { workspace = true }
 lemony_settings = { workspace = true }
+lemony_checkers = { workspace = true }
 
 [tool.pdm.scripts]
 deploy = { cmd = ["python", "-m", "melobot", "run", "src/bot.py"] }
