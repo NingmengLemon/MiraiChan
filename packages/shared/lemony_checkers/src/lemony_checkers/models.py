@@ -122,9 +122,3 @@ class CheckerPluginSettings(BaseSettings):
             """
         ).strip(),
     )
-
-
-# 向后兼容的别名
-RuleConfig = RuleSet
-GlobalConfig = CheckerGlobalSettings
-PluginConfig = CheckerPluginSettings

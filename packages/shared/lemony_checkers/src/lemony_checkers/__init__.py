@@ -32,14 +32,17 @@ from .checkers import (
 from .models import (
     CheckerGlobalSettings,
     CheckerPluginSettings,
-    GlobalConfig,
-    PluginConfig,
     Rule,
-    RuleConfig,
     RuleSet,
 )
 from .settings import (
     CHECKER_IDENTIFIER,
+    add_admin,
+    add_global_rule,
+    add_plugin_rule,
+    clear_global_rules,
+    clear_plugin_rules,
+    # 获取配置
     get_admins,
     get_checker_global_settings,
     get_checker_plugin_settings,
@@ -48,6 +51,17 @@ from .settings import (
     is_owner,
     reload_global_settings,
     reload_plugin_settings,
+    remove_admin,
+    remove_command_setting,
+    remove_global_rule,
+    remove_plugin_rule,
+    set_command_enabled,
+    set_global_mode,
+    # 全局配置 API
+    set_owner,
+    # 插件配置 API
+    set_plugin_enabled,
+    set_plugin_mode,
 )
 
 __all__ = [
@@ -64,12 +78,9 @@ __all__ = [
     # Models
     "Rule",
     "RuleSet",
-    "RuleConfig",  # 别名
     "CheckerGlobalSettings",
     "CheckerPluginSettings",
-    "GlobalConfig",  # 别名
-    "PluginConfig",  # 别名
-    # Settings
+    # Settings - 获取配置
     "CHECKER_IDENTIFIER",
     "get_checker_global_settings",
     "get_checker_plugin_settings",
@@ -79,4 +90,20 @@ __all__ = [
     "is_admin",
     "get_owner",
     "get_admins",
+    # Settings - 全局配置 API
+    "set_owner",
+    "add_admin",
+    "remove_admin",
+    "set_global_mode",
+    "add_global_rule",
+    "remove_global_rule",
+    "clear_global_rules",
+    # Settings - 插件配置 API
+    "set_plugin_enabled",
+    "set_plugin_mode",
+    "set_command_enabled",
+    "remove_command_setting",
+    "add_plugin_rule",
+    "remove_plugin_rule",
+    "clear_plugin_rules",
 ]
