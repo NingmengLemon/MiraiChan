@@ -1,12 +1,11 @@
 # Lemony Settings
 
-一个基于 Pydantic 的配置管理库，专为 MiraiChan 设计。支持多种配置文件格式 (TOML, YAML, JSON)，以及自动保存、自动重载和事件回调等功能。
+一个基于 Pydantic 的配置管理库，专为 MiraiChan 设计。支持多种配置文件格式 (TOML, YAML, JSON)，以及自动重载和事件回调等功能。
 
 ## ✨ 特性
 
 - 🔧 **类型安全** - 基于 Pydantic BaseModel，享受完整的类型提示和验证
 - 📁 **多格式支持** - 支持 TOML、YAML、JSON 三种配置文件格式
-- 💾 **自动保存** - 配置字段修改时自动保存到文件
 - 🔄 **自动重载** - 监控配置文件变化，自动重新加载
 - 📡 **事件系统** - 支持同步/异步的配置变更事件回调
 - 🔌 **可扩展** - 可以注册自定义的配置读写器
@@ -55,7 +54,8 @@ settings.load()  # 加载配置 (如果文件不存在则创建默认配置)
 
 # 4. 使用配置
 print(settings.value.message)  # "Hello, World!"
-settings.value.max_retries = 5  # 修改会自动保存
+settings.value.max_retries = 5  # 修改配置
+settings.save()  # 手动保存到文件
 ```
 
 ### 配置文件结构
@@ -112,8 +112,7 @@ global_settings = init_global_settings(
 gs = get_global_settings()
 
 # 全局设置的可配置选项 (保存在 configs/global.toml)
-gs.filed.auto_save = True    # 是否启用自动保存
-gs.filed.auto_reload = True  # 是否启用自动重载
+gs.persistent.auto_reload = True  # 是否启用自动重载
 gs.save()  # 保存全局设置
 ```
 
@@ -129,10 +128,10 @@ from lemony_settings import (
     SettingsChangeEvent,
 )
 
-# 使用装饰器注册全局回调
-@on_settings_event(SettingsEventType.AFTER_CHANGE)
-def on_any_change(event: SettingsEvent):
-    print(f"配置 {event.identifier}:{event.namespace} 已变更")
+# 监听配置重载事件
+@on_settings_event(SettingsEventType.RELOADED)
+def on_any_reload(event: SettingsEvent):
+    print(f"配置 {event.identifier}:{event.namespace} 已重载")
 
 # 监听特定配置的事件
 @on_settings_event(
@@ -153,8 +152,6 @@ def on_error(event):
 
 | 事件类型 | 说明 |
 |---------|------|
-| `BEFORE_CHANGE` | 配置值即将被修改 (可用于验证或拦截) |
-| `AFTER_CHANGE` | 配置值已被修改 |
 | `RELOADED` | 配置文件被重新加载 |
 | `SAVED` | 配置文件被保存 |
 | `LOAD_ERROR` | 配置文件加载失败 |
@@ -172,7 +169,7 @@ from lemony_settings.watcher import start_watcher, stop_watcher
 async def main():
     # 初始化并启用自动重载
     gs = init_global_settings(preference="toml", config_path="configs")
-    gs.filed.auto_reload = True
+    gs.persistent.auto_reload = True
     gs.save()
     
     # 启动文件监控
@@ -197,9 +194,9 @@ settings = LemonySettings("my_plugin", "default", MyPluginSettings)
 # 手动加载
 settings.load()
 
-# 手动保存
+# 修改配置后手动保存
 settings.value.message = "New message"
-settings.save()  # 如果启用了 auto_save，这一步可以省略
+settings.save()
 ```
 
 ### 使用不同的配置格式
@@ -287,7 +284,7 @@ class IniReadWriter(ConfigReadWriterABC):
 2. **标识符命名规则** - `identifier` 和 `namespace` 必须匹配正则 `^[A-Za-z_][0-9A-Za-z_]{0,31}$`
 3. **TOML 不支持 None** - 使用 TOML 格式时，`None` 值会被排除，读取时会自动补全
 4. **全局设置只能初始化一次** - `init_global_settings()` 只能调用一次
-5. **嵌套模型的自动保存** - 嵌套的 `BaseModel` 字段修改可能无法触发自动保存，建议直接替换整个嵌套对象
+5. **修改后需手动保存** - 修改配置值后需要调用 `save()` 手动保存到文件
 
 ## 🧪 测试
 

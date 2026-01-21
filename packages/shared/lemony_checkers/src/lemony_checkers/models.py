@@ -29,16 +29,16 @@ class Rule(BaseModel):
 
 class RuleSet(BaseModel):
     """
-    规则集合, 包含私聊和群聊的规则列表.
+    规则集合, 包含用户规则和群组规则.
     """
 
-    private: list[Rule] = Field(
+    user_rules: list[Rule] = Field(
         default_factory=list,
-        description="私聊相关的规则列表. 按顺序匹配用户ID.",
+        description="用户规则列表. 按顺序匹配用户ID, 在私聊和群聊中都适用.",
     )
-    group: list[Rule] = Field(
+    group_rules: list[Rule] = Field(
         default_factory=list,
-        description="群聊相关的规则列表. 按顺序匹配群组ID.",
+        description="群组规则列表. 按顺序匹配群组ID, 仅在群聊中适用.",
     )
 
 

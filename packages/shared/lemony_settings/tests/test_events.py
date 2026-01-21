@@ -20,8 +20,6 @@ from lemony_settings.events import (
 class TestSettingsEventType:
     def test_event_types_exist(self) -> None:
         """测试事件类型枚举存在."""
-        assert SettingsEventType.BEFORE_CHANGE
-        assert SettingsEventType.AFTER_CHANGE
         assert SettingsEventType.RELOADED
         assert SettingsEventType.SAVED
         assert SettingsEventType.LOAD_ERROR
@@ -46,7 +44,7 @@ class TestSettingsEvent:
     def test_change_event(self) -> None:
         """测试变更事件数据类."""
         event = SettingsChangeEvent(
-            event_type=SettingsEventType.AFTER_CHANGE,
+            event_type=SettingsEventType.RELOADED,
             identifier="plugin",
             namespace="ns",
             changed_fields=["field1", "field2"],
@@ -244,7 +242,7 @@ class TestOnSettingsEventDecorator:
 
         events._event_emitter = None
 
-        @on_settings_event(SettingsEventType.AFTER_CHANGE, identifier="specific_plugin")
+        @on_settings_event(SettingsEventType.RELOADED, identifier="specific_plugin")
         def my_specific_callback(event: SettingsEvent) -> None:
             pass
 
@@ -252,7 +250,7 @@ class TestOnSettingsEventDecorator:
         key = ("specific_plugin", "default")
         assert (
             my_specific_callback
-            in emitter._specific_callbacks[key][SettingsEventType.AFTER_CHANGE]
+            in emitter._specific_callbacks[key][SettingsEventType.RELOADED]
         )
 
 

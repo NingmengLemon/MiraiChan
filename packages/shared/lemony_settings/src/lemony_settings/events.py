@@ -23,10 +23,6 @@ logger = get_logger()
 class SettingsEventType(Enum):
     """配置事件类型."""
 
-    # 配置值即将被修改 (可用于验证或拦截)
-    BEFORE_CHANGE = auto()
-    # 配置值已被修改
-    AFTER_CHANGE = auto()
     # 配置文件被重新加载
     RELOADED = auto()
     # 配置文件被保存

@@ -2,7 +2,7 @@
 Lemony Settings - 配置管理库
 
 一个基于 Pydantic 的配置管理库, 支持多种配置文件格式 (TOML, YAML, JSON),
-以及自动保存、自动重载和事件回调等功能.
+以及自动重载和事件回调等功能.
 
 快速开始:
     >>> from lemony_settings import (
@@ -32,9 +32,9 @@ Lemony Settings - 配置管理库
 
 from .core import (
     BaseSettings,
-    FiledGlobalSettings,
     GlobalSettings,
     LemonySettings,
+    PersistentGlobalSettings,
     get_global_settings,
     init_global_settings,
     require,
@@ -72,7 +72,7 @@ __all__ = [
     "BaseSettings",
     "LemonySettings",
     "GlobalSettings",
-    "FiledGlobalSettings",
+    "PersistentGlobalSettings",
     "init_global_settings",
     "get_global_settings",
     "require",

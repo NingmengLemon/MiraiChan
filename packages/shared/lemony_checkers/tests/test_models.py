@@ -43,19 +43,19 @@ class TestRuleSet:
     def test_default(self) -> None:
         """测试默认值."""
         ruleset = RuleSet()
-        assert ruleset.private == []
-        assert ruleset.group == []
+        assert ruleset.user_rules == []
+        assert ruleset.group_rules == []
 
     def test_with_rules(self) -> None:
         """测试带规则的 RuleSet."""
         ruleset = RuleSet(
-            private=[Rule(action="allow", ids=[111])],
-            group=[Rule(action="deny", ids=[222])],
+            user_rules=[Rule(action="allow", ids=[111])],
+            group_rules=[Rule(action="deny", ids=[222])],
         )
-        assert len(ruleset.private) == 1
-        assert len(ruleset.group) == 1
-        assert ruleset.private[0].action == "allow"
-        assert ruleset.group[0].action == "deny"
+        assert len(ruleset.user_rules) == 1
+        assert len(ruleset.group_rules) == 1
+        assert ruleset.user_rules[0].action == "allow"
+        assert ruleset.group_rules[0].action == "deny"
 
 
 class TestCheckerGlobalSettings:
@@ -67,8 +67,8 @@ class TestCheckerGlobalSettings:
         assert settings.mode == "blacklist"
         assert settings.owner is None
         assert settings.admins == []
-        assert settings.rules.private == []
-        assert settings.rules.group == []
+        assert settings.rules.user_rules == []
+        assert settings.rules.group_rules == []
 
     def test_custom_values(self) -> None:
         """测试自定义值."""
@@ -77,13 +77,13 @@ class TestCheckerGlobalSettings:
             owner=123456,
             admins=[111, 222],
             rules=RuleSet(
-                private=[Rule(action="allow", ids=[333])],
+                user_rules=[Rule(action="allow", ids=[333])],
             ),
         )
         assert settings.mode == "whitelist"
         assert settings.owner == 123456
         assert settings.admins == [111, 222]
-        assert len(settings.rules.private) == 1
+        assert len(settings.rules.user_rules) == 1
 
 
 class TestCheckerPluginSettings:
@@ -94,8 +94,8 @@ class TestCheckerPluginSettings:
         settings = CheckerPluginSettings()
         assert settings.enabled is True
         assert settings.mode is None
-        assert settings.rules.private == []
-        assert settings.rules.group == []
+        assert settings.rules.user_rules == []
+        assert settings.rules.group_rules == []
         assert settings.commands == {}
 
     def test_custom_values(self) -> None:
@@ -104,12 +104,12 @@ class TestCheckerPluginSettings:
             enabled=False,
             mode="whitelist",
             rules=RuleSet(
-                group=[Rule(action="deny", ids=[444])],
+                group_rules=[Rule(action="deny", ids=[444])],
             ),
             commands={"echo": True, "secret": False},
         )
         assert settings.enabled is False
         assert settings.mode == "whitelist"
-        assert len(settings.rules.group) == 1
+        assert len(settings.rules.group_rules) == 1
         assert settings.commands["echo"] is True
         assert settings.commands["secret"] is False

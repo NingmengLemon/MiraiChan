@@ -178,7 +178,7 @@ class TestStartStopWatcher:
             preference="toml", config_path=tmp_path / "configs"
         )
         # 默认 auto_reload 是 False
-        assert global_settings.filed.auto_reload is False
+        assert global_settings.persistent.auto_reload is False
 
         watcher = get_file_watcher()
         assert watcher is not None
@@ -194,7 +194,7 @@ class TestStartStopWatcher:
         global_settings = init_global_settings(
             preference="toml", config_path=tmp_path / "configs"
         )
-        global_settings.filed.auto_reload = True
+        global_settings.persistent.auto_reload = True
 
         watcher = get_file_watcher()
         assert watcher is not None
@@ -213,7 +213,7 @@ class TestStartStopWatcher:
         global_settings = init_global_settings(
             preference="toml", config_path=tmp_path / "configs"
         )
-        global_settings.filed.auto_reload = True
+        global_settings.persistent.auto_reload = True
 
         await start_watcher()
         watcher = get_file_watcher()
@@ -232,7 +232,7 @@ class TestStartStopWatcher:
         global_settings = init_global_settings(
             preference="toml", config_path=tmp_path / "configs"
         )
-        global_settings.filed.auto_reload = True
+        global_settings.persistent.auto_reload = True
 
         # 模拟 watcher 未初始化的情况
         watcher._file_watcher = None
@@ -384,8 +384,7 @@ class TestGlobalSettingsReload:
         )
 
         # 初始值
-        assert global_settings.filed.auto_save is True
-        assert global_settings.filed.auto_reload is False
+        assert global_settings.persistent.auto_reload is False
 
         emitter = get_event_emitter()
         callback = MagicMock()
@@ -399,7 +398,7 @@ class TestGlobalSettingsReload:
         # 修改全局配置文件
         global_config_file = config_dir / "global.toml"
         with global_config_file.open("wb") as f:
-            tomli_w.dump({"auto_save": False, "auto_reload": True}, f)
+            tomli_w.dump({"auto_reload": True}, f)
 
         # 模拟文件变更处理
         watcher = get_file_watcher()
@@ -407,14 +406,12 @@ class TestGlobalSettingsReload:
         await watcher._handle_file_change(global_config_file)
 
         # 检查值是否更新
-        assert global_settings.filed.auto_save is False
-        assert global_settings.filed.auto_reload is True
+        assert global_settings.persistent.auto_reload is True
 
         # 检查事件
         callback.assert_called_once()
         event = callback.call_args[0][0]
         assert event.identifier == "__global__"
-        assert "auto_save" in event.changed_fields
         assert "auto_reload" in event.changed_fields
 
 
