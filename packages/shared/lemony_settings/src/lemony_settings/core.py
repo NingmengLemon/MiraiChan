@@ -387,19 +387,19 @@ class FiledGlobalSettings(BaseModel):
 
 
 def require[T: BaseSettings](
-    identifier: str, model: type[T], namespace: str = "default"
+    model: type[T], identifier: str, namespace: str = "default"
 ) -> T:
     """
     获取一个 LemonySettings 实例. 如果不存在则创建一个新的实例并返回其值.
     """
     key = (identifier, namespace)
     if key not in _SETTINGS_TABLE:
-        setting = LemonySettings(
+        settings = LemonySettings(
             identifier=identifier,
             namespace=namespace,
             model=model,
         )
-        _SETTINGS_TABLE[key] = setting
+        _SETTINGS_TABLE[key] = settings
     return _SETTINGS_TABLE[key].value
 
 
@@ -427,8 +427,9 @@ def init_global_settings(
     )
     readwriter = get_read_writer(preference)
     if global_config_file.exists():
-        filed_global_settings = FiledGlobalSettings.model_validate(
-            readwriter.read(global_config_file, FiledGlobalSettings)
+        filed_global_settings = readwriter.read(
+            global_config_file,
+            FiledGlobalSettings,
         )
     else:
         filed_global_settings = FiledGlobalSettings()

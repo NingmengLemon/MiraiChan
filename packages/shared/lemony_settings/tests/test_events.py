@@ -2,7 +2,6 @@
 测试 events 模块.
 """
 
-import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 

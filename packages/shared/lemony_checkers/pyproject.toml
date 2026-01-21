@@ -20,3 +20,8 @@ license = { text = "AGPL3" }
 
 [tool.uv.sources]
 lemony_settings = { workspace = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]

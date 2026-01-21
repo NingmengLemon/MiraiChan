@@ -3,9 +3,8 @@
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 import tomli
 from lemony_settings import BaseSettings, LemonySettings, init_global_settings
 

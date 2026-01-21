@@ -13,7 +13,7 @@ from lemony_settings import (
     require,
     resolve_config_path,
 )
-from lemony_settings.core import _SETTINGS_TABLE, _Sentinel
+from lemony_settings.core import _SETTINGS_TABLE
 
 
 class MyTestSettings(BaseSettings):
@@ -221,16 +221,20 @@ class TestRequire:
 
         # require 返回的是 value, 但会先触发异常因为没有 load
         with pytest.raises(RuntimeError, match="has not been loaded"):
-            require("require_test", MyTestSettings)
+            require(MyTestSettings, "require_test")
 
     def test_require_returns_same_instance(self, tmp_path: Path) -> None:
         """测试 require 返回相同实例."""
         init_global_settings(preference="toml", config_path=tmp_path / "configs")
 
         # 手动创建并加载
-        settings = LemonySettings("same_test", "default", MyTestSettings)
+        settings = LemonySettings(
+            identifier="same_test",
+            namespace="default",
+            model=MyTestSettings,
+        )
         settings.load()
 
         # require 应该返回相同的 value
-        value = require("same_test", MyTestSettings, namespace="default")
+        value = require(MyTestSettings, "same_test", namespace="default")
         assert value is settings.value
