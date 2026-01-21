@@ -37,11 +37,38 @@ def register_read_writer[T: ConfigReadWriterABC](
     return decorator
 
 
-def fill_missing_with_none(data: dict[str, Any], model_cls: type[BaseModel]) -> None:
-    # 对照模型定义, 给缺失的字段补 None
+def fill_missing_optional_with_none(
+    data: dict[str, Any], model_cls: type[BaseModel]
+) -> None:
+    """
+    对照模型定义, 给缺失的 Optional 字段补 None.
+
+    只处理类型注解包含 None 的字段 (即 Optional 或 Union[..., None]).
+    对于有默认值但不允许 None 的字段, 让 Pydantic 使用默认值.
+    """
+    from typing import Union, get_args, get_origin
+
     for field_name, field_info in model_cls.model_fields.items():
         if field_name not in data:
-            data[field_name] = None
+            # 检查字段是否允许 None
+            annotation = field_info.annotation
+            allows_none = False
+
+            if annotation is None:
+                allows_none = True
+            elif annotation is type(None):
+                allows_none = True
+            else:
+                # 检查是否是 Optional[X] 或 Union[X, None]
+                origin = get_origin(annotation)
+                if origin is Union:
+                    args = get_args(annotation)
+                    allows_none = type(None) in args
+
+            if allows_none:
+                data[field_name] = None
+            # 否则让 Pydantic 使用默认值或报验证错误
+
         elif isinstance(data.get(field_name), dict):
             # 如果字段是嵌套的 BaseModel, 递归处理
             annotation = field_info.annotation
@@ -50,7 +77,7 @@ def fill_missing_with_none(data: dict[str, Any], model_cls: type[BaseModel]) -> 
                 and isinstance(annotation, type)
                 and issubclass(annotation, BaseModel)
             ):
-                fill_missing_with_none(data[field_name], annotation)
+                fill_missing_optional_with_none(data[field_name], annotation)
 
 
 @register_read_writer("toml")
@@ -58,8 +85,8 @@ class TomlReadWriter(ConfigReadWriterABC):
     def read(self, file: Path, model: type[MT]) -> MT:
         with file.open("rb") as f:
             data = tomli.load(f)
-        # 因为先前写入时排除了 None, 所以这里需要给缺失的字段补 None
-        fill_missing_with_none(data, model)
+        # 因为先前写入时排除了 None, 所以这里需要给缺失的 Optional 字段补 None
+        fill_missing_optional_with_none(data, model)
         return model.model_validate(data)
 
     def write(self, file: Path, data: BaseModel) -> None:
