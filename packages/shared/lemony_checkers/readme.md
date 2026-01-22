@@ -218,7 +218,14 @@ LemonyChecker.check()
 
 ### 编程式配置 API
 
-提供编程方式动态修改配置的接口。修改后需要手动调用 `save()` 保存到配置文件。
+提供编程方式动态修改配置的接口。修改后需要调用 `save_global_settings()` 或 `save_plugin_settings()` 保存到配置文件。
+
+#### 保存配置
+
+| 函数 | 说明 |
+|------|------|
+| `save_global_settings()` | 保存全局配置到文件 |
+| `save_plugin_settings(plugin_name)` | 保存指定插件的配置到文件 |
 
 #### 全局配置
 
@@ -255,6 +262,8 @@ from lemony_checkers import (
     set_plugin_enabled,
     set_command_enabled,
     add_plugin_rule,
+    save_global_settings,
+    save_plugin_settings,
 )
 
 # 设置 Owner 和 Admin
@@ -268,6 +277,9 @@ add_global_rule("user", "deny", [666666666])
 # 添加全局规则 - 允许特定群组
 add_global_rule("group", "allow", [987654321])
 
+# 保存全局配置到文件
+save_global_settings()
+
 # 禁用某个插件
 set_plugin_enabled("my_plugin", False)
 
@@ -276,6 +288,9 @@ set_command_enabled("my_plugin", "dangerous_cmd", False)
 
 # 为插件添加特定规则
 add_plugin_rule("my_plugin", "user", "allow", [999999999])
+
+# 保存插件配置到文件
+save_plugin_settings("my_plugin")
 ```
 
 ## 📝 配置模型

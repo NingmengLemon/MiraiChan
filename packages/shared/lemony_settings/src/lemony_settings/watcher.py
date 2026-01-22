@@ -230,8 +230,6 @@ class ConfigFileWatcher:
 
             # 更新值
             settings._value = new_value
-            # 设置 settings 引用, 以便 auto_save 功能正常工作
-            object.__setattr__(new_value, "_settings_ref", settings)
 
             event = SettingsChangeEvent(
                 event_type=SettingsEventType.RELOADED,

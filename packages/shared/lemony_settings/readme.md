@@ -285,6 +285,7 @@ class IniReadWriter(ConfigReadWriterABC):
 3. **TOML 不支持 None** - 使用 TOML 格式时，`None` 值会被排除，读取时会自动补全
 4. **全局设置只能初始化一次** - `init_global_settings()` 只能调用一次
 5. **修改后需手动保存** - 修改配置值后需要调用 `save()` 手动保存到文件
+6. **同步事件触发的行为** - 使用 `emit_sync()` 触发事件时，如果没有运行中的事件循环，异步回调会被跳过（仅执行同步回调）
 
 ## 🧪 测试
 
