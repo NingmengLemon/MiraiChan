@@ -479,3 +479,77 @@ class TestPluginRules:
         settings = get_checker_plugin_settings("test_plugin")
         assert len(settings.rules.user_rules) == 0
         assert len(settings.rules.group_rules) == 0
+
+
+class TestSaveSettings:
+    """测试 save 函数."""
+
+    def test_save_global_settings(self, tmp_path: Path) -> None:
+        """测试保存全局配置."""
+        from lemony_checkers.settings import save_global_settings
+
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        settings = get_checker_global_settings()
+        settings.owner = 999888777
+
+        # 保存配置
+        save_global_settings()
+
+        # 验证文件已更新 - 重新读取文件
+        import tomli
+
+        config_file = config_dir / "lemony_checkers" / "global.toml"
+        with config_file.open("rb") as f:
+            data = tomli.load(f)
+        assert data["owner"] == 999888777
+
+    def test_save_plugin_settings(self, tmp_path: Path) -> None:
+        """测试保存插件配置."""
+        from lemony_checkers.settings import save_plugin_settings
+
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        settings = get_checker_plugin_settings("save_test_plugin")
+        settings.enabled = False
+        settings.mode = "whitelist"
+
+        # 保存配置
+        save_plugin_settings("save_test_plugin")
+
+        # 验证文件已更新 - 重新读取文件
+        import tomli
+
+        config_file = config_dir / "lemony_checkers" / "save_test_plugin.toml"
+        with config_file.open("rb") as f:
+            data = tomli.load(f)
+        assert data["enabled"] is False
+        assert data["mode"] == "whitelist"
+
+    def test_save_uninitialized_global_settings(self, tmp_path: Path) -> None:
+        """测试保存未初始化的全局配置不会报错."""
+        # 确保全局设置为 None (通过 fixture 已重置)
+        import lemony_checkers.settings as settings_module
+        from lemony_checkers.settings import save_global_settings
+
+        original = settings_module._global_checker_settings
+        settings_module._global_checker_settings = None
+
+        try:
+            # 应该不会抛出异常，只会记录警告
+            save_global_settings()
+        finally:
+            settings_module._global_checker_settings = original
+
+    def test_save_unloaded_plugin_settings(self, tmp_path: Path) -> None:
+        """测试保存未加载的插件配置不会报错."""
+        from lemony_checkers.settings import save_plugin_settings
+
+        config_dir = tmp_path / "configs"
+        init_global_settings(preference="toml", config_path=config_dir)
+
+        # 保存一个从未加载过的插件配置
+        # 应该不会抛出异常，只会记录警告
+        save_plugin_settings("never_loaded_plugin")

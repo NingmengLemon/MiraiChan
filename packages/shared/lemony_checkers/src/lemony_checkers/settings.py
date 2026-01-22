@@ -469,3 +469,37 @@ def clear_plugin_rules(
         + (f" (type={rule_type})" if rule_type else " (all)")
     )
     return count
+
+
+# ============================================================================
+# 配置保存 API
+# ============================================================================
+
+
+def save_global_settings() -> None:
+    """
+    保存全局配置到文件.
+
+    在使用编程式 API 修改全局配置后调用此函数来持久化更改.
+    """
+    if _global_checker_settings is not None:
+        _global_checker_settings.save()
+        logger.info("Global checker settings saved")
+    else:
+        logger.warning("Global checker settings not initialized, nothing to save")
+
+
+def save_plugin_settings(plugin_name: str) -> None:
+    """
+    保存指定插件的配置到文件.
+
+    在使用编程式 API 修改插件配置后调用此函数来持久化更改.
+
+    Args:
+        plugin_name: 插件名称
+    """
+    if plugin_name in _plugin_settings_cache:
+        _plugin_settings_cache[plugin_name].save()
+        logger.info(f"Plugin '{plugin_name}' checker settings saved")
+    else:
+        logger.warning(f"Plugin '{plugin_name}' settings not loaded, nothing to save")

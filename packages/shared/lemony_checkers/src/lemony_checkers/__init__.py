@@ -55,6 +55,9 @@ from .settings import (
     remove_command_setting,
     remove_global_rule,
     remove_plugin_rule,
+    # 保存配置
+    save_global_settings,
+    save_plugin_settings,
     set_command_enabled,
     set_global_mode,
     # 全局配置 API
@@ -90,6 +93,9 @@ __all__ = [
     "is_admin",
     "get_owner",
     "get_admins",
+    # Settings - 保存配置
+    "save_global_settings",
+    "save_plugin_settings",
     # Settings - 全局配置 API
     "set_owner",
     "add_admin",
