@@ -6,8 +6,6 @@ authors = [
     { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
 ]
 dependencies = [
-    "melobot[onebot]>=3.3.0",
-    "packaging>=25.0",
     "pydantic>=2.12.5",
     "pyyaml>=6.0.3",
     "tomli>=2.4.0",

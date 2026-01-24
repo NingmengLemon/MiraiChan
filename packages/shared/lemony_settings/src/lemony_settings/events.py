@@ -8,16 +8,16 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from melobot.log import get_logger
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from .core import BaseSettings
 
-logger = get_logger()
+logger = getLogger()
 
 
 class SettingsEventType(Enum):

@@ -5,16 +5,16 @@
 """
 
 import asyncio
+from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from melobot.log import get_logger
 from watchfiles import Change, awatch
 
 if TYPE_CHECKING:
     from .core import LemonySettings
 
-logger = get_logger()
+logger = getLogger()
 
 
 class ConfigFileWatcher:
