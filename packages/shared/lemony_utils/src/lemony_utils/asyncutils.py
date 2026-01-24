@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable, Iterable, Mapping
 from typing import Any
 
 from melobot.typ import AsyncCallable
+from typing_extensions import deprecated
 
 
 def to_thread_decorator(func):
@@ -66,12 +67,16 @@ class InteractiveProcess:
     async def send(self, content: str, end: str = "\n"):
         if self._process is None:
             raise NotStartedError("call start() first before you act")
+        if self._process.stdin is None:
+            raise RuntimeError("stdin is not available")
         self._process.stdin.write((content + end).encode("utf-8", errors="replace"))
         await self._process.stdin.drain()
 
     async def readline(self, strip: bool = False):
         if self._process is None:
             raise NotStartedError("call start() first before you act")
+        if self._process.stdout is None:
+            raise RuntimeError("stdout is not available")
         output = (await self._process.stdout.readline()).decode(
             "utf-8", errors="replace"
         )
@@ -100,7 +105,7 @@ class InteractiveProcess:
 
 async def gather_with_concurrency[T](
     *aws: Awaitable[T], concurrency: int = 4, return_exceptions: bool = False
-) -> list[T]:
+) -> list[T | BaseException]:
     semaphore = asyncio.Semaphore(concurrency)
 
     async def wrapper(aw: Awaitable[T]) -> T:
@@ -111,6 +116,7 @@ async def gather_with_concurrency[T](
     return await asyncio.gather(*tasks, return_exceptions=return_exceptions)
 
 
+@deprecated("use tenacity instead")
 def async_retry[**P, T](
     exceptions: type[Exception] | tuple[type[Exception], ...] = Exception,
     max_retries: int = 3,
