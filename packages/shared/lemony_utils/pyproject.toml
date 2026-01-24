@@ -10,9 +10,9 @@ dependencies = [
     "aiohttp>=3.13.3",
     "pillow>=12.1.0",
     "pypinyin>=0.55.0",
-    "sqlalchemy[asyncio,aiosqlite]>=2.0.45",
-    "sqlmodel>=0.0.31",
     "yarl>=1.22.0",
+    "tenacity>=9.1.2",
+    "typing-extensions>=4.15.0",
 ]
 
 requires-python = ">=3.12,<3.14"

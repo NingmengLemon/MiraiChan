@@ -1,6 +1,6 @@
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
 from http.cookies import Morsel
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from aiohttp.cookiejar import CookieJar
 
@@ -11,7 +11,7 @@ class _DictedCookieItem(TypedDict):
     metadata: dict[str, str]
 
 
-def cookiedicts_from_session(cj: CookieJar):
+def cookiedicts_from_session(cj: CookieJar) -> list[_DictedCookieItem]:
     """产生的东西可以序列化成JSON也可以递给 cookiedicts_to_morsels"""
     result: list[_DictedCookieItem] = []
     for cookie in cj:
@@ -21,7 +21,7 @@ def cookiedicts_from_session(cj: CookieJar):
     return result
 
 
-def cookiedicts_to_morsels(cookies: Iterable[_DictedCookieItem]):
+def morsels_from_cookiedicts(cookies: Iterable[_DictedCookieItem]) -> list[Morsel[str]]:
     """产生的东西可以递给 loadable_tuples_from_morsels"""
     result: list[Morsel[str]] = []
     for cookie in cookies:
@@ -32,7 +32,8 @@ def cookiedicts_to_morsels(cookies: Iterable[_DictedCookieItem]):
     return result
 
 
-def loadable_tuples_from_morsels(morsels: Iterable[Morsel]):
+def loadable_tuples_from_morsels(
+    morsels: Iterable[Morsel],
+) -> Generator[tuple[str, Morsel[Any]], None, None]:
     """产生的东西可以递给 ClientSession 初始化方法的 cookies 参数"""
     return ((m.key, m) for m in morsels)
-

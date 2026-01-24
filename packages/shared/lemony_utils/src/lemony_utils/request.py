@@ -1,10 +1,20 @@
-import functools
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Literal, NotRequired, Optional
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Unpack,
+)
 
-from aiohttp import ClientResponse, ClientSession, TCPConnector
+from aiohttp import (
+    BaseConnector,
+    ClientResponse,
+    ClientResponseError,
+    ClientSession,
+    TCPConnector,
+)
 from aiohttp.client import _RequestOptions
-from melobot.typ import AsyncCallable
 from yarl import URL
 
 from .qqntimg_sslcontext import SSL_CONTEXT
@@ -27,69 +37,37 @@ http_headers = {
 }
 
 
+if TYPE_CHECKING:
+    from aiohttp.client import _RequestOptions
+
+    type _ReqParams = _RequestOptions
+
+else:
+    type _ReqParams = dict[str, Any]
+
+
 @asynccontextmanager
 async def async_http(
-    url: UrlStr,
     method: Literal["get", "post"],
-    headers: Optional[dict] = None,
-    params: Optional[dict] = None,
-    data: Optional[dict] = None,
-    json: Optional[dict] = None,
-    **kwargs,
+    url: UrlStr,
+    connector: BaseConnector | None = None,
+    **kwargs: Unpack[_ReqParams],
 ) -> AsyncGenerator[ClientResponse, None]:
     async with ClientSession(
-        headers=headers, connector=TCPConnector(ssl=SSL_CONTEXT)
+        connector=connector or TCPConnector(ssl=SSL_CONTEXT)
     ) as http_session:
-        if json:
-            kwargs["json"] = json
-        if params:
-            kwargs["params"] = params
-        if method == "get":
-            async with http_session.get(url, **kwargs) as resp:
-                yield resp
-        else:
-            async with http_session.post(url, data=data, **kwargs) as resp:
-                yield resp
+        async with http_session.request(method, str(url), **kwargs) as response:
+            try:
+                response.raise_for_status()
+                yield response
+            except ClientResponseError as e:
+                raise e
 
 
-@asynccontextmanager
-async def dummy_session_context(session: ClientSession):
-    yield session
-
-
-class _ReqTemplateDecoratedReturn(_RequestOptions):
-    method: NotRequired[Literal["get", "post"]]
-
-
-def async_reqtemplate(
-    handle: Literal["json", "bytes", "str"] = "json",
-):
-    def decorator(
-        func: AsyncCallable[..., tuple[UrlStr, _ReqTemplateDecoratedReturn] | UrlStr],
-    ):
-        @functools.wraps(func)
-        async def wrapper(session: ClientSession | None = None, **kwargs):
-            if isinstance(_ := await func(**kwargs), tuple):
-                url, reqargs = _
-            else:
-                url, reqargs = _, {}
-            reqargs.setdefault("method", "get")
-            async with (
-                ClientSession(
-                    headers=http_headers, connector=TCPConnector(ssl=SSL_CONTEXT)
-                )
-                if session is None
-                else dummy_session_context(session)
-            ) as session:
-                async with session.request(url=url, **reqargs) as resp:
-                    match handle:
-                        case "json":
-                            return await resp.json()
-                        case "bytes":
-                            return await resp.read()
-                        case "str":
-                            return await resp.text(encoding="utf-8")
-
-        return wrapper
-
-    return decorator
+async def fetch_json(
+    method: Literal["get", "post"],
+    url: UrlStr,
+    **kwargs: Unpack[_ReqParams],
+) -> Any:
+    async with async_http(method, url, **kwargs) as resp:
+        return await resp.json()
