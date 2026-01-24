@@ -2,7 +2,7 @@ import re
 import textwrap
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from melobot.log import get_logger
 from pydantic import BaseModel, Field, ValidationError
