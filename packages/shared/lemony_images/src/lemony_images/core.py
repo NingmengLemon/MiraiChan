@@ -1,14 +1,12 @@
-import asyncio
 import base64
 import math
 import random
+from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from io import BytesIO
 from typing import Any, Literal
-from collections.abc import Iterable, Generator
 from urllib.parse import quote_plus
 
-from melobot.protocols.onebot.v11.adapter.segment import ImageSegment
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from pilmoji import Pilmoji
 from pilmoji.source import BaseSource, HTTPBasedSource
@@ -48,11 +46,13 @@ class FontCache:
     """因为发现 ImageDraw.text 方法中的 font_size 参数不起效，
     于是弄了个这样的类来做字体缓存"""
 
-    def __init__(self, font_file: _FontFileT, preload_size_range: range | None = None):
+    def __init__(
+        self, font_file: _FontFileT, preload_sizes: Iterable[int] | None = None
+    ):
         self._font_file = font_file
         self._font_map: dict[int, ImageFont.FreeTypeFont] = {}
-        if preload_size_range:
-            for size in preload_size_range:
+        if preload_sizes:
+            for size in preload_sizes:
                 self._font_map[size] = ImageFont.truetype(font_file, size=size)
 
     def use(self, size: int):
@@ -386,14 +386,6 @@ def text_to_image(
 
 def bytes_to_b64_url(b: bytes):
     return "base64://" + base64.b64encode(b).decode("utf-8")
-
-
-async def text_to_imgseg(text: str, /, **kwargs):
-    return ImageSegment(
-        file=await asyncio.to_thread(
-            lambda: bytes_to_b64_url(text_to_image(text, **kwargs)),
-        )
-    )
 
 
 def crop_to_circle(img: Image.Image):
