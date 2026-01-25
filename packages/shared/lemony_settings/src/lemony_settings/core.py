@@ -242,7 +242,7 @@ class GlobalSettings(BaseModel):
     # 分为可持久化的设置和非持久化的设置.
     # 可持久化的设置会被保存到配置文件中.
     preference: Literal["toml", "yaml", "json"] = Field(
-        default="toml",
+        default="json",
         description=textwrap.dedent(
             """
             配置文件的首选格式.
@@ -302,7 +302,7 @@ class PersistentGlobalSettings(BaseModel):
 
 def require[T: BaseSettings](
     model: type[T], identifier: str, namespace: str = "default"
-) -> T:
+) -> LemonySettings[T]:
     """
     获取一个 LemonySettings 实例. 如果不存在则创建一个新的实例并返回其值.
     """
@@ -314,12 +314,11 @@ def require[T: BaseSettings](
             model=model,
         )
         _SETTINGS_TABLE[key] = settings
-        settings.load()
-    return _SETTINGS_TABLE[key].value
+    return _SETTINGS_TABLE[key]
 
 
 def init_global_settings(
-    preference: Literal["toml", "yaml", "json"] = "toml",
+    preference: Literal["toml", "yaml", "json"] = "json",
     config_path: str | Path = "configs",
 ) -> GlobalSettings:
     """

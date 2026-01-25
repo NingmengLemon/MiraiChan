@@ -13,7 +13,6 @@ from lemony_settings import (
     require,
     resolve_config_path,
 )
-from lemony_settings.core import _SETTINGS_TABLE
 
 
 class MyTestSettings(BaseSettings):
@@ -216,8 +215,9 @@ class TestRequire:
         init_global_settings(preference="toml", config_path=tmp_path / "configs")
 
         # require 应该自动创建并加载配置
-        value = require(MyTestSettings, "require_test")
-
+        settings = require(MyTestSettings, "require_test")
+        settings.load()
+        value = settings.value
         # 应该返回默认值
         assert value.name == "default_name"
         assert value.value == 42
