@@ -8,16 +8,12 @@ from typing import (
 )
 
 from aiohttp import (
-    BaseConnector,
     ClientResponse,
     ClientResponseError,
     ClientSession,
-    TCPConnector,
 )
 from aiohttp.client import _RequestOptions
 from yarl import URL
-
-from .qqntimg_sslcontext import SSL_CONTEXT
 
 UrlStr = URL | str
 http_headers = {
@@ -48,26 +44,24 @@ else:
 
 @asynccontextmanager
 async def async_http(
+    session: ClientSession,
     method: Literal["get", "post"],
     url: UrlStr,
-    connector: BaseConnector | None = None,
     **kwargs: Unpack[_ReqParams],
 ) -> AsyncGenerator[ClientResponse, None]:
-    async with ClientSession(
-        connector=connector or TCPConnector(ssl=SSL_CONTEXT)
-    ) as http_session:
-        async with http_session.request(method, str(url), **kwargs) as response:
-            try:
-                response.raise_for_status()
-                yield response
-            except ClientResponseError as e:
-                raise e
+    async with session.request(method, str(url), **kwargs) as response:
+        try:
+            response.raise_for_status()
+            yield response
+        except ClientResponseError as e:
+            raise e
 
 
 async def fetch_json(
+    session: ClientSession,
     method: Literal["get", "post"],
     url: UrlStr,
     **kwargs: Unpack[_ReqParams],
 ) -> Any:
-    async with async_http(method, url, **kwargs) as resp:
+    async with async_http(session=session, method=method, url=url, **kwargs) as resp:
         return await resp.json()
