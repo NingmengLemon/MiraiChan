@@ -6,20 +6,28 @@ import traceback
 from collections.abc import Awaitable
 
 import aiofiles
+from aiohttp import ClientSession
+from lemony_images.core import bytes_to_b64_url, text_to_image
+from lemony_network.request import async_http, http_headers
 from melobot.adapter.generic import send_image
 from melobot.ctx import EventOrigin
 from melobot.handle import get_event
 from melobot.protocols.onebot.v11 import GetMsgEcho
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
-from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
+from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, ReplySegment
 from melobot.utils import singleton
 from melobot.utils.parse.cmd import CmdArgFormatInfo, CmdArgFormatter
 from tenacity import retry
 from yarl import URL
 
-from .images import text_to_image
-from .request import async_http, http_headers
+
+async def text_to_imgseg(text: str, /, **kwargs):
+    return ImageSegment(
+        file=await asyncio.to_thread(
+            lambda: bytes_to_b64_url(text_to_image(text, **kwargs)),
+        )
+    )
 
 
 async def get_reply(adapter: Adapter, event: MessageEvent) -> None | GetMsgEcho:
@@ -68,6 +76,7 @@ class AvatarCache:
     def __init__(self):
         os.makedirs(self.CACHE_DIR, exist_ok=True)
         self._update_times: dict[int, float] = {}
+        self._session: ClientSession | None = None
 
     def __getitem__(self, val: int) -> Awaitable[bytes]:
         return self.get(val)
@@ -77,8 +86,10 @@ class AvatarCache:
 
     @retry()
     async def get_from_remote(self, uid: int):
+        if self._session is None:
+            self._session = ClientSession()
         url = uid_to_avatar_url(uid)
-        async with async_http("get", url, headers=self.HEADERS) as resp:
+        async with async_http(self._session, "get", url, headers=self.HEADERS) as resp:
             resp.raise_for_status()
             return await resp.read()
 

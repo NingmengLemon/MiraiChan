@@ -135,12 +135,12 @@ if __name__ == "__main__":
                 futures.append(
                     executor.submit(
                         lambda *args_, **kwargs_: (
-                            convert_audio(*args_, **kwargs_),
+                            convert_audio(*args_, **kwargs_),  # type: ignore
                             *args_,
                         ),
                         *args,
                         **kwargs,
-                        check=False,
+                        check=False,  # type: ignore
                     )
                 )
             except StopIteration as e:

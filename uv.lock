@@ -5,7 +5,9 @@ requires-python = "==3.12.*"
 [manifest]
 members = [
     "lemony-checkers",
+    "lemony-images",
     "lemony-llm-provider",
+    "lemony-network",
     "lemony-settings",
     "lemony-storage-helper",
     "lemony-utils",
@@ -586,6 +588,21 @@ requires-dist = [
 ]
 
 [[package]]
+name = "lemony-images"
+version = "0.1.0"
+source = { editable = "packages/shared/lemony_images" }
+dependencies = [
+    { name = "pillow" },
+    { name = "pilmoji" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pillow", specifier = ">=11.0.0" },
+    { name = "pilmoji", git = "https://github.com/jay3332/pilmoji.git?rev=2.0" },
+]
+
+[[package]]
 name = "lemony-llm-provider"
 version = "0.1.0"
 source = { editable = "packages/shared/lemony_llm_provider" }
@@ -595,6 +612,21 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "openai", specifier = ">=2.15.0" }]
+
+[[package]]
+name = "lemony-network"
+version = "0.1.0"
+source = { editable = "packages/shared/lemony_network" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "yarl" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiohttp", specifier = ">=3.10.10" },
+    { name = "yarl", specifier = ">=1.22.0" },
+]
 
 [[package]]
 name = "lemony-settings"
@@ -646,6 +678,7 @@ version = "0.1.0"
 source = { editable = "packages/shared/lemony_utils" }
 dependencies = [
     { name = "aiohttp" },
+    { name = "lemony-images" },
     { name = "melobot", extra = ["onebot"] },
     { name = "pillow" },
     { name = "pypinyin" },
@@ -667,6 +700,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.13.3" },
+    { name = "lemony-images", editable = "packages/shared/lemony_images" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.3.0" },
     { name = "pillow", specifier = ">=12.1.0" },
     { name = "pypinyin", specifier = ">=0.55.0" },
@@ -841,20 +875,19 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aiofiles" },
-    { name = "aiohttp" },
     { name = "aiosqlite" },
     { name = "apscheduler" },
     { name = "graphviz" },
     { name = "lemony-checkers" },
+    { name = "lemony-images" },
     { name = "lemony-llm-provider" },
+    { name = "lemony-network" },
     { name = "lemony-settings" },
     { name = "lemony-storage-helper" },
     { name = "lemony-utils" },
     { name = "lxml" },
     { name = "melobot", extra = ["onebot"] },
     { name = "miraichan" },
-    { name = "pillow" },
-    { name = "pilmoji" },
     { name = "pydantic" },
     { name = "pypinyin" },
     { name = "pyyaml" },
@@ -882,20 +915,19 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiofiles", specifier = ">=24.1.0" },
-    { name = "aiohttp", specifier = ">=3.10.10" },
     { name = "aiosqlite", specifier = ">=0.21.0" },
     { name = "apscheduler", specifier = ">=3.11.0" },
     { name = "graphviz", specifier = ">=0.20.3" },
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
+    { name = "lemony-images", editable = "packages/shared/lemony_images" },
     { name = "lemony-llm-provider", editable = "packages/shared/lemony_llm_provider" },
+    { name = "lemony-network", editable = "packages/shared/lemony_network" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "lxml", specifier = ">=5.3.0" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.3.0" },
     { name = "miraichan", editable = "packages/miraichan" },
-    { name = "pillow", specifier = ">=11.0.0" },
-    { name = "pilmoji", git = "https://github.com/jay3332/pilmoji.git?rev=2.0" },
     { name = "pydantic", specifier = ">=2.10.3" },
     { name = "pypinyin", specifier = ">=0.53.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },

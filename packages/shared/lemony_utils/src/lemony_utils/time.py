@@ -1,14 +1,9 @@
-import asyncio
 import time
-import uuid
-from datetime import datetime, timedelta
-from typing import Any, Literal, TypedDict
-from weakref import WeakSet
-
-from melobot.typ import AsyncCallable
+from datetime import datetime
+from typing import Literal
 
 
-class GapTimer:
+class Timer:
     def __init__(self):
         self._start: int | None = None
         self._end: int | None = None

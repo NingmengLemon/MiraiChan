@@ -12,15 +12,14 @@ dependencies = [
     "lemony_checkers",
     "lemony_llm_provider",
     "lemony_storage_helper",
+    "lemony_images",
+    "lemony_network",
     # workspace members above
     "melobot[onebot]>=3.3.0",
     "pypinyin>=0.53.0",
     "aiofiles>=24.1.0",
-    "aiohttp>=3.10.10",
-    "pillow>=11.0.0",
     "qrcode>=8.0",
     "uvloop>=0.21.0; sys_platform != 'win32'",
-    "pilmoji @ git+https://github.com/jay3332/pilmoji.git@2.0",
     "sqlmodel>=0.0.22",
     "graphviz>=0.20.3",
     "lxml>=5.3.0",
@@ -42,6 +41,8 @@ members = [
     "packages/shared/lemony_checkers",
     "packages/shared/lemony_llm_provider",
     "packages/shared/lemony_storage_helper",
+    "packages/shared/lemony_images",
+    "packages/shared/lemony_network",
     # "packages/plugins/*",
 ]
 
@@ -52,6 +53,8 @@ lemony_settings = { workspace = true }
 lemony_checkers = { workspace = true }
 lemony_llm_provider = { workspace = true }
 lemony_storage_helper = { workspace = true }
+lemony_images = { workspace = true }
+lemony_network = { workspace = true }
 
 [tool.pdm.scripts]
 deploy = { cmd = ["python", "-m", "melobot", "run", "src/bot.py"] }
