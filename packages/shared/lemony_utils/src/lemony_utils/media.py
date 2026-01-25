@@ -1,7 +1,5 @@
-import functools
 import subprocess
 from typing import Optional
-import asyncio
 
 from .asyncutils import to_thread_decorator
 
