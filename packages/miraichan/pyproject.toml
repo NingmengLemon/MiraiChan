@@ -15,6 +15,9 @@ requires-python = "==3.12.*"
 readme = "README.md"
 license = { text = "AGPL3" }
 
+[project.scripts]
+miraichan = "miraichan.bot:main"
+
 [tool.uv.sources]
 lemony_utils = { workspace = true }
 
