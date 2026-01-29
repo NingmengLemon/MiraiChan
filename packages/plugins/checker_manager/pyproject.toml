@@ -1,0 +1,10 @@
+[project]
+name = "checker-manager"
+version = "1.0.0"
+description = "MiraiChan 插件：用于管理 lemony_checkers 过滤规则"
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = ["lemony_checkers"]
+
+[tool.uv.sources]
+lemony_checkers = { workspace = true }
