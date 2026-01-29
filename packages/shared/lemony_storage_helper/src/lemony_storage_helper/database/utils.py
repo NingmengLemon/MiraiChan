@@ -9,20 +9,24 @@ from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import (
+    TYPE_CHECKING,
     Any,
     Concatenate,
+    Generic,
     ParamSpec,
     Protocol,
     TypeVar,
+    cast,
 )
 
 from sqlalchemy import URL, Column, Connection, DateTime, Table, inspect
+from sqlalchemy.ext.asyncio import AsyncAttrs as _AsyncAttrs
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.ext.asyncio.session import (
     AsyncSession,
     AsyncSessionTransaction,
 )
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import QueryableAttribute, Session
 
 __all__ = [
     "AsyncCallable",
@@ -251,3 +255,23 @@ def datetime_column_tzaware(
     return Column(
         DateTime(timezone=True), nullable=False, onupdate=onupdate, index=index
     )
+
+
+class GenericAsyncAttrs(_AsyncAttrs, Generic[T]):
+    """
+    泛型 AsyncAttrs Mixin 类, 用于为关系字段提供类型标注.
+
+    用法示例:
+        class _UserAwaitableAttrs:
+            groups: Awaitable[list["Group"]]
+
+        class User(Base, GenericAsyncAttrs[_UserAwaitableAttrs], table=True):
+            ...
+    """
+
+    if TYPE_CHECKING:
+        awaitable_attrs: T  # type: ignore
+
+
+def queryable(o: T) -> QueryableAttribute[T]:
+    return cast(QueryableAttribute, o)
