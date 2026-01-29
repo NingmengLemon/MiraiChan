@@ -57,9 +57,9 @@ lemony_images = { workspace = true }
 lemony_network = { workspace = true }
 
 [tool.pdm.scripts]
-deploy = { cmd = ["python", "-m", "melobot", "run", "src/bot.py"] }
-dev = { cmd = ["src/bot.py", "--debug"] }
 melobot = { cmd = ["python", "-m", "melobot"] }
+deploy = { cmd = ["melobot", "run", "miracle_entrance.py"] }
+dev = { cmd = ["miracle_entrance.py", "--debug"] }
 pinit = { cmd = ["melobot", "pinit"] }
 
 [tool.pdm]
