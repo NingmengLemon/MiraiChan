@@ -4,26 +4,44 @@ import uuid
 from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
-from typing import cast
 
-from PIL import Image, ImageDraw, ImageOps
-from sqlmodel import Field, Session, SQLModel, select
-
-from lemony_utils.images import FontCache, default_font_cache
+from lemony_images.core import (
+    FontCache,
+    default_font_cache,
+)
+from lemony_storage_helper.database import DatabaseHelper, SQLModel, registry
 from lemony_utils.time import get_time_period_start
+from lemony_utils.uuid7 import uuid7
+from PIL import Image, ImageDraw, ImageOps
+from sqlalchemy import URL
+from sqlmodel import Field, Session, select
+
+deerdb_registry = registry()
 
 
-class DeerRecord(SQLModel, table=True):
-    id: uuid.UUID = Field(primary_key=True, default_factory=uuid.uuid4)
-    timestamp: float
-    user_id: int
-    group_id: int
+class DeerBase(SQLModel, registry=deerdb_registry):
+    pass
+
+
+class DeerRecord(DeerBase, table=True):
+    __tablename__ = "deer_record"
+
+    id: uuid.UUID = Field(primary_key=True, default_factory=uuid7)
+    timestamp: float = Field(index=True)
+    user_id: int = Field(index=True)
+    group_id: int = Field(index=True)
     combo: int = Field(default=1)
 
 
-TABLES = [SQLModel.metadata.tables[cast(str, DeerRecord.__tablename__)]]
+DBPPATH = "data/record/deers.db"
+dburl = URL.create(
+    "sqlite+aiosqlite",
+    database=DBPPATH,
+)
+deerdbcore = DatabaseHelper(dburl, deerdb_registry.metadata)
 
 
+@deerdbcore.to_async
 def query(
     session: Session,
     uid: int,
@@ -46,22 +64,21 @@ def query(
     return list(session.exec(query_stmt).all())
 
 
-def query_one_day_total(
-    session: Session, date: datetime, uid: int, gid: int | None = None
-):
+async def query_one_day_total(date: datetime, uid: int, gid: int | None = None):
     start = get_time_period_start("day", date)
     end = start + timedelta(days=1)
     return sum(
         i[1]
-        for i in query(
-            session, uid, gid, time_range=(start.timestamp(), end.timestamp())
+        for i in await query(
+            uid=uid, gid=gid, time_range=(start.timestamp(), end.timestamp())
         )
     )
 
 
+@deerdbcore.to_async
 def record(
     session: Session, uid: int, gid: int, combo: int = 1, ts: float | None = None
-):
+) -> None:
     ts = time.time() if ts is None else ts
     session.add(DeerRecord(timestamp=ts, user_id=uid, group_id=gid, combo=combo))
     session.commit()
@@ -78,7 +95,7 @@ def _to_image(pic: _ValidImageInput):
     )
 
 
-class Drawer:
+class Painter:
     GRID_SIZE = (128, 128)
     MARGIN = 20
     MARGIN_INFO = 96

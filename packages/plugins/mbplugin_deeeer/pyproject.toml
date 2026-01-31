@@ -1,0 +1,10 @@
+[project]
+name = "mbplugin_deeeer"
+version = "1.0.0"
+description = "今天你deeeer了吗？"
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = ["lemony_checkers"]
+
+[tool.uv.sources]
+lemony_checkers = { workspace = true }
