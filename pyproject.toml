@@ -7,6 +7,7 @@ authors = [
 ]
 dependencies = [
     "miraichan",
+    # shared libs
     "lemony_utils",
     "lemony_settings",
     "lemony_checkers",
@@ -14,6 +15,9 @@ dependencies = [
     "lemony_storage_helper",
     "lemony_images",
     "lemony_network",
+    # plugins
+    "mbplugin_checker_manager",
+    "mbplugin_deeeer",
     # workspace members above
     "melobot[onebot]>=3.3.0",
     "pypinyin>=0.53.0",
@@ -36,13 +40,9 @@ license = { text = "AGPL3" }
 [tool.uv.workspace]
 members = [
     "packages/miraichan",
-    "packages/shared/lemony_utils",
-    "packages/shared/lemony_settings",
-    "packages/shared/lemony_checkers",
-    "packages/shared/lemony_llm_provider",
-    "packages/shared/lemony_storage_helper",
-    "packages/shared/lemony_images",
-    "packages/shared/lemony_network",
+    "packages/shared/*",
+    "packages/plugins/mbplugin_checker_manager",
+    "packages/plugins/mbplugin_deeeer",
     # "packages/plugins/*",
 ]
 
@@ -55,12 +55,13 @@ lemony_llm_provider = { workspace = true }
 lemony_storage_helper = { workspace = true }
 lemony_images = { workspace = true }
 lemony_network = { workspace = true }
+mbplugin_checker_manager = { workspace = true }
+mbplugin_deeeer = { workspace = true }
 
 [tool.pdm.scripts]
 melobot = { cmd = ["python", "-m", "melobot"] }
 deploy = { cmd = ["melobot", "run", "miracle_entrance.py"] }
 dev = { cmd = ["miracle_entrance.py", "--debug"] }
-pinit = { cmd = ["melobot", "pinit"] }
 
 [tool.pdm]
 distribution = false
