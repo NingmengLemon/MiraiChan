@@ -1,64 +1,84 @@
 import asyncio
 import os
 import re
-import sys
 import time
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 
+from lemony_images.core import (
+    bytes_to_b64_url,
+)
+from lemony_settings import BaseSettings, require
+from lemony_utils.botutils import cached_avatar_source
 from melobot.bot import get_bot
 from melobot.plugin.base import PluginPlanner
 from melobot.protocols.onebot.v11.adapter.base import Adapter
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, TextSegment
 from melobot.protocols.onebot.v11.handle import on_message
-from melobot.utils.base import to_async
 from melobot.utils.deco import lock
-from pydantic import BaseModel
 
-from configloader import ConfigLoader, ConfigLoaderMetadata
-from lemony_utils.botutils import cached_avatar_source
-from lemony_utils.database import AsyncDbCore
-from lemony_utils.images import bytes_to_b64_url
+from .core import (
+    DBPPATH,
+    Painter,
+    deerdbcore,
+    query,
+    query_one_day_total,
+    record,
+)
 
-from .core import TABLES, Drawer, query, query_one_day_total, record
 
-
-class CfgModel(BaseModel):
+class CfgModel(BaseSettings):
     trigger_chars: str = "鹿撸🦌"
     group_isolation: bool = False
     daily_limit: int = 100  # < 1 的值记为无限制
 
 
-dburl = "sqlite+aiosqlite:///data/record/deers.db"
-os.makedirs("data/record/", exist_ok=True)
-cfgloader = ConfigLoader(
-    ConfigLoaderMetadata(model=CfgModel, filename="deer_conf.json")
-)
-cfgloader.load_config()
+os.makedirs(os.path.dirname(DBPPATH), exist_ok=True)
+cfgloader = require(CfgModel, "deeeer")
 
-deerdbcore = AsyncDbCore(dburl, TABLES, echo="--debug" in sys.argv)
-drawer = Drawer("data/deer.jpg", "data/correct.png")
+RESOURCE_PATH = Path(__file__).parent / "resources"
 
-record_a = deerdbcore.to_async(record)
-query_a = deerdbcore.to_async(query)
-query_one_day_total_a = deerdbcore.to_async(query_one_day_total)
-draw = to_async(drawer.draw)
-
-plugin = PluginPlanner("0.1.2")
+plugin = PluginPlanner("0.1.3")
 bot = get_bot()
+
+# Global variables initialized after config loading
+PAINTER: Painter
+DEER_CHARS: str
+DEER_JUDGE_REGEX: re.Pattern[str]
+DEER_COUNT_REGEX: re.Pattern[str]
+DAILY_LIMIT: int
+GROUP_ISOLATION: bool
+
+
+def post_init():
+    global \
+        DEER_CHARS, \
+        DEER_JUDGE_REGEX, \
+        DEER_COUNT_REGEX, \
+        DAILY_LIMIT, \
+        GROUP_ISOLATION, \
+        PAINTER
+
+    DEER_CHARS = cfgloader.value.trigger_chars
+    DEER_JUDGE_REGEX = re.compile(
+        rf"^(?:\s*[{re.escape(DEER_CHARS)}]\s*)+$", re.IGNORECASE
+    )
+    DEER_COUNT_REGEX = re.compile(rf"[{re.escape(DEER_CHARS)}]", re.IGNORECASE)
+    DAILY_LIMIT = cfgloader.value.daily_limit
+    GROUP_ISOLATION = cfgloader.value.group_isolation
+    PAINTER = Painter(
+        RESOURCE_PATH / "deer.jpg",
+        RESOURCE_PATH / "correct.png",
+    )
 
 
 @bot.on_started
 async def _():
-    await deerdbcore.startup()
-
-
-DEER_CHARS = cfgloader.config.trigger_chars
-DEER_JUDGE_REGEX = re.compile(rf"^(?:\s*[{re.escape(DEER_CHARS)}]\s*)+$", re.IGNORECASE)
-DEER_COUNT_REGEX = re.compile(rf"[{re.escape(DEER_CHARS)}]", re.IGNORECASE)
-DAILY_LIMIT = cfgloader.config.daily_limit
-GROUP_ISOLATION = cfgloader.config.group_isolation
+    cfgloader.load()
+    await asyncio.to_thread(post_init)
+    await deerdbcore.startup(echo=True)
 
 
 @plugin.use
@@ -67,10 +87,10 @@ async def deer(event: GroupMessageEvent, adapter: Adapter):
     if not re.match(DEER_JUDGE_REGEX, (msg := event.text)):
         return
     combo = len(re.findall(DEER_COUNT_REGEX, msg))
-    await deerdbcore.started.wait()
+    await deerdbcore.wait_until_initialized()
 
-    today_total = await query_one_day_total_a(
-        datetime.now(),
+    today_total = await query_one_day_total(
+        date=datetime.now(),
         uid=event.user_id,
         gid=event.group_id if GROUP_ISOLATION else None,
     )
@@ -83,14 +103,22 @@ async def deer(event: GroupMessageEvent, adapter: Adapter):
         elif today_total + combo > DAILY_LIMIT:
             combo = DAILY_LIMIT - today_total
 
-    await record_a(uid=event.user_id, gid=event.group_id, combo=combo, ts=time.time())
-
-    records = await query_a(
-        uid=event.user_id, gid=event.group_id if GROUP_ISOLATION else None
+    await record(
+        uid=event.user_id,
+        gid=event.group_id,
+        combo=combo,
+        ts=time.time(),
     )
+
+    records = await query(
+        uid=event.user_id,
+        gid=event.group_id if GROUP_ISOLATION else None,
+    )
+
     nt = time.localtime()
     avatar = BytesIO(await cached_avatar_source.get(event.user_id))
-    pic = await draw(
+    pic = await asyncio.to_thread(
+        PAINTER.draw,
         records,
         year=nt.tm_year,
         month=nt.tm_mon,
