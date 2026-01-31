@@ -64,7 +64,7 @@ class YamlReadWriter(ConfigReadWriterABC):
 
     def write(self, file: Path, data: BaseModel) -> None:
         with file.open("w", encoding="utf-8") as f:
-            yaml.safe_dump(data.model_dump(), f)
+            yaml.safe_dump(data.model_dump(), f, allow_unicode=True)
 
 
 @register_read_writer("json")
@@ -76,7 +76,7 @@ class JsonReadWriter(ConfigReadWriterABC):
 
     def write(self, file: Path, data: BaseModel) -> None:
         with file.open("w", encoding="utf-8") as f:
-            json.dump(data.model_dump(), f, indent=4)
+            json.dump(data.model_dump(), f, indent=4, ensure_ascii=False)
 
 
 def get_read_writer(format: str) -> ConfigReadWriterABC:
