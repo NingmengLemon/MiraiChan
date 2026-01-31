@@ -10,6 +10,7 @@ from melobot.log import Logger, LogLevel
 from melobot.protocols.onebot.v11 import Adapter, ForwardWebSocketIO
 
 from .config import CONFIG_PATH, GlobalConfigModel
+from .loader import resolve_plugin_path
 
 if sys.platform == "win32":
     add_import_fallback("_sqlite3")
@@ -33,6 +34,8 @@ def main():
     logger.debug("Config: " + cfg.model_dump_json(indent=4))
     os.makedirs("data", exist_ok=True)
 
+    plugins = [resolve_plugin_path(p) for p in cfg.plugins]
+
     init_global_settings()
     get_checker_global_settings()
 
@@ -49,9 +52,9 @@ def main():
         )
         .add_adapter(patch_all(Adapter()))
     )
-    bot.load_plugins(cfg.plugins, load_depth=cfg.load_depth)
+    bot.load_plugins(plugins, load_depth=cfg.load_depth)
 
-    bot.run(debug=debug)
+    bot.run(debug=debug, strict_log=debug)
 
 
 if __name__ == "__main__":
