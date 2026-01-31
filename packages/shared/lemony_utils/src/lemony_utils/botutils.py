@@ -9,7 +9,10 @@ import aiofiles
 from aiohttp import ClientSession
 from lemony_images.core import bytes_to_b64_url, text_to_image
 from lemony_network.request import async_http, http_headers
+from melobot import get_bot
+from melobot.adapter.base import Adapter as BaseAdapter
 from melobot.adapter.generic import send_image
+from melobot.bot.base import Bot
 from melobot.ctx import EventOrigin
 from melobot.handle import get_event
 from melobot.protocols.onebot.v11 import GetMsgEcho
@@ -73,10 +76,13 @@ class AvatarCache:
     FILENAME_TEMPLATE = "{uid}.png"
     HEADERS = http_headers.copy()
 
-    def __init__(self):
+    def __init__(self, *, auto_close: bool = True):
+        # auto_close 依赖 bot 的 stopped 事件关闭 session
         os.makedirs(self.CACHE_DIR, exist_ok=True)
         self._update_times: dict[int, float] = {}
         self._session: ClientSession | None = None
+        self._auto_close = auto_close
+        self._bot: Bot | None = None
 
     def __getitem__(self, val: int) -> Awaitable[bytes]:
         return self.get(val)
@@ -103,6 +109,9 @@ class AvatarCache:
         return None
 
     async def get(self, uid: int):
+        if not self._bot and self._auto_close:
+            self._bot = get_bot()
+            self._bot.on_stopped(self.close)
         filename = self.FILENAME_TEMPLATE.format(uid=uid)
         path = os.path.join(self.CACHE_DIR, filename)
 
@@ -119,16 +128,21 @@ class AvatarCache:
             self._update_times[uid] = time.time()
             return data
 
+    async def close(self):
+        if self._session:
+            await self._session.close()
+            self._session = None
+
 
 cached_avatar_source = AvatarCache()
 
 
-def get_adapter():
+def get_adapter() -> BaseAdapter:
     event = get_event()
     return EventOrigin.get_origin(event).adapter
 
 
-async def _report_by_image(text: str):
+async def _report_by_image(text: str) -> None:
     await send_image(
         "Error Report",
         raw=await asyncio.to_thread(text_to_image, text),
