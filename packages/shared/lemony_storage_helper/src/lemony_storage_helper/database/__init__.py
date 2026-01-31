@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, ClassVar
 from sqlalchemy import MetaData
 from sqlalchemy.orm import registry
 from sqlmodel import SQLModel as _SQLModel
+from sqlmodel import col
 
 from .core import DatabaseHelper
 from .utils import (
@@ -38,6 +39,7 @@ __all__ = [
     "SQLModel",
     "registry",
     "MetaData",
+    "col",
 ]
 
 if TYPE_CHECKING:

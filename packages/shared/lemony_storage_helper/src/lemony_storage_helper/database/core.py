@@ -1,6 +1,8 @@
 import asyncio
+import functools
 import logging
-from typing import Literal, overload
+from collections.abc import Callable
+from typing import Concatenate, Literal, overload
 
 from sqlalchemy import URL, Engine, MetaData
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
@@ -10,6 +12,8 @@ from sqlalchemy.sql.schema import Table
 from sqlalchemy.util import FacadeDict
 from sqlmodel import Session as SQLModelSession
 from sqlmodel.ext.asyncio.session import AsyncSession as SQLModelAsyncSession
+
+from .utils import AsyncCallable
 
 
 class DatabaseHelper:
@@ -66,7 +70,6 @@ class DatabaseHelper:
         *,
         autoflush: bool = False,
         expire_on_commit: bool = False,
-        async_: Literal[True] = ...,
         style: Literal["sqlmodel"] = "sqlmodel",
     ) -> SQLModelAsyncSession: ...
     @overload
@@ -75,55 +78,58 @@ class DatabaseHelper:
         *,
         autoflush: bool = False,
         expire_on_commit: bool = False,
-        async_: Literal[False],
-        style: Literal["sqlmodel"] = "sqlmodel",
-    ) -> SQLModelSession: ...
-    @overload
-    def get_session(
-        self,
-        *,
-        autoflush: bool = False,
-        expire_on_commit: bool = False,
-        async_: Literal[True] = ...,
-        style: Literal["sqlalchemy"],
+        style: Literal["sqlalchemy"] = "sqlalchemy",
     ) -> SAAsyncSession: ...
-    @overload
     def get_session(
         self,
         *,
         autoflush: bool = False,
         expire_on_commit: bool = False,
-        async_: Literal[False],
-        style: Literal["sqlalchemy"],
-    ) -> SASession: ...
-
-    def get_session(
-        self,
-        *,
-        autoflush: bool = False,
-        expire_on_commit: bool = False,
-        async_: bool = True,
-        style: Literal["sqlmodel", "sqlalchemy"] = "sqlmodel",
-    ) -> SQLModelAsyncSession | SAAsyncSession | SQLModelSession | SASession:
+        style: Literal["sqlalchemy", "sqlmodel"] = "sqlmodel",
+    ) -> SAAsyncSession | SQLModelAsyncSession:
         """Get a new AsyncSession.
 
         用完记得释放, 推荐使用(异步)上下文管理器"""
-        if async_:
-            session_class = (
-                SQLModelAsyncSession if style == "sqlmodel" else SAAsyncSession
-            )
-            return session_class(
+        return (
+            SAAsyncSession(
                 self.engine,
                 autoflush=autoflush,
                 expire_on_commit=expire_on_commit,
             )
-        else:
-            session_class = SQLModelSession if style == "sqlmodel" else SASession
-            return session_class(
-                self.engine.sync_engine,
+            if style == "sqlalchemy"
+            else SQLModelAsyncSession(
+                self.engine,
                 autoflush=autoflush,
                 expire_on_commit=expire_on_commit,
             )
+        )
+
+    async def run_sync[**P, T](
+        self,
+        func: Callable[Concatenate[SASession, P], T]
+        | Callable[Concatenate[SQLModelSession, P], T],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> T:
+        """单开一个 AsyncSession 来执行第一个参数是 Session 的同步函数"""
+        # sqlmodel session 是基于 sqlalchemy session 的浅封装, 因此兼容 sa session
+        async with self.get_session(style="sqlmodel") as asess:
+            async with asess.begin():
+                return await asess.run_sync(func, *args, **kwargs)  # type: ignore
+
+    def to_async[**P, T](
+        self,
+        func: Callable[Concatenate[SASession, P], T]
+        | Callable[Concatenate[SQLModelSession, P], T],
+    ) -> AsyncCallable[P, T]:
+        """将执行第一个参数是同步 Session 的同步函数装饰成异步函数,
+        运行时会单开一个 AsyncSession 及其 transaction"""
+
+        @functools.wraps(func)
+        async def wrapped(*args: P.args, **kwargs: P.kwargs):
+            return await self.run_sync(func, *args, **kwargs)
+
+        return wrapped
 
     async def wait_until_initialized(self) -> None:
         """Wait until the helper is initialized."""
