@@ -113,7 +113,7 @@ class LemonySettings[SettingModelT: BaseSettings]:
             )
         return self._value
 
-    # 规划的的文件目录结构:
+    # 规划的文件目录结构:
     # configs/  # 或许可以接收命令行参数来指定别的目录
     #   global.toml
     #   plugin_a/ # identifier

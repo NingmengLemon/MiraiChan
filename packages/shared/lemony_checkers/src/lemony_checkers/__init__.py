@@ -36,7 +36,7 @@ from .models import (
     RuleSet,
 )
 from .settings import (
-    CHECKER_IDENTIFIER,
+    MODULE_IDENTIFIER,
     add_admin,
     add_global_rule,
     add_plugin_rule,
@@ -84,7 +84,7 @@ __all__ = [
     "CheckerGlobalSettings",
     "CheckerPluginSettings",
     # Settings - 获取配置
-    "CHECKER_IDENTIFIER",
+    "MODULE_IDENTIFIER",
     "get_checker_global_settings",
     "get_checker_plugin_settings",
     "reload_global_settings",
