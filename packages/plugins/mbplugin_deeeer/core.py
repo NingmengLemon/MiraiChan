@@ -20,6 +20,9 @@ deerdb_registry = registry()
 
 
 class DeerBase(SQLModel, registry=deerdb_registry):
+    # 由于 sa 的神秘特性这里必须先定义一个 base
+    # 然后再让表模型继承 base
+    # 否则会出现注册失败的问题, 具体表现为 registry.metadata.tables 里没有内容
     pass
 
 
