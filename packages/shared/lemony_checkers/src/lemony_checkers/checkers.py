@@ -6,7 +6,7 @@
 
 from collections.abc import Awaitable, Callable
 from enum import Enum, auto
-from typing import Literal
+from typing import Any, Literal
 
 from melobot.log import get_logger
 from melobot.protocols.onebot.v11 import GroupMessageEvent, MessageEvent
@@ -32,7 +32,7 @@ class CheckResult(Enum):
 
 
 # 失败回调类型
-type FailCallback = Callable[[MessageEvent], Awaitable[None]]
+type FailCallback = Callable[[MessageEvent], Awaitable[Any]]
 
 
 def _match_rules(
@@ -268,8 +268,8 @@ class LemonyChecker(Checker[MessageEvent]):
         if not passed:
             logger.debug(
                 f"User {user_id} denied by checker"
-                + (f" for plugin {self._plugin_name}" if self._plugin_name else "")
-                + (f" command {self._command_name}" if self._command_name else "")
+                + (f" for plugin {self._plugin_name!r}" if self._plugin_name else "")
+                + (f" command {self._command_name!r}" if self._command_name else "")
             )
             await self._call_fail_cb(event)
 

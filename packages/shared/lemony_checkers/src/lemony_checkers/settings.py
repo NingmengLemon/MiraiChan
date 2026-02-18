@@ -6,7 +6,7 @@
 
 from typing import Literal
 
-from lemony_settings import LemonySettings
+from lemony_settings import LemonySettings, require
 from melobot.log import get_logger
 
 from .models import CheckerGlobalSettings, CheckerPluginSettings, Rule
@@ -14,7 +14,7 @@ from .models import CheckerGlobalSettings, CheckerPluginSettings, Rule
 logger = get_logger()
 
 # 模块标识符
-CHECKER_IDENTIFIER = "lemony_checkers"
+MODULE_IDENTIFIER = "lemony_checkers"
 
 # 全局配置实例
 _global_checker_settings: LemonySettings[CheckerGlobalSettings] | None = None
@@ -36,8 +36,8 @@ def get_checker_global_settings() -> CheckerGlobalSettings:
     global _global_checker_settings
 
     if _global_checker_settings is None:
-        _global_checker_settings = LemonySettings(
-            identifier=CHECKER_IDENTIFIER,
+        _global_checker_settings = require(
+            identifier=MODULE_IDENTIFIER,
             namespace="global",
             model=CheckerGlobalSettings,
         )
@@ -58,8 +58,8 @@ def get_checker_plugin_settings(plugin_name: str) -> CheckerPluginSettings:
         CheckerPluginSettings: 插件配置实例
     """
     if plugin_name not in _plugin_settings_cache:
-        settings = LemonySettings(
-            identifier=CHECKER_IDENTIFIER,
+        settings = require(
+            identifier=MODULE_IDENTIFIER,
             namespace=plugin_name,
             model=CheckerPluginSettings,
         )
