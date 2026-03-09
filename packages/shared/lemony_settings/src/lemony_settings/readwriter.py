@@ -27,7 +27,7 @@ _read_writer_registry: dict[str, type[ConfigReadWriterABC]] = {}
 _read_writer_instances: dict[str, ConfigReadWriterABC] = {}
 
 
-def register_read_writer[T: ConfigReadWriterABC](
+def register_readwriter[T: ConfigReadWriterABC](
     format: str,  # 需要注册的格式名称, 同时为扩展名
 ) -> Callable[[type[T]], type[T]]:
     def decorator(cls: type[T]) -> type[T]:
@@ -56,7 +56,7 @@ class TomlReadWriter(ConfigReadWriterABC):
             tomli_w.dump(data_dict, f)
 
 
-@register_read_writer("yaml")
+@register_readwriter("yaml")
 class YamlReadWriter(ConfigReadWriterABC):
     def read(self, file: Path, model: type[MT]) -> MT:
         with file.open("r", encoding="utf-8") as f:
@@ -68,7 +68,7 @@ class YamlReadWriter(ConfigReadWriterABC):
             yaml.safe_dump(data.model_dump(), f, allow_unicode=True)
 
 
-@register_read_writer("json")
+@register_readwriter("json")
 class JsonReadWriter(ConfigReadWriterABC):
     def read(self, file: Path, model: type[MT]) -> MT:
         with file.open("r", encoding="utf-8") as f:
