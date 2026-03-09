@@ -6,7 +6,7 @@ from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 
-from lemony_checkers.checkers import LemonyChecker
+from lemony_checkers import get_checker_factory
 from lemony_images.core import (
     bytes_to_b64_url,
 )
@@ -93,7 +93,9 @@ deer_lock = asyncio.Lock()
 
 @plugin.use
 @on_message(
-    checker=LemonyChecker(plugin_name=PLUGIN_IDENTIFIER, command_name="do_deer")
+    checker=get_checker_factory().new_checker(
+        plugin_name=PLUGIN_IDENTIFIER, command_name="do_deer"
+    )
 )
 async def deer(event: GroupMessageEvent, adapter: Adapter):
     if not re.match(DEER_JUDGE_REGEX, (msg := event.text)):
