@@ -1,0 +1,18 @@
+[project]
+name = "melobot_telegram_protocol"
+version = "0.1.0"
+description = "Lemoneko's Telegram protocol library for MiraiChan"
+authors = [
+    { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
+]
+dependencies = ["aiogram>=3.26.0", "melobot>=3.3.0"]
+
+requires-python = ">=3.12,<3.14"
+readme = "README.md"
+license = { text = "AGPL3" }
+
+[tool.uv.sources]
+lemony_images = { workspace = true }
+
+[dependency-groups]
+dev = ["pytest>=8.0.0", "pytest-asyncio>=1.0.0"]
