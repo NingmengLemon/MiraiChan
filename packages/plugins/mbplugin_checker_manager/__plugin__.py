@@ -27,34 +27,8 @@ Checker Manager 插件
     .checker status                             - 查看当前状态
 """
 
-from lemony_checkers import (
-    Rule,
-    add_admin,
-    add_global_rule,
-    add_plugin_rule,
-    clear_global_rules,
-    clear_plugin_rules,
-    get_admins,
-    # 获取配置
-    get_checker_global_settings,
-    get_checker_plugin_settings,
-    # get_owner,
-    is_admin,
-    is_owner,
-    reload_global_settings,
-    reload_plugin_settings,
-    remove_admin,
-    remove_global_rule,
-    remove_plugin_rule,
-    # 保存配置
-    save_global_settings,
-    save_plugin_settings,
-    set_global_mode,
-    # 全局配置 API
-    # 插件配置 API
-    set_plugin_enabled,
-    set_plugin_mode,
-)
+from lemony_checkers import EditContext, Rule, get_checker_factory
+from lemony_checkers.factory import LemonyCheckerFactory
 from melobot import PluginPlanner, get_logger
 from melobot.handle import on_command
 from melobot.protocols.onebot.v11 import Adapter
@@ -65,9 +39,14 @@ CheckerManager = PluginPlanner("1.0.0")
 logger = get_logger()
 
 
+def _get_factory() -> LemonyCheckerFactory:
+    return get_checker_factory()
+
+
 def _check_privilege(user_id: int) -> bool:
     """检查用户是否有权限操作 (owner 或 admin)"""
-    return is_owner(user_id) or is_admin(user_id)
+    factory = _get_factory()
+    return factory.is_owner(user_id) or factory.is_admin(user_id)
 
 
 def _format_rules(rules: list[Rule], rule_type: str) -> str:
@@ -136,9 +115,9 @@ async def checker_command(adapter: Adapter, event: MessageEvent, args: CmdArgs):
 
 async def _handle_status(adapter: Adapter):
     """处理 status 子命令"""
-    global_settings = get_checker_global_settings()
-    # owner = get_owner()
-    admins = get_admins()
+    factory = _get_factory()
+    global_settings = factory.global_settings
+    admins = factory.get_admins()
 
     lines = [
         "Checker 状态:",
@@ -170,18 +149,18 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
     match action:
         case "mode":
             if not action_args:
-                global_settings = get_checker_global_settings()
+                global_settings = _get_factory().global_settings
                 await adapter.send_reply(f"当前全局模式: {global_settings.mode}")
                 return
             mode = action_args[0].lower()
             if mode not in ("whitelist", "blacklist"):
                 await adapter.send_reply("模式必须是 whitelist 或 blacklist")
                 return
-            set_global_mode(mode)  # type: ignore
-            save_global_settings()
+            with EditContext(_get_factory()) as ctx:
+                ctx.set_global_mode(mode)  # type: ignore
             await adapter.send_reply(f"全局模式已设置为: {mode}")
         case "rules":
-            global_settings = get_checker_global_settings()
+            global_settings = _get_factory().global_settings
             rule_type = action_args[0].lower() if action_args else None
 
             if rule_type == "user" or rule_type is None:
@@ -211,8 +190,8 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
                 return
 
             ids = _parse_ids(ids_str)
-            add_global_rule(rule_type, rule_action, ids)  # type: ignore
-            save_global_settings()
+            with EditContext(_get_factory()) as ctx:
+                ctx.add_global_rule(rule_type, rule_action, ids)  # type: ignore
             ids_display = "所有" if ids is None else ", ".join(map(str, ids))
             await adapter.send_reply(
                 f"已添加全局{rule_type}规则: {rule_action} -> {ids_display}"
@@ -235,9 +214,9 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
                 await adapter.send_reply("规则类型必须是 user 或 group")
                 return
 
-            removed = remove_global_rule(rule_type, index)  # type: ignore
+            with EditContext(_get_factory()) as ctx:
+                removed = ctx.remove_global_rule(rule_type, index)  # type: ignore
             if removed:
-                save_global_settings()
                 await adapter.send_reply(f"已移除全局{rule_type}规则 [{index}]")
             else:
                 await adapter.send_reply(f"索引 {index} 无效")
@@ -247,8 +226,8 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
             if rule_type and rule_type not in ("user", "group"):
                 await adapter.send_reply("规则类型必须是 user 或 group")
                 return
-            count = clear_global_rules(rule_type)  # type: ignore
-            save_global_settings()
+            with EditContext(_get_factory()) as ctx:
+                count = ctx.clear_global_rules(rule_type)  # type: ignore
             type_str = f"{rule_type}" if rule_type else "所有"
             await adapter.send_reply(f"已清除 {count} 条全局{type_str}规则")
 
@@ -259,7 +238,8 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
 async def _handle_admin(adapter: Adapter, event: MessageEvent, args: list[str]):
     """处理 admin 子命令 (仅 Owner 可用)"""
     # 管理员操作仅 Owner 可用
-    if not is_owner(event.user_id):
+    factory = _get_factory()
+    if not factory.is_owner(event.user_id):
         await adapter.send_reply("管理员操作仅 Owner 可用")
         return
 
@@ -277,7 +257,7 @@ async def _handle_admin(adapter: Adapter, event: MessageEvent, args: list[str]):
 
     match action:
         case "list":
-            admins = get_admins()
+            admins = factory.get_admins()
             if not admins:
                 await adapter.send_reply("暂无管理员")
             else:
@@ -296,8 +276,9 @@ async def _handle_admin(adapter: Adapter, event: MessageEvent, args: list[str]):
                 await adapter.send_reply("user_id 必须是数字")
                 return
 
-            if add_admin(uid):
-                save_global_settings()
+            with EditContext(factory) as ctx:
+                success = ctx.add_admin(uid)
+            if success:
                 await adapter.send_reply(f"已添加管理员: {uid}")
             else:
                 await adapter.send_reply(f"{uid} 已是管理员")
@@ -312,8 +293,9 @@ async def _handle_admin(adapter: Adapter, event: MessageEvent, args: list[str]):
                 await adapter.send_reply("user_id 必须是数字")
                 return
 
-            if remove_admin(uid):
-                save_global_settings()
+            with EditContext(factory) as ctx:
+                success = ctx.remove_admin(uid)
+            if success:
                 await adapter.send_reply(f"已移除管理员: {uid}")
             else:
                 await adapter.send_reply(f"{uid} 不是管理员")
@@ -342,35 +324,36 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
 
     match action:
         case "enable":
-            set_plugin_enabled(plugin_name, True)
-            save_plugin_settings(plugin_name)
+            with EditContext(_get_factory()) as ctx:
+                ctx.set_plugin_enabled(plugin_name, True)
             await adapter.send_reply(f"插件 {plugin_name} 已启用")
 
         case "disable":
-            set_plugin_enabled(plugin_name, False)
-            save_plugin_settings(plugin_name)
+            with EditContext(_get_factory()) as ctx:
+                ctx.set_plugin_enabled(plugin_name, False)
             await adapter.send_reply(f"插件 {plugin_name} 已禁用")
 
         case "mode":
             if not action_args:
-                plugin_settings = get_checker_plugin_settings(plugin_name)
+                plugin_settings = _get_factory().get_plugin_settings(plugin_name)
                 mode_str = plugin_settings.mode or "inherit (继承全局)"
                 await adapter.send_reply(f"插件 {plugin_name} 当前模式: {mode_str}")
                 return
 
             mode = action_args[0].lower()
             if mode == "inherit":
-                set_plugin_mode(plugin_name, None)
+                with EditContext(_get_factory()) as ctx:
+                    ctx.set_plugin_mode(plugin_name, None)
             elif mode in ("whitelist", "blacklist"):
-                set_plugin_mode(plugin_name, mode)  # type: ignore
+                with EditContext(_get_factory()) as ctx:
+                    ctx.set_plugin_mode(plugin_name, mode)  # type: ignore
             else:
                 await adapter.send_reply("模式必须是 whitelist, blacklist 或 inherit")
                 return
-            save_plugin_settings(plugin_name)
             await adapter.send_reply(f"插件 {plugin_name} 模式已设置为: {mode}")
 
         case "rules":
-            plugin_settings = get_checker_plugin_settings(plugin_name)
+            plugin_settings = _get_factory().get_plugin_settings(plugin_name)
             rule_type = action_args[0].lower() if action_args else None
 
             if rule_type == "user" or rule_type is None:
@@ -402,8 +385,8 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
                 return
 
             ids = _parse_ids(ids_str)
-            add_plugin_rule(plugin_name, rule_type, rule_action, ids)  # type: ignore
-            save_plugin_settings(plugin_name)
+            with EditContext(_get_factory()) as ctx:
+                ctx.add_plugin_rule(plugin_name, rule_type, rule_action, ids)  # type: ignore
             ids_display = "所有" if ids is None else ", ".join(map(str, ids))
             await adapter.send_reply(
                 f"已为插件 {plugin_name} 添加{rule_type}规则: {rule_action} -> {ids_display}"
@@ -426,9 +409,9 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
                 await adapter.send_reply("规则类型必须是 user 或 group")
                 return
 
-            removed = remove_plugin_rule(plugin_name, rule_type, index)  # type: ignore
+            with EditContext(_get_factory()) as ctx:
+                removed = ctx.remove_plugin_rule(plugin_name, rule_type, index)  # type: ignore
             if removed:
-                save_plugin_settings(plugin_name)
                 await adapter.send_reply(
                     f"已移除插件 {plugin_name} 的{rule_type}规则 [{index}]"
                 )
@@ -440,8 +423,8 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
             if rule_type and rule_type not in ("user", "group"):
                 await adapter.send_reply("规则类型必须是 user 或 group")
                 return
-            count = clear_plugin_rules(plugin_name, rule_type)  # type: ignore
-            save_plugin_settings(plugin_name)
+            with EditContext(_get_factory()) as ctx:
+                count = ctx.clear_plugin_rules(plugin_name, rule_type)  # type: ignore
             type_str = f"{rule_type}" if rule_type else "所有"
             await adapter.send_reply(
                 f"已清除插件 {plugin_name} 的 {count} 条{type_str}规则"
@@ -453,31 +436,33 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
 
 async def _handle_reload(adapter: Adapter, args: list[str]):
     """处理 reload 子命令"""
+    factory = _get_factory()
     if not args:
-        reload_global_settings()
+        factory.reload_global_settings()
         await adapter.send_reply("已重新加载全局配置")
         return
 
     target = args[0].lower()
     if target == "global":
-        reload_global_settings()
+        factory.reload_global_settings()
         await adapter.send_reply("已重新加载全局配置")
     else:
-        reload_plugin_settings(target)
+        factory.reload_plugin_settings(target)
         await adapter.send_reply(f"已重新加载插件 {target} 配置")
 
 
 async def _handle_save(adapter: Adapter, args: list[str]):
     """处理 save 子命令"""
+    factory = _get_factory()
     if not args:
-        save_global_settings()
+        factory.save_global_settings()
         await adapter.send_reply("已保存全局配置")
         return
 
     target = args[0].lower()
     if target == "global":
-        save_global_settings()
+        factory.save_global_settings()
         await adapter.send_reply("已保存全局配置")
     else:
-        save_plugin_settings(target)
+        factory.save_plugin_settings(target)
         await adapter.send_reply(f"已保存插件 {target} 配置")
