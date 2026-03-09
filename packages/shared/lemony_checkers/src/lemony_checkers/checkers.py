@@ -6,19 +6,16 @@
 
 from collections.abc import Awaitable, Callable
 from enum import Enum, auto
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from melobot.log import get_logger
 from melobot.protocols.onebot.v11 import GroupMessageEvent, MessageEvent
 from melobot.utils.check import Checker
 
 from .models import CheckerGlobalSettings, CheckerPluginSettings, Rule
-from .settings import (
-    get_checker_global_settings,
-    get_checker_plugin_settings,
-    is_admin,
-    is_owner,
-)
+
+if TYPE_CHECKING:
+    from .factory import LemonyCheckerFactory
 
 logger = get_logger()
 
@@ -167,11 +164,12 @@ class LemonyChecker(Checker[MessageEvent]):
 
     def __init__(
         self,
-        plugin_name: str | None = None,
-        command_name: str | None = None,
         *,
-        fail_cb: FailCallback | None = None,
+        plugin_name: str | None,
+        command_name: str | None,
+        fail_cb: FailCallback | None,
         allow_admin: bool = True,
+        factory: "LemonyCheckerFactory",
     ) -> None:
         """
         初始化检查器.
@@ -187,6 +185,7 @@ class LemonyChecker(Checker[MessageEvent]):
         self._command_name = command_name
         self._fail_cb = fail_cb
         self._allow_admin = allow_admin
+        self._factory = factory
 
     @property
     def plugin_name(self) -> str | None:
@@ -214,20 +213,20 @@ class LemonyChecker(Checker[MessageEvent]):
         Returns:
             bool: 是否通过检查
         """
+
         user_id = event.user_id
 
         # 1. Owner 始终通过
-        if is_owner(user_id):
+        if self._factory.is_owner(user_id):
             logger.debug(f"User {user_id} is owner, check passed")
             return True
 
         # 获取配置
-        global_settings = get_checker_global_settings()
+        global_settings = self._factory.global_settings
         plugin_settings: CheckerPluginSettings | None = None
 
         if self._plugin_name is not None:
-            plugin_settings = get_checker_plugin_settings(self._plugin_name)
-
+            plugin_settings = self._factory.get_plugin_settings(self._plugin_name)
             # 2. 检查插件是否启用
             if not plugin_settings.enabled:
                 logger.debug(f"Plugin {self._plugin_name} is disabled")
@@ -245,7 +244,7 @@ class LemonyChecker(Checker[MessageEvent]):
                     return False
 
         # 4. Admin 检查
-        if self._allow_admin and is_admin(user_id):
+        if self._allow_admin and self._factory.is_admin(user_id):
             logger.debug(f"User {user_id} is admin, check passed")
             return True
 
@@ -291,12 +290,15 @@ class OwnerChecker(Checker[MessageEvent]):
     只有 Owner 可以通过检查.
     """
 
-    def __init__(self, *, fail_cb: FailCallback | None = None) -> None:
+    def __init__(
+        self, *, factory: "LemonyCheckerFactory", fail_cb: FailCallback | None = None
+    ) -> None:
         super().__init__()
+        self._factory = factory
         self._fail_cb = fail_cb
 
     async def check(self, event: MessageEvent) -> bool:
-        if is_owner(event.user_id):
+        if self._factory.is_owner(event.user_id):
             return True
 
         if self._fail_cb is not None:
@@ -315,14 +317,17 @@ class AdminChecker(Checker[MessageEvent]):
     Owner 和 Admin 都可以通过检查.
     """
 
-    def __init__(self, *, fail_cb: FailCallback | None = None) -> None:
+    def __init__(
+        self, *, factory: "LemonyCheckerFactory", fail_cb: FailCallback | None = None
+    ) -> None:
         super().__init__()
+        self._factory = factory
         self._fail_cb = fail_cb
 
     async def check(self, event: MessageEvent) -> bool:
         user_id = event.user_id
 
-        if is_owner(user_id) or is_admin(user_id):
+        if self._factory.is_owner(user_id) or self._factory.is_admin(user_id):
             return True
 
         if self._fail_cb is not None:
