@@ -1,15 +1,15 @@
 import re
 import textwrap
 from enum import Enum, auto
+from logging import getLogger
 from pathlib import Path
 from typing import Literal
 
-from melobot.log import get_logger
 from pydantic import BaseModel, Field, ValidationError
 
 from .readwriter import get_read_writer
 
-logger = get_logger()
+logger = getLogger()
 
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][0-9A-Za-z_]{0,31}$")
 
@@ -115,7 +115,7 @@ class LemonySettings[SettingModelT: BaseSettings]:
 
     # 规划的文件目录结构:
     # configs/  # 或许可以接收命令行参数来指定别的目录
-    #   global.toml
+    #   global.json
     #   plugin_a/ # identifier
     #     a.toml  # namespace.toml
     #     b.toml
@@ -124,8 +124,12 @@ class LemonySettings[SettingModelT: BaseSettings]:
     #   module_x/
     #     x.toml
 
+    # 或许不是 toml
+    # 因为 toml 不支持 None/null/nil, 又没有什么哨兵值可以用
+    # 唉唉特立独行这一块
+
     def _load_from_file(
-        self, path: Path, format: Literal["toml", "yaml", "json"]
+        self, path: Path, format: Literal["yaml", "json"]
     ) -> SettingModelT:
         """
         从指定路径加载配置文件并返回对应的设置模型实例.
@@ -221,7 +225,7 @@ class LemonySettings[SettingModelT: BaseSettings]:
 
 def resolve_config_path(
     config_path: str | Path,
-    preference: Literal["toml", "yaml", "json"],
+    preference: Literal["yaml", "json"],
     id_ns: tuple[str, str] | None = None,
 ) -> Path:
     """
@@ -241,12 +245,12 @@ def resolve_config_path(
 class GlobalSettings(BaseModel):
     # 分为可持久化的设置和非持久化的设置.
     # 可持久化的设置会被保存到配置文件中.
-    preference: Literal["toml", "yaml", "json"] = Field(
+    preference: Literal["yaml", "json"] = Field(
         default="json",
         description=textwrap.dedent(
             """
             配置文件的首选格式.
-            支持 'toml', 'yaml', 'json'.
+            支持 'yaml', 'json'.
             """,
         ).strip(),
         frozen=True,
@@ -301,7 +305,10 @@ class PersistentGlobalSettings(BaseModel):
 
 
 def require[T: BaseSettings](
-    model: type[T], identifier: str, namespace: str = "default"
+    identifier: str,
+    model: type[T],
+    namespace: str = "default",
+    auto_load: bool = True,
 ) -> LemonySettings[T]:
     """
     获取一个 LemonySettings 实例. 如果不存在则创建一个新的实例并返回其值.
@@ -314,11 +321,13 @@ def require[T: BaseSettings](
             model=model,
         )
         _SETTINGS_TABLE[key] = settings
+        if auto_load:
+            settings.load()
     return _SETTINGS_TABLE[key]
 
 
 def init_global_settings(
-    preference: Literal["toml", "yaml", "json"] = "json",
+    preference: Literal["yaml", "json"] = "json",
     config_path: str | Path = "configs",
 ) -> GlobalSettings:
     """
@@ -356,7 +365,7 @@ def init_global_settings(
     )
     _global_settings = global_settings
 
-    # 初始化文件监控器 (但不启动, 需要手动调用 start_watcher)
+    # 初始化文件监控器
     init_file_watcher(config_path_resolved, preference)
 
     return global_settings

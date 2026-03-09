@@ -41,7 +41,6 @@ def get_checker_global_settings() -> CheckerGlobalSettings:
             namespace="global",
             model=CheckerGlobalSettings,
         )
-        _global_checker_settings.load()
         logger.info("Loaded checker global settings")
 
     return _global_checker_settings.value
@@ -63,7 +62,6 @@ def get_checker_plugin_settings(plugin_name: str) -> CheckerPluginSettings:
             namespace=plugin_name,
             model=CheckerPluginSettings,
         )
-        settings.load()
         _plugin_settings_cache[plugin_name] = settings
         logger.info(f"Loaded checker settings for plugin: {plugin_name}")
 
@@ -154,6 +152,9 @@ def get_admins() -> list[int]:
 # ============================================================================
 # 编程式 API - 用于动态修改配置
 # ============================================================================
+
+# TODO: 聚合到一个类中
+# 这些函数太散了, 需要一个统一的接口来管理全局和插件配置
 
 
 def set_owner(user_id: int | None) -> None:
