@@ -2,8 +2,9 @@ import asyncio
 import os
 import sys
 
-from lemony_checkers import get_checker_global_settings
-from lemony_settings import init_global_settings
+import json5
+from lemony_checkers import init_checker_factory
+from lemony_settings import init_settings_manager
 from lemony_utils.validation_patches.ob11 import patch_all
 from melobot import Bot, add_import_fallback
 from melobot.log import Logger, LogLevel
@@ -27,7 +28,7 @@ def main():
         sys.exit(1)
 
     with open(CONFIG_PATH, "rb") as fp:
-        cfg = GlobalConfigModel.model_validate_json(fp.read())
+        cfg = GlobalConfigModel.model_validate(json5.load(fp))
     debug = "--debug" in sys.argv or cfg.debug
 
     logger = Logger(level=LogLevel.DEBUG if debug else LogLevel.INFO)
@@ -36,8 +37,11 @@ def main():
 
     plugins = [resolve_plugin_path(p) for p in cfg.plugins]
 
-    init_global_settings()
-    get_checker_global_settings()
+    init_settings_manager(
+        preference=cfg.settings_format,
+        config_root=cfg.config_root,
+    )
+    init_checker_factory()
 
     bot = (
         Bot(

@@ -6,6 +6,7 @@ authors = [
     { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
 ]
 dependencies = [
+    "json5>=0.13.0",
     "lemony_utils",
     "melobot[onebot]>=3.3.0",
     "pydantic>=2.10.3",
