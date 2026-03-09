@@ -1,17 +1,19 @@
+# TODO: split into other modules
 import base64
 import math
+import os
 import random
-from collections.abc import Generator, Iterable
-from contextlib import contextmanager
+from collections.abc import Iterable
+from contextlib import contextmanager, nullcontext
 from io import BytesIO
-from typing import Any, Literal
+from typing import Any, BinaryIO, Literal
 from urllib.parse import quote_plus
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from pilmoji import Pilmoji
 from pilmoji.source import BaseSource, HTTPBasedSource
 
-type _FontFileT = str | BytesIO
+type _FontFileT = str | bytes | os.PathLike[str] | os.PathLike[bytes] | BinaryIO
 type _4IntTupleT = tuple[int, int, int, int]
 type _3IntTupleT = tuple[int, int, int]
 type _ColorTupleT = _3IntTupleT | _4IntTupleT
@@ -187,11 +189,6 @@ def calc_font_size(
     return fsize, "\n".join(wrap_text_by_width(text, box_width, fontcache.use(fsize)))
 
 
-@contextmanager
-def dummy_context_wrapper[T](obj: T) -> Generator[T, Any, None]:
-    yield obj
-
-
 def draw_multiline_text_auto(
     bbox: _BboxT,
     draw: ImageDraw.ImageDraw,
@@ -248,7 +245,7 @@ def draw_multiline_text_auto(
             draw=draw,
         )
         if emoji_source
-        else dummy_context_wrapper(draw)
+        else nullcontext(draw)
     ) as finaldraw:
         finaldraw.text(
             xy=xy,
