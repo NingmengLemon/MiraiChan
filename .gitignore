@@ -185,3 +185,6 @@ melobot.log*
 # 而不是项目自带的插件们: packages/plugins/*
 /plugins/
 
+# 临时文件夹, 大概测试用
+# 不要把临时文件纳入版本控制
+/tmp/
