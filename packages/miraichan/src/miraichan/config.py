@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, Secret
 
 from .utils import get_project_root
 
-CONFIG_PATH = get_project_root() / "config.json"
+DEFAULT_CONFIG_PATH = get_project_root() / "config.json"
 
 
 class ForwWsIOConfigModel(BaseModel):
@@ -22,3 +22,7 @@ class GlobalConfigModel(BaseModel):
 
     settings_format: Literal["json", "yaml"] | str = "json"
     config_root: str | Path = Field(default=get_project_root() / "configs")
+
+    default_font_path: str | Path = Field(
+        default=get_project_root() / "data" / "fonts" / "sarasa-mono-sc-semibold.ttf"
+    )

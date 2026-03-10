@@ -1,3 +1,3 @@
-from .bot import main
+from .bot import miraichan_cli_app
 
-main()
+miraichan_cli_app()

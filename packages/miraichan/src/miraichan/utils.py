@@ -16,7 +16,7 @@ def get_project_root() -> Path:
     )
     if proj_root is None:
         raise FileNotFoundError("Could not find the project root.")
-    logger.info(f"Project root found at: {proj_root}")
+    logger.debug(f"Project root found at: {proj_root}")
     return proj_root
 
 
@@ -30,3 +30,31 @@ def search_upwards_for_files(start_path: Path, *target_files: str) -> Path | Non
             return current_path
         current_path = current_path.parent
     return None
+
+
+def custom_melobot_logo(new_logo: str) -> None:
+    # target: melobot._meta.MetaInfoMeta
+    # 亲爱的律在这些字段上设置了只读描述器, 且使用了元类来阻止修改 __dict__
+    # 呐么让我们试试 ----
+    try:
+        from melobot._meta import MetaInfoMeta
+        # 咳咳私有成员注意, 后续随时可能被改掉
+
+        setattr(MetaInfoMeta, "logo", new_logo)
+    except Exception as e:
+        logger.warning(
+            f"Failed to patch MetaInfoMeta: {e}, logo will not be customized."
+        )
+
+
+ALTERNATIVE_LOGO = r"""
+ ██████   ██████          ████           █████               █████   
+▒▒██████ ██████          ▒▒███          ▒▒███               ▒▒███    
+ ▒███▒█████▒███   ██████  ▒███   ██████  ▒███████   ██████  ███████  
+ ▒███▒▒███ ▒███  ███▒▒███ ▒███  ███▒▒███ ▒███▒▒███ ███▒▒███▒▒▒███▒   
+ ▒███ ▒▒▒  ▒███ ▒███████  ▒███ ▒███ ▒███ ▒███ ▒███▒███ ▒███  ▒███    
+ ▒███      ▒███ ▒███▒▒▒   ▒███ ▒███ ▒███ ▒███ ▒███▒███ ▒███  ▒███ ███
+ █████     █████▒▒██████  █████▒▒██████  ████████ ▒▒██████   ▒▒█████ 
+▒▒▒▒▒     ▒▒▒▒▒  ▒▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒▒▒  ▒▒▒▒▒▒▒▒   ▒▒▒▒▒▒     ▒▒▒▒▒  
+梅洛姬, 参上 Ciallo～(∠・ω< )⌒☆
+"""
