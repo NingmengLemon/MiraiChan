@@ -256,7 +256,7 @@ class LemonyChecker(Checker[MessageEvent], FailCallbackMixin):
             # 2. 检查插件是否启用
             if not plugin_settings.enabled:
                 logger.debug(f"Plugin {self._plugin_name} is disabled")
-                await self._call_fail_cb(event)
+                asyncio.create_task(self._call_fail_cb(event))
                 return False
 
             # 3. 检查命令是否启用
@@ -266,7 +266,7 @@ class LemonyChecker(Checker[MessageEvent], FailCallbackMixin):
                     logger.debug(
                         f"Command {self._command_name} in plugin {self._plugin_name} is disabled"
                     )
-                    await self._call_fail_cb(event)
+                    asyncio.create_task(self._call_fail_cb(event))
                     return False
 
         # 4. Admin 检查

@@ -1,3 +1,4 @@
+from types import TracebackType
 from typing import Literal, Self
 
 from melobot.log import get_logger
@@ -24,7 +25,7 @@ class EditContext:
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        traceback: type[BaseException] | None,
+        traceback: TracebackType | None,
     ) -> None:
         # 只有在正常退出上下文时才保存修改, 如果发生异常则不保存.
 
