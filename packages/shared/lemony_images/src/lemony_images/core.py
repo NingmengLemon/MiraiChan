@@ -94,6 +94,21 @@ def init_default_font_cache(
     return _default_font_cache
 
 
+def _reset_for_testing() -> None:
+    """将全局 FontCache 实例重置为 None.
+
+    **仅供测试使用.** 在每个需要重新初始化的测试用例前调用.
+    生产代码中禁止调用此函数.
+
+    Example::
+
+        def setup_function():
+            lemony_images.core._reset_for_testing()
+    """
+    global _default_font_cache
+    _default_font_cache = None
+
+
 def ensure_4inttuple(obj: tuple[Any, Any, Any, Any]) -> _4IntTupleT:
     return (int(obj[0]), int(obj[1]), int(obj[2]), int(obj[3]))
 

@@ -138,3 +138,18 @@ def get_settings_manager() -> SettingsManager:
             "SettingsManager has not been initialized. Call init_settings_manager() first."
         )
     return _manager_instance
+
+
+def _reset_for_testing() -> None:
+    """将全局 SettingsManager 实例重置为 None.
+
+    **仅供测试使用.** 在每个需要重新初始化的测试用例前调用.
+    生产代码中禁止调用此函数.
+
+    Example::
+
+        def setup_function():
+            lemony_settings.manager._reset_for_testing()
+    """
+    global _manager_instance
+    _manager_instance = None
