@@ -1,6 +1,10 @@
 from functools import cache
 from pathlib import Path
 
+from melobot.log import get_logger
+
+logger = get_logger()
+
 PROJECT_ROOT_MAKERS = ("miracle_entrance.py",)
 
 
@@ -12,6 +16,7 @@ def get_project_root() -> Path:
     )
     if proj_root is None:
         raise FileNotFoundError("Could not find the project root.")
+    logger.info(f"Project root found at: {proj_root}")
     return proj_root
 
 
