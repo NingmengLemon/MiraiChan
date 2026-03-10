@@ -71,8 +71,27 @@ class FontCache:
         return self.use(key)
 
 
-_t2i_default_font = FontCache("data/fonts/sarasa-mono-sc-semibold.ttf")
-default_font_cache = _t2i_default_font
+# 延迟加载，毕竟这个字体文件有点大
+_default_font_cache: FontCache | None = None
+
+
+def get_default_font_cache() -> FontCache:
+    global _default_font_cache
+    if _default_font_cache is None:
+        raise RuntimeError(
+            "Default font cache not initialized. Call init_default_font_cache first."
+        )
+    return _default_font_cache
+
+
+def init_default_font_cache(
+    font_file: _FontFileT,
+    preload_sizes: Iterable[int] | None = None,
+) -> FontCache:
+    global _default_font_cache
+    if _default_font_cache is None:
+        _default_font_cache = FontCache(font_file, preload_sizes=preload_sizes)
+    return _default_font_cache
 
 
 def ensure_4inttuple(obj: tuple[Any, Any, Any, Any]) -> _4IntTupleT:
@@ -358,9 +377,9 @@ def text_to_image(
     **kwargs,
 ):
     if font is None:
-        font = _t2i_default_font.use(20)
+        font = get_default_font_cache().use(20)
     elif isinstance(font, int):
-        font = _t2i_default_font.use(font)
+        font = get_default_font_cache().use(font)
     if wrap is not None and wrap > 0:
         text = "\n".join(wrap_text_by_width(text, wrap, font))
 
