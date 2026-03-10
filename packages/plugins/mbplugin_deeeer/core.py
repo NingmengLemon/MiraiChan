@@ -7,7 +7,7 @@ from pathlib import Path
 
 from lemony_images.core import (
     FontCache,
-    default_font_cache,
+    get_default_font_cache,
 )
 from lemony_storage_helper.database import DatabaseHelper, SQLModel, registry
 from lemony_utils.time import get_time_period_start
@@ -119,7 +119,7 @@ class Painter:
         cs = bg.copy()
         cs.paste(ImageOps.contain(_to_image(correct_sign), self.GRID_SIZE))
         self._deer_pic_ok = Image.alpha_composite(self._deer_pic, cs)
-        self._font = font if font else default_font_cache
+        self._font = font if font else get_default_font_cache()
 
     def draw(
         self,
