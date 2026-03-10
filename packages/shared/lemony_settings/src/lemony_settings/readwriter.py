@@ -1,4 +1,5 @@
 import json
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
@@ -31,13 +32,16 @@ def register_readwriter[T: ConfigReadWriterABC](
     format: str,  # 需要注册的格式名称, 同时为扩展名
 ) -> Callable[[type[T]], type[T]]:
     def decorator(cls: type[T]) -> type[T]:
-        _readwriter_registry[format.lower()] = cls
+        if (id := format.lower().strip()) in _readwriter_registry:
+            warnings.warn(
+                f"ReadWriter for format {id!r} is already registered, it will be overwritten."
+            )
+        _readwriter_registry[id] = cls
         return cls
 
     return decorator
 
 
-# TODO: fck toml
 # @register_readwriter("toml")
 class TomlReadWriter(ConfigReadWriterABC):
     def read(self, file: Path, model: type[MT]) -> MT:
