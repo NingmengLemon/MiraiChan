@@ -78,7 +78,9 @@ class AvatarCache:
 
     def __init__(self, *, auto_close: bool = True):
         # auto_close 依赖 bot 的 stopped 事件关闭 session
+        # TODO: 那我问你这个单例怎么传参数
         os.makedirs(self.CACHE_DIR, exist_ok=True)
+        # TODO: use mtime instead of a separate dict to track update times
         self._update_times: dict[int, float] = {}
         self._session: ClientSession | None = None
         self._auto_close = auto_close
