@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import ValidationError
 
 from .models import BaseSettings, GlobalSettings
-from .readwriter import get_read_writer
+from .readwriter import get_readwriter
 from .utils import check_identifier, resolve_config_path
 
 if TYPE_CHECKING:
@@ -92,7 +92,7 @@ class LemonySettings[SettingModelT: BaseSettings]:
         """
         从指定路径加载配置文件并返回对应的设置模型实例.
         """
-        readwriter = get_read_writer(format)
+        readwriter = get_readwriter(format)
         try:
             model_instance = readwriter.read(path, self._model)
         except ValidationError as e:
@@ -116,7 +116,7 @@ class LemonySettings[SettingModelT: BaseSettings]:
         )
 
         try:
-            readwriter = get_read_writer(global_settings.preference)
+            readwriter = get_readwriter(global_settings.preference)
             readwriter.write(config_file, self._value)
         except Exception as e:
             logger.error(
