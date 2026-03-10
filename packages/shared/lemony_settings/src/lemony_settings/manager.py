@@ -6,7 +6,7 @@ from typing import Literal
 from .core import GlobalSettings, LemonySettings
 from .models import BaseSettings, PersistentGlobalSettings
 from .readwriter import get_readwriter
-from .utils import resolve_config_path
+from .utils import ensure_config_path, resolve_config_path
 
 
 # not intended to be init by users
@@ -60,6 +60,7 @@ class SettingsManager:
             )
         else:
             persistent_global_settings = PersistentGlobalSettings()
+            ensure_config_path(global_config_file)
             readwriter.write(global_config_file, persistent_global_settings)
 
         self._global_settings = GlobalSettings(

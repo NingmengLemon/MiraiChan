@@ -97,15 +97,11 @@ class LemonyCheckerFactory:
         Raises:
             RuntimeError: 如果配置尚未初始化
         """
-
         if self._global_checker_settings is None:
-            self._global_checker_settings = require(
-                identifier=MODULE_IDENTIFIER,
-                namespace="global",
-                model=CheckerGlobalSettings,
+            raise RuntimeError(
+                "LemonyCheckerFactory global settings not initialized. "
+                "Call post_init() first or use init_checker_factory()."
             )
-            logger.info("Loaded checker global settings")
-
         return self._global_checker_settings.value
 
     def get_plugin_settings(self, plugin_name: str) -> CheckerPluginSettings:
