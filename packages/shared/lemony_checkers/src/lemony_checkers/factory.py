@@ -253,29 +253,49 @@ class LemonyCheckerFactory:
         return self.global_settings.admins.copy()
 
 
-lemony_checker_factory: LemonyCheckerFactory | None = None
+_lemony_checker_factory: LemonyCheckerFactory | None = None
 
 
 def get_checker_factory() -> LemonyCheckerFactory:
     """
     获取全局的 LemonyCheckerFactory 实例.
     """
-    if lemony_checker_factory is None:
+    if _lemony_checker_factory is None:
         raise RuntimeError(
             "LemonyCheckerFactory has not been initialized. Please call init_checker_factory() first."
         )
-    return lemony_checker_factory
+    return _lemony_checker_factory
 
 
-def init_checker_factory() -> None:
+def init_checker_factory() -> LemonyCheckerFactory:
     """
     初始化全局的 LemonyCheckerFactory 实例.
+
+    Returns:
+        LemonyCheckerFactory: 全局 factory 实例 (已初始化或已存在的).
     """
-    global lemony_checker_factory
-    if lemony_checker_factory is not None:
+    global _lemony_checker_factory
+    if _lemony_checker_factory is not None:
         warnings.warn(
             "LemonyCheckerFactory has already been initialized. Returning the existing instance."
         )
-        return
-    lemony_checker_factory = LemonyCheckerFactory()
-    lemony_checker_factory.post_init()
+        return _lemony_checker_factory
+    _lemony_checker_factory = LemonyCheckerFactory()
+    _lemony_checker_factory.post_init()
+    return _lemony_checker_factory
+
+
+def _reset_for_testing() -> None:
+    """将全局 factory 实例重置为 None.
+
+    **仅供测试使用.** 在每个需要重新初始化的测试用例前调用.
+    生产代码中禁止调用此函数.
+
+    Example::
+
+        def setup_function():
+            lemony_checkers.factory._reset_for_testing()
+            lemony_settings.manager._reset_for_testing()
+    """
+    global _lemony_checker_factory
+    _lemony_checker_factory = None
