@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .readwriter import get_readwriter
-from .utils import resolve_config_path
+from .utils import ensure_config_path, resolve_config_path
 
 
 class BaseSettings(BaseModel):
@@ -76,5 +76,6 @@ class GlobalSettings(BaseModel):
             self.preference,
             id_ns=None,
         )
+        ensure_config_path(config_file)
         readwriter = get_readwriter(self.preference)
         readwriter.write(config_file, self.persistent)

@@ -150,6 +150,9 @@ class FailCallbackMixin:
 
     def __init__(self, fail_cb: FailCallback | None = None) -> None:
         self._fail_cb = fail_cb
+        # 持有后台 Task 的强引用, 防止 GC 在 Task 完成前回收它.
+        # 参见: https://docs.python.org/3/library/asyncio-task.html#creating-tasks
+        self._background_tasks: set[asyncio.Task[None]] = set()
 
     @property
     def fail_cb(self) -> FailCallback | None:
@@ -173,6 +176,15 @@ class FailCallbackMixin:
                 await self._fail_cb(event)
             except Exception as e:
                 logger.error(f"Error in fail callback: {e}")
+
+    def _fire_fail_cb(self, event: MessageEvent) -> None:
+        """fire-and-forget 调用失败回调, 避免阻塞检查流程.
+
+        通过持有 Task 引用来防止 GC 提前回收 Task.
+        """
+        task = asyncio.create_task(self._call_fail_cb(event))
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
 
 class LemonyChecker(Checker[MessageEvent], FailCallbackMixin):
@@ -256,7 +268,7 @@ class LemonyChecker(Checker[MessageEvent], FailCallbackMixin):
             # 2. 检查插件是否启用
             if not plugin_settings.enabled:
                 logger.debug(f"Plugin {self._plugin_name} is disabled")
-                asyncio.create_task(self._call_fail_cb(event))
+                self._fire_fail_cb(event)
                 return False
 
             # 3. 检查命令是否启用
@@ -266,7 +278,7 @@ class LemonyChecker(Checker[MessageEvent], FailCallbackMixin):
                     logger.debug(
                         f"Command {self._command_name} in plugin {self._plugin_name} is disabled"
                     )
-                    asyncio.create_task(self._call_fail_cb(event))
+                    self._fire_fail_cb(event)
                     return False
 
         # 4. Admin 检查
@@ -296,8 +308,7 @@ class LemonyChecker(Checker[MessageEvent], FailCallbackMixin):
                 + (f" for plugin {self._plugin_name!r}" if self._plugin_name else "")
                 + (f" command {self._command_name!r}" if self._command_name else "")
             )
-            # fire and forget 调用失败回调, 避免阻塞检查流程
-            asyncio.create_task(self._call_fail_cb(event))
+            self._fire_fail_cb(event)
 
         return passed
 
@@ -320,7 +331,7 @@ class OwnerChecker(Checker[MessageEvent], FailCallbackMixin):
         if self._factory.is_owner(event.user_id):
             return True
 
-        asyncio.create_task(self._call_fail_cb(event))
+        self._fire_fail_cb(event)
         return False
 
 
@@ -343,5 +354,5 @@ class AdminChecker(Checker[MessageEvent], FailCallbackMixin):
         if self._factory.is_owner(user_id) or self._factory.is_admin(user_id):
             return True
 
-        asyncio.create_task(self._call_fail_cb(event))
+        self._fire_fail_cb(event)
         return False
