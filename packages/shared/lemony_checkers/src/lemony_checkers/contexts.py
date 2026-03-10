@@ -20,7 +20,24 @@ class EditContext:
         self._entered = True
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: type[BaseException] | None,
+    ) -> None:
+        # 只有在正常退出上下文时才保存修改, 如果发生异常则不保存.
+
+        # XXX: 但是已经修改的配置要怎么回滚呢?
+        # 目前的实现是直接不保存修改, 但这可能会导致部分修改被保留,
+        # 部分修改未被保存的情况. 需要在工厂中实现一个回滚机制来彻底撤销未保存的修改.
+        if exc_type is not None:
+            logger.warning(
+                f"Exiting edit context due to exception: {exc_value!r}. Changes will not be saved."
+            )
+            self._exited = True
+            # return None (or other falsey value) to propagate the exception
+            return
         if self._edited_global:
             self._factory.save_global_settings()
         for plugin_name in self._edited_plugins:
