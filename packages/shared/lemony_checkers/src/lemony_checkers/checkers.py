@@ -4,9 +4,13 @@
 提供基于配置的权限检查功能, 支持全局规则和插件特定规则.
 """
 
+# TODO: support for more protocols
+# 考虑更通用的设计以支持其他协议, 例如 Telegram, Discord 等. 可能需要抽象出一个通用的事件接口.
+
+import asyncio
 from collections.abc import Awaitable, Callable
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 from melobot.log import get_logger
 from melobot.protocols.onebot.v11 import GroupMessageEvent, MessageEvent
@@ -29,6 +33,7 @@ class CheckResult(Enum):
 
 
 # 失败回调类型
+# 接收一个 MessageEvent 参数的 AsyncCallable
 type FailCallback = Callable[[MessageEvent], Awaitable[Any]]
 
 
@@ -136,7 +141,41 @@ def _get_effective_mode(
     return global_settings.mode
 
 
-class LemonyChecker(Checker[MessageEvent]):
+class FailCallbackMixin:
+    """
+    提供 fail_cb 属性的 Mixin.
+
+    方便在检查器中调用失败回调.
+    """
+
+    def __init__(self, fail_cb: FailCallback | None = None) -> None:
+        self._fail_cb = fail_cb
+
+    @property
+    def fail_cb(self) -> FailCallback | None:
+        """获取当前的失败回调."""
+        return self._fail_cb
+
+    def set_fail_cb(self, fail_cb: FailCallback) -> Self:
+        """设置失败回调."""
+        self._fail_cb = fail_cb
+        return self  # 支持链式调用
+
+    def clear_fail_cb(self) -> Self:
+        """清除失败回调."""
+        self._fail_cb = None
+        return self  # 支持链式调用
+
+    async def _call_fail_cb(self, event: MessageEvent) -> None:
+        """调用失败回调."""
+        if self._fail_cb is not None:
+            try:
+                await self._fail_cb(event)
+            except Exception as e:
+                logger.error(f"Error in fail callback: {e}")
+
+
+class LemonyChecker(Checker[MessageEvent], FailCallbackMixin):
     """
     柠檬味的权限检查器.
 
@@ -147,19 +186,7 @@ class LemonyChecker(Checker[MessageEvent]):
     - 命令级别的启停控制
     - 自定义失败回调
 
-    使用方式:
-        >>> checker = LemonyChecker(plugin_name="my_plugin")
-        >>> @on_message(checker=checker)
-        >>> async def handler():
-        ...     pass
-
-        >>> # 带命令名的检查器
-        >>> checker = LemonyChecker(plugin_name="my_plugin", command_name="echo")
-
-        >>> # 带失败回调的检查器
-        >>> async def on_deny(event: MessageEvent):
-        ...     await send_text("你没有权限使用此功能")
-        >>> checker = LemonyChecker(plugin_name="my_plugin", fail_cb=on_deny)
+    从 manager 获取 checker 实例, 而不是手动实例化这个类
     """
 
     def __init__(
@@ -180,10 +207,9 @@ class LemonyChecker(Checker[MessageEvent]):
             fail_cb: 检查失败时的回调函数. 接收 event 参数.
             allow_admin: 是否允许管理员通过检查 (默认 True).
         """
-        super().__init__()
+        FailCallbackMixin.__init__(self, fail_cb=fail_cb)
         self._plugin_name = plugin_name
         self._command_name = command_name
-        self._fail_cb = fail_cb
         self._allow_admin = allow_admin
         self._factory = factory
 
@@ -257,12 +283,12 @@ class LemonyChecker(Checker[MessageEvent]):
         result = _check_rules(global_settings, plugin_settings, user_id, group_id)
 
         # 6. 根据 mode 决定默认行为
-        if result == CheckResult.DEFAULT:
+        if result is CheckResult.DEFAULT:
             mode = _get_effective_mode(global_settings, plugin_settings)
             # whitelist 模式下默认拒绝, blacklist 模式下默认允许
             result = CheckResult.DENY if mode == "whitelist" else CheckResult.ALLOW
 
-        passed = result == CheckResult.ALLOW
+        passed = result is CheckResult.ALLOW
 
         if not passed:
             logger.debug(
@@ -270,20 +296,13 @@ class LemonyChecker(Checker[MessageEvent]):
                 + (f" for plugin {self._plugin_name!r}" if self._plugin_name else "")
                 + (f" command {self._command_name!r}" if self._command_name else "")
             )
-            await self._call_fail_cb(event)
+            # fire and forget 调用失败回调, 避免阻塞检查流程
+            asyncio.create_task(self._call_fail_cb(event))
 
         return passed
 
-    async def _call_fail_cb(self, event: MessageEvent) -> None:
-        """调用失败回调."""
-        if self._fail_cb is not None:
-            try:
-                await self._fail_cb(event)
-            except Exception as e:
-                logger.error(f"Error in fail callback: {e}")
 
-
-class OwnerChecker(Checker[MessageEvent]):
+class OwnerChecker(Checker[MessageEvent], FailCallbackMixin):
     """
     Owner 专用检查器.
 
@@ -293,24 +312,19 @@ class OwnerChecker(Checker[MessageEvent]):
     def __init__(
         self, *, factory: "LemonyCheckerFactory", fail_cb: FailCallback | None = None
     ) -> None:
-        super().__init__()
+        FailCallbackMixin.__init__(self, fail_cb=fail_cb)
+
         self._factory = factory
-        self._fail_cb = fail_cb
 
     async def check(self, event: MessageEvent) -> bool:
         if self._factory.is_owner(event.user_id):
             return True
 
-        if self._fail_cb is not None:
-            try:
-                await self._fail_cb(event)
-            except Exception as e:
-                logger.error(f"Error in fail callback: {e}")
-
+        asyncio.create_task(self._call_fail_cb(event))
         return False
 
 
-class AdminChecker(Checker[MessageEvent]):
+class AdminChecker(Checker[MessageEvent], FailCallbackMixin):
     """
     Admin 检查器.
 
@@ -320,9 +334,8 @@ class AdminChecker(Checker[MessageEvent]):
     def __init__(
         self, *, factory: "LemonyCheckerFactory", fail_cb: FailCallback | None = None
     ) -> None:
-        super().__init__()
+        FailCallbackMixin.__init__(self, fail_cb=fail_cb)
         self._factory = factory
-        self._fail_cb = fail_cb
 
     async def check(self, event: MessageEvent) -> bool:
         user_id = event.user_id
@@ -330,10 +343,5 @@ class AdminChecker(Checker[MessageEvent]):
         if self._factory.is_owner(user_id) or self._factory.is_admin(user_id):
             return True
 
-        if self._fail_cb is not None:
-            try:
-                await self._fail_cb(event)
-            except Exception as e:
-                logger.error(f"Error in fail callback: {e}")
-
+        asyncio.create_task(self._call_fail_cb(event))
         return False
