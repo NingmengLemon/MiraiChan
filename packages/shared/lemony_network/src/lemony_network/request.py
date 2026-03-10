@@ -9,7 +9,6 @@ from typing import (
 
 from aiohttp import (
     ClientResponse,
-    ClientResponseError,
     ClientSession,
 )
 from aiohttp.client import _RequestOptions
@@ -50,11 +49,8 @@ async def async_http(
     **kwargs: Unpack[_ReqParams],
 ) -> AsyncGenerator[ClientResponse, None]:
     async with session.request(method, str(url), **kwargs) as response:
-        try:
-            response.raise_for_status()
-            yield response
-        except ClientResponseError as e:
-            raise e
+        response.raise_for_status()
+        yield response
 
 
 async def fetch_json(

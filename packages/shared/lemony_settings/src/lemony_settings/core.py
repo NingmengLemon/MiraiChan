@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from .models import BaseSettings, GlobalSettings
 from .readwriter import get_readwriter
-from .utils import check_identifier, resolve_config_path
+from .utils import check_identifier, ensure_config_path, resolve_config_path
 
 if TYPE_CHECKING:
     from .manager import SettingsManager
@@ -33,7 +33,8 @@ class LemonySettings[SettingModelT: BaseSettings]:
         # 在加载前就尝试读取 value 需要报错
         # 向 manager 注册的工作由 manager 的 require() 方法来完成
 
-    def _check_init_value(self, value: SettingModelT | None) -> SettingModelT:
+    def _create_default_value(self, value: SettingModelT | None) -> SettingModelT:
+        """创建默认值. 如果 value 为 None, 则使用 model 的默认值初始化."""
         # 不允许直接把 BaseSettings 作为 model 类型.
         if self._model is BaseSettings:
             raise TypeError(
@@ -116,6 +117,7 @@ class LemonySettings[SettingModelT: BaseSettings]:
         )
 
         try:
+            ensure_config_path(config_file)
             readwriter = get_readwriter(global_settings.preference)
             readwriter.write(config_file, self._value)
         except Exception as e:
@@ -123,8 +125,6 @@ class LemonySettings[SettingModelT: BaseSettings]:
                 f"Failed to save settings '{self._identifier}:{self._namespace}': {e}"
             )
             raise
-        finally:
-            pass
 
     def load(self) -> None:
         """
@@ -140,7 +140,7 @@ class LemonySettings[SettingModelT: BaseSettings]:
         if config_file.exists():
             self._value = self._load_from_file(config_file, global_settings.preference)
         else:
-            self._value = self._check_init_value(None)
+            self._value = self._create_default_value(None)
             self.save()
             logger.info(
                 f"config file {self._identifier}:{self._namespace} does not exist. "

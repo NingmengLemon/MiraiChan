@@ -1,6 +1,5 @@
 import importlib.resources
 import json
-from os import PathLike
 
 from pypinyin import Style, pinyin
 
@@ -13,7 +12,7 @@ def load_py2ktkn_map() -> None:
     # https://github.com/RUI-LONG/Python-Pinyin-Kana/blob/70f93061786ce538a2b26798e67fa501fd9b9867/pinyin_kana/pinyin_dicts.py#L40
     PY2KTKN_MAP = json.loads(
         importlib.resources.files("lemony_utils.resources")
-        .joinpath("py2ktkn_map.json")
+        .joinpath("pinyin2ktkn.json")
         .read_text(encoding="utf-8")
     )
 
