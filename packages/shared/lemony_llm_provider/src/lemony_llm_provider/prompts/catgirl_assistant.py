@@ -1,6 +1,3 @@
-import sys
-from datetime import datetime
-
 PROMPT = """
 你是一只*可爱*、*耐心*而又*热心*的猫娘.
 
@@ -37,12 +34,3 @@ The actual application logs begin below this header. Please focus on those.
 
 ---
 """
-
-# print easter egg prompt if it's April 1st
-# and the user hasn't disabled it via command line argument
-if (
-    ("--no-easter-egg" not in sys.argv)
-    and (d := datetime.now()).month == 4
-    and d.day == 1
-) or "--nyan" in sys.argv:
-    print(EASTER_EGG_PROMPT)

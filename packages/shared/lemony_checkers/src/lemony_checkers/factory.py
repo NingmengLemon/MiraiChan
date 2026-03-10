@@ -6,6 +6,7 @@
 
 import warnings
 from collections.abc import Generator
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from lemony_settings import LemonySettings, require
@@ -188,6 +189,7 @@ class LemonyCheckerFactory:
 
         return self.get_plugin_settings(plugin_name)
 
+    @contextmanager
     def edit_global_settings(self) -> Generator[CheckerGlobalSettings, None, None]:
         """
         编辑全局配置.
@@ -195,6 +197,7 @@ class LemonyCheckerFactory:
         yield self.global_settings
         self.save_global_settings()
 
+    @contextmanager
     def edit_plugin_settings(
         self, plugin_name: str
     ) -> Generator[CheckerPluginSettings, None, None]:

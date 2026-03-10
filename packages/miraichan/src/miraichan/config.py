@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, Secret
 
 from .utils import get_project_root
 
-CONFIG_PATH = Path("config.json")
+CONFIG_PATH = get_project_root() / "config.json"
 
 
 class ForwWsIOConfigModel(BaseModel):
@@ -21,6 +21,4 @@ class GlobalConfigModel(BaseModel):
     plugins: list[str] = []
 
     settings_format: Literal["json", "yaml"] | str = "json"
-    config_root: str | Path = Field(
-        default_factory=lambda: get_project_root() / "configs"
-    )
+    config_root: str | Path = Field(default=get_project_root() / "configs")
