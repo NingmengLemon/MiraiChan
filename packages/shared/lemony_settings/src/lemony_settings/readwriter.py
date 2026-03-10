@@ -23,22 +23,22 @@ class ConfigReadWriterABC(ABC):
         raise NotImplementedError
 
 
-_read_writer_registry: dict[str, type[ConfigReadWriterABC]] = {}
-_read_writer_instances: dict[str, ConfigReadWriterABC] = {}
+_readwriter_registry: dict[str, type[ConfigReadWriterABC]] = {}
+_readwriter_instances: dict[str, ConfigReadWriterABC] = {}
 
 
 def register_readwriter[T: ConfigReadWriterABC](
     format: str,  # 需要注册的格式名称, 同时为扩展名
 ) -> Callable[[type[T]], type[T]]:
     def decorator(cls: type[T]) -> type[T]:
-        _read_writer_registry[format.lower()] = cls
+        _readwriter_registry[format.lower()] = cls
         return cls
 
     return decorator
 
 
 # TODO: fck toml
-# @register_read_writer("toml")
+# @register_readwriter("toml")
 class TomlReadWriter(ConfigReadWriterABC):
     def read(self, file: Path, model: type[MT]) -> MT:
         with file.open("rb") as f:
@@ -80,9 +80,9 @@ class JsonReadWriter(ConfigReadWriterABC):
             json.dump(data.model_dump(), f, indent=4, ensure_ascii=False)
 
 
-def get_read_writer(format: str) -> ConfigReadWriterABC:
-    if format not in _read_writer_instances:
-        if format not in _read_writer_registry:
+def get_readwriter(format: str) -> ConfigReadWriterABC:
+    if format not in _readwriter_instances:
+        if format not in _readwriter_registry:
             raise ValueError(f"Unsupported config format: {format}")
-        _read_writer_instances[format] = _read_writer_registry[format]()
-    return _read_writer_instances[format]
+        _readwriter_instances[format] = _readwriter_registry[format]()
+    return _readwriter_instances[format]

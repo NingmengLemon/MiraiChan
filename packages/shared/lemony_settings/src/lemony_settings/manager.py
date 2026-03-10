@@ -5,7 +5,7 @@ from typing import Literal
 
 from .core import GlobalSettings, LemonySettings
 from .models import BaseSettings, PersistentGlobalSettings
-from .readwriter import get_read_writer
+from .readwriter import get_readwriter
 from .utils import resolve_config_path
 
 
@@ -36,7 +36,7 @@ class SettingsManager:
         self._config_root = Path(config_root)
         self._settings_table: dict[tuple[str, str], LemonySettings] = {}
         self._global_settings: GlobalSettings | None = None
-        self._readwriter = get_read_writer(preference)
+        self._readwriter = get_readwriter(preference)
         self._preference = preference
 
         self._post_init()
@@ -52,7 +52,7 @@ class SettingsManager:
             self._preference,
             id_ns=None,
         )
-        readwriter = get_read_writer(self._preference)
+        readwriter = get_readwriter(self._preference)
         if global_config_file.exists():
             persistent_global_settings = readwriter.read(
                 global_config_file,

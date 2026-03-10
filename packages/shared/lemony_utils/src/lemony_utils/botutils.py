@@ -21,7 +21,7 @@ from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, ReplySegment
 from melobot.utils import singleton
 from melobot.utils.parse.cmd import CmdArgFormatInfo, CmdArgFormatter
-from tenacity import retry
+from tenacity import retry, stop_after_attempt, wait_exponential
 from yarl import URL
 
 
@@ -90,7 +90,10 @@ class AvatarCache:
     def __call__(self, uid: int) -> Awaitable[bytes]:
         return self.get(uid)
 
-    @retry()
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+    )
     async def get_from_remote(self, uid: int):
         if self._session is None:
             self._session = ClientSession()
