@@ -1,5 +1,4 @@
-from miraichan.bot import main
-
+from miraichan.bot import miraichan_cli_app
 
 if __name__ == "__main__":
-    main()
+    miraichan_cli_app()
