@@ -5,10 +5,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 
-from lemony_images.core import (
-    FontCache,
-    get_default_font_cache,
-)
+from lemony_images import FontCache, get_default_font_cache
 from lemony_storage_helper.database import DatabaseHelper, SQLModel, registry
 from lemony_utils.time import get_time_period_start
 from lemony_utils.uuid7 import uuid7

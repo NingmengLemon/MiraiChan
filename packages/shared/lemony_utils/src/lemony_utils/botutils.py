@@ -7,7 +7,7 @@ from collections.abc import Awaitable
 
 import aiofiles
 from aiohttp import ClientSession
-from lemony_images.core import bytes_to_b64_url, text_to_image
+from lemony_images import bytes_to_b64_url, text_to_image
 from lemony_network.request import async_http, http_headers
 from melobot import get_bot
 from melobot.adapter.base import Adapter as BaseAdapter
