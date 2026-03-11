@@ -51,6 +51,25 @@ class LemonyCheckerFactory:
                 "LemonyCheckerFactory post_init called but global settings already initialized."
             )
 
+    def new_factory_wrapper(
+        self,
+        plugin_name: str | None = None,
+        command_name: str | None = None,
+        *,
+        fail_cb: "FailCallback | None" = None,
+        allow_admin: bool = True,
+    ) -> "CheckerFactoryWrapper":
+        """
+        创建一个预填充 plugin_name 和 command_name 的检查器工厂包装类.
+        """
+        return CheckerFactoryWrapper(
+            plugin_name=plugin_name,
+            command_name=command_name,
+            fail_cb=fail_cb,
+            allow_admin=allow_admin,
+            factory=self,
+        )
+
     def new_checker(
         self,
         plugin_name: str | None = None,
@@ -267,6 +286,36 @@ def get_checker_factory() -> LemonyCheckerFactory:
     return _lemony_checker_factory
 
 
+def get_checker_factory_wrapper(
+    plugin_name: str | None = None,
+    command_name: str | None = None,
+    *,
+    fail_cb: "FailCallback | None" = None,
+    allow_admin: bool = True,
+) -> "CheckerFactoryWrapper":
+    """
+    一步到位, 获取一个预填充 plugin_name 和 command_name 的检查器工厂包装类
+
+    而且 factory 是懒加载好耶 (TODO: 个鬼, 这是个 future feature)
+
+    Args:
+        plugin_name: 插件名称
+        command_name: 命令名称
+        fail_cb: 失败回调函数 (可选)
+        allow_admin: 是否允许管理员通过检查 (默认为 True)
+
+    Returns:
+        CheckerFactoryWrapper: 预填充检查器工厂包装类实例
+    """
+    factory = get_checker_factory()
+    return factory.new_factory_wrapper(
+        plugin_name=plugin_name,
+        command_name=command_name,
+        fail_cb=fail_cb,
+        allow_admin=allow_admin,
+    )
+
+
 def init_checker_factory() -> LemonyCheckerFactory:
     """
     初始化全局的 LemonyCheckerFactory 实例.
@@ -283,6 +332,79 @@ def init_checker_factory() -> LemonyCheckerFactory:
     _lemony_checker_factory = LemonyCheckerFactory()
     _lemony_checker_factory.post_init()
     return _lemony_checker_factory
+
+
+class CheckerFactoryWrapper:
+    """
+    预填充 plugin_name 和 command_name 的检查器工厂包装类.
+    这样就不需要在每个检查器实例上重复指定 plugin_name 和 command_name 了.
+    """
+
+    __slots__ = (
+        "_plugin_name",
+        "_command_name",
+        "_fail_cb",
+        "_allow_admin",
+        "_factory",
+    )
+
+    def __init__(
+        self,
+        plugin_name: str | None,
+        command_name: str | None,
+        fail_cb: "FailCallback | None" = None,
+        allow_admin: bool = True,
+        *,
+        factory: LemonyCheckerFactory,
+    ):
+        self._factory = factory
+        self._plugin_name = plugin_name
+        self._command_name = command_name
+        self._fail_cb = fail_cb
+        self._allow_admin = allow_admin
+
+    def __call__(
+        self,
+        *,
+        plugin_name: str | None = None,
+        command_name: str | None = None,
+        fail_cb: "FailCallback | None" = None,
+        allow_admin: bool = True,
+    ):
+        # TODO: 思索着应该让 checker_factory 完全惰加载,
+        # 这样的话加载应该延迟到 checker 的 check 方法被调用的时候
+        # 不过理论上插件被加载之前 miraichan 主程序就应该已经初始化好了 checker_factory 了, 所以现在这样也没什么问题
+        # 只是觉得有点不够优雅x
+
+        return self._factory.new_checker(
+            plugin_name=plugin_name or self._plugin_name,
+            command_name=command_name or self._command_name,
+            fail_cb=fail_cb or self._fail_cb,
+            allow_admin=allow_admin or self._allow_admin,
+        )
+
+    def get_owner_checker(
+        self, fail_cb: "FailCallback | None" = None
+    ) -> "OwnerChecker":
+        """获取一个只允许 Owner 的检查器."""
+        return self._factory.new_owner_checker(fail_cb=fail_cb or self._fail_cb)
+
+    def get_admin_checker(
+        self, fail_cb: "FailCallback | None" = None
+    ) -> "AdminChecker":
+        """获取一个允许 Owner 和 Admin 的检查器."""
+        return self._factory.new_admin_checker(fail_cb=fail_cb or self._fail_cb)
+
+    def is_owner(self, user_id: int) -> bool:
+        return self._factory.is_owner(user_id)
+
+    def is_admin(self, user_id: int) -> bool:
+        return self._factory.is_admin(user_id)
+
+    @property
+    def real_factory(self) -> LemonyCheckerFactory:
+        """获取底层的 LemonyCheckerFactory 实例."""
+        return self._factory
 
 
 def _reset_for_testing() -> None:
