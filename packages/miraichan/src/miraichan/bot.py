@@ -32,7 +32,16 @@ miraichan_cli_app = Typer(name="miraichan", help="Miraichan CLI commands.")
 custom_melobot_logo(ALTERNATIVE_LOGO)
 
 
-@miraichan_cli_app.command("launch")
+def init_modules(cfg: GlobalConfigModel):
+    init_default_font_cache(cfg.default_font_path)
+    init_settings_manager(
+        preference=cfg.settings_format,
+        config_root=cfg.config_root,
+    )
+    init_checker_factory()
+
+
+@miraichan_cli_app.command("launch", help="Launch Miraichan.")
 def main(
     *,
     debug: bool = Option(
@@ -46,7 +55,11 @@ def main(
         None, "--config-path", "-c", help="Path to the configuration file."
     ),
 ):
-    # logger not initialized yet, use standard logging for the first logs
+    # print easter egg prompt if it's April 1st
+    # and the user hasn't disabled it via command line argument
+    if (not no_easter_egg and (d := datetime.now()).month == 4 and d.day == 1) or nyan:
+        print(EASTER_EGG_PROMPT)
+
     config_path = Path(config_path or DEFAULT_CONFIG_PATH)
     set_global_logger(logger)
 
@@ -66,19 +79,9 @@ def main(
     logger.debug("Config: " + cfg.model_dump_json(indent=4))
     os.makedirs("data", exist_ok=True)
 
-    init_default_font_cache(cfg.default_font_path)
-    init_settings_manager(
-        preference=cfg.settings_format,
-        config_root=cfg.config_root,
-    )
-    init_checker_factory()
+    init_modules(cfg)
 
     plugins = [resolve_plugin_path(p) for p in cfg.plugins]
-
-    # print easter egg prompt if it's April 1st
-    # and the user hasn't disabled it via command line argument
-    if (not no_easter_egg and (d := datetime.now()).month == 4 and d.day == 1) or nyan:
-        print(EASTER_EGG_PROMPT)
 
     bot = (
         Bot(
