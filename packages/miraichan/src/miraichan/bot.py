@@ -6,7 +6,7 @@ from pathlib import Path
 
 import json5
 from lemony_checkers import init_checker_factory
-from lemony_images.core import init_default_font_cache
+from lemony_images import init_default_font_cache
 from lemony_llm_provider.prompts.catgirl_assistant import EASTER_EGG_PROMPT
 from lemony_settings import init_settings_manager
 from melobot import Bot, add_import_fallback
