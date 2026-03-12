@@ -11,7 +11,7 @@ from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 
 from .lottery import LotteryBox
 
-MoeLottery = PluginPlanner("0.1.0")
+MoeLottery = PluginPlanner("1.0.0")
 
 PLUGIN_IDENTIFIER = "moelottery"
 
