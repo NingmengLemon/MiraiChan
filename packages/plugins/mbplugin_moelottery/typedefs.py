@@ -1,57 +1,55 @@
-import time
-from typing import TypedDict
+from __future__ import annotations
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, Field
 
-type LotWeight = float | int
+type Weight = float | int
 
-
-class MoeAttrs(TypedDict):
-    age: dict[str, LotWeight]
-    shallowchara: dict[str, LotWeight]
-    deepchara: dict[str, LotWeight]
-    habit: dict[str, LotWeight]
-    hairstyle: dict[str, LotWeight]
-    haircolor: dict[str, LotWeight]
-    pupilcolor: dict[str, LotWeight]
-    breast: dict[str, LotWeight]
-    race: dict[str, LotWeight]
+# ---- 资源文件中每个属性池的定义 ----
 
 
-moeattrs_adapter = TypeAdapter(MoeAttrs)
+class PoolDependency(BaseModel):
+    """条件依赖：当另一个池的抽取结果命中 triggers 中的某个 key 时，才从对应的选项中抽取"""
+
+    pool: str
+    triggers: dict[str, dict[str, Weight]]
 
 
-class DetailedMoeAttrs(TypedDict):
-    racial_feature: dict[str, dict[str, LotWeight]]
-    detailed_race: dict[str, dict[str, LotWeight]]
-    detailed_pupilcolor: dict[str, dict[str, LotWeight]]
+class AttrPool(BaseModel):
+    """一个属性池"""
+
+    label: str
+    options: dict[str, Weight] | None = None
+    nullable: bool = False
+    null_weight: Weight = 0
+    depends_on: PoolDependency | None = None
 
 
-detailed_moeattrs_adapter = TypeAdapter(DetailedMoeAttrs)
+# ---- 计算属性（由已有抽取结果派生） ----
 
 
-class MoeData(TypedDict):
-    nottomention_sentinels: list[str]
-    moeattrs: MoeAttrs
-    detailed_moeattrs: DetailedMoeAttrs
+class ComputedAttr(BaseModel):
+    """根据另一个池的结果映射出一个派生值"""
+
+    depends_on: str
+    mapping: dict[str, str]
+    default: str
 
 
-moedata_adapter = TypeAdapter(MoeData)
+# ---- 后缀规则 ----
 
 
-class LotResult(BaseModel):
-    age: str
-    shallowchara: str
-    deepchara: str
-    habit: str
-    hairstyle: str | None
-    haircolor: str
-    pupilcolor: str
-    breast: str
-    race: str
-    # 细节属性
-    racial_feature: str | None
-    detailed_race: str | None
-    detailed_pupilcolor: str | None
-    # 记录时间
-    time: float = Field(default_factory=lambda: time.time())
+class SuffixRule(BaseModel):
+    """当 condition 中引用的变量有值时，追加 text 到结果末尾"""
+
+    condition: str
+    text: str
+
+
+# ---- 整个资源文件的顶层结构 ----
+
+
+class MoeData(BaseModel):
+    template: str
+    suffix_rules: list[SuffixRule] = Field(default_factory=list)
+    computed: dict[str, ComputedAttr] = Field(default_factory=dict)
+    pools: dict[str, AttrPool]

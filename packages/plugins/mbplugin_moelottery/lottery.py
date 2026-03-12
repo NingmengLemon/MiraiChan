@@ -1,93 +1,116 @@
+from __future__ import annotations
+
+import json
 import random
-import time
+import re
 from importlib import resources
 
-import json5
 from melobot.log import get_logger
 
 from . import resources as res_module
-from .typedefs import (
-    DetailedMoeAttrs,
-    LotResult,
-    LotWeight,
-    MoeAttrs,
-    moedata_adapter,
-)
+from .typedefs import AttrPool, MoeData, Weight
 
 logger = get_logger()
 
 
-def random_with_weight(data_dict: dict[str, LotWeight]) -> str | None:
-    sum_wt = sum(data_dict.values())
-    ra_wt = random.uniform(0, sum_wt)
-    cur_wt = 0.0
-    for key in data_dict.keys():
-        cur_wt += data_dict[key]
-        if ra_wt <= cur_wt:
-            return key
+def weighted_choice(options: dict[str, Weight]) -> str:
+    """从带权重的选项字典中随机选取一个"""
+    keys = list(options.keys())
+    weights = [options[k] for k in keys]
+    return random.choices(keys, weights=weights, k=1)[0]
 
 
 class LotteryBox:
     def __init__(self, moefile: str | None = None) -> None:
-        (
-            self._moeattrs,
-            self._d_moeattrs,
-            self._nottomention_sentinels,
-        ) = self.load_moeattrs(moefile)
+        self._data = self._load(moefile)
 
     @staticmethod
-    def load_moeattrs(
-        moefile: str | None = None,
-    ) -> tuple[MoeAttrs, DetailedMoeAttrs, set[str]]:
+    def _load(moefile: str | None = None) -> MoeData:
         if moefile is None:
-            rawdata = (resources.files(res_module) / "moe_attrs.json").read_text(
+            raw = (resources.files(res_module) / "moe_attrs.json").read_text(
                 encoding="utf-8"
             )
-            data = moedata_adapter.validate_python(json5.loads(rawdata))
-        else:
-            with open(moefile, "r", encoding="utf-8") as fp:
-                data = moedata_adapter.validate_python(json5.load(fp))
-        return (
-            data["moeattrs"],
-            data["detailed_moeattrs"],
-            set(data["nottomention_sentinels"]),
-        )
+            return MoeData.model_validate_json(raw)
+        with open(moefile, "r", encoding="utf-8") as fp:
+            return MoeData.model_validate(json.load(fp))
 
-    def lot(self) -> LotResult:
-        res = {}
-        for attr_type in self._moeattrs.keys():
-            res[attr_type] = random_with_weight(self._moeattrs[attr_type])
-
-        for attr_type in self._d_moeattrs.keys():
-            for req_attr in self._d_moeattrs[attr_type].keys():
-                res[attr_type] = (
-                    random_with_weight(self._d_moeattrs[attr_type][req_attr])
-                    if req_attr in res.values()
-                    else None
-                )
-
-        res = {
-            k: (v if v not in self._nottomention_sentinels else None)
-            for k, v in res.items()
-        }
-        res["time"] = time.time()
-        logger.debug(f"抽取结果: {res}")
-        return LotResult.model_validate(res)
+    # ---- 抽取 ----
 
     @staticmethod
-    def build_response_text(moedata: LotResult):
-        quantifier = "个"
-        match moedata.age:
-            case "幼女" | "萝莉" | "合法萝莉":
-                quantifier = "只"
-            case "少女" | "御姐" | "非法御姐":
-                quantifier = "位"
-        text = "一{quantifier}表面{shallowchara}、内里{deepchara}还带点{habit}的{haircolor}{pupilcolor}{breast}{race}{age}".format(
-            quantifier=quantifier, **moedata.model_dump()
-        )
-        if (rf := moedata.racial_feature) is not None:
-            text += f"，有着{rf}"
-        if (dr := moedata.detailed_race) is not None:
-            text += f"，具体地说是一{quantifier}{dr}"
+    def _draw_from_pool(pool: AttrPool, drawn: dict[str, str | None]) -> str | None:
+        """从单个属性池中抽取结果
+
+        - 独立池（无 depends_on）：直接从 options 中加权随机
+        - 条件池（有 depends_on）：先看依赖池的结果是否命中 triggers，
+          命中了才从对应选项中抽取，否则返回 None
+        - nullable 池：有 null_weight 概率返回 None
+        """
+        if pool.depends_on is not None:
+            dep = pool.depends_on
+            dep_value = drawn.get(dep.pool)
+            if dep_value is None or dep_value not in dep.triggers:
+                return None
+            return weighted_choice(dep.triggers[dep_value])
+
+        if pool.options is None:
+            return None
+
+        if pool.nullable and pool.null_weight > 0:
+            # 把"无结果"也作为一个带权重的选项参与抽取
+            total = sum(pool.options.values()) + pool.null_weight
+            if random.uniform(0, total) < pool.null_weight:
+                return None
+
+        return weighted_choice(pool.options)
+
+    def lot(self) -> dict[str, str | None]:
+        """执行一次完整抽取，返回 {池名: 抽取结果}"""
+        pools = self._data.pools
+        drawn: dict[str, str | None] = {}
+
+        # 第一轮：抽取所有独立池（无 depends_on 的池）
+        for name, pool in pools.items():
+            if pool.depends_on is None:
+                drawn[name] = self._draw_from_pool(pool, drawn)
+
+        # 第二轮：抽取所有条件池（有 depends_on 的池）
+        for name, pool in pools.items():
+            if pool.depends_on is not None:
+                drawn[name] = self._draw_from_pool(pool, drawn)
+
+        logger.debug(f"抽取结果: {drawn}")
+        return drawn
+
+    # ---- 文本构建 ----
+
+    def build_response_text(self, drawn: dict[str, str | None]) -> str:
+        """根据抽取结果和模板生成最终的描述文本"""
+        # 计算派生属性
+        vars_: dict[str, str] = {}
+        for name, computed in self._data.computed.items():
+            dep_value = drawn.get(computed.depends_on, "")
+            vars_[name] = computed.mapping.get(dep_value or "", computed.default)
+
+        # 把抽取结果中非 None 的值合并进来
+        for name, value in drawn.items():
+            if value is not None:
+                vars_[name] = value
+
+        # 用 format_map 渲染主模板，缺失的 key 渲染为空字符串
+        text = self._data.template.format_map(_DefaultDict(vars_))
+
+        # 处理后缀规则
+        for rule in self._data.suffix_rules:
+            # condition 格式类似 "{racial_feature}"，提取其中引用的变量名
+            ref_names = re.findall(r"\{(\w+)\}", rule.condition)
+            if all(vars_.get(n) for n in ref_names):
+                text += rule.text.format_map(_DefaultDict(vars_))
 
         return text
+
+
+class _DefaultDict(dict):
+    """format_map 的辅助类：未找到的 key 返回空字符串"""
+
+    def __missing__(self, key: str) -> str:
+        return ""
