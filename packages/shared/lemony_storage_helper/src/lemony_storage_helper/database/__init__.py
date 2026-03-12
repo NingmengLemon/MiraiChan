@@ -5,7 +5,7 @@ from sqlalchemy.orm import registry
 from sqlmodel import SQLModel as _SQLModel
 from sqlmodel import col
 
-from .core import DatabaseHelper
+from .core import GenericDatabaseHelper, SqliteDatabaseHelper, set_relative_path_base
 from .utils import (
     AsyncCallable,
     DatabaseAsyncCallable,
@@ -22,7 +22,8 @@ from .utils import (
 )
 
 __all__ = [
-    "DatabaseHelper",
+    "GenericDatabaseHelper",
+    "SqliteDatabaseHelper",
     "AsyncCallable",
     "DatabaseAsyncCallable",
     "in_transaction",
@@ -34,6 +35,7 @@ __all__ = [
     "check_table_existence_sync",
     "check_table_existence",
     "datetime_column_tzaware",
+    "set_relative_path_base",
     "queryable",
     # 重导出
     "SQLModel",
