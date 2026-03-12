@@ -1,13 +1,10 @@
 [project]
 name = "mbplugin_checker_manager"
-version = "1.0.0"
+version = "1.0.1"
 description = "lemony_checkers 共享库的聊天管理接口插件"
 readme = "readme.md"
 requires-python = ">=3.12"
-dependencies = [
-    "lemony_checkers",
-    "melobot[onebot]>=3.3.0",
-]
+dependencies = ["lemony_checkers", "melobot[onebot]>=3.3.0"]
 
 [tool.uv.sources]
 lemony_checkers = { workspace = true }

@@ -113,6 +113,19 @@ class EditContext:
         self._edited_global = True
         logger.info(f"Global mode set to: {mode}")
 
+    def set_global_rule_priority(
+        self, priority: Literal["group_first", "user_first"]
+    ) -> None:
+        """
+        设置全局规则匹配优先级.
+
+        Args:
+            priority: 匹配优先级 ("group_first" 或 "user_first")
+        """
+        self.global_settings.rule_priority = priority
+        self._edited_global = True
+        logger.info(f"Global rule priority set to: {priority}")
+
     def add_global_rule(
         self,
         rule_type: Literal["user", "group"],
@@ -235,6 +248,22 @@ class EditContext:
         """
         self._factory.get_plugin_settings(plugin_name).mode = mode
         logger.info(f"Plugin '{plugin_name}' mode set to: {mode}")
+        self._edited_plugins.add(plugin_name)
+
+    def set_plugin_rule_priority(
+        self,
+        plugin_name: str,
+        priority: Literal["group_first", "user_first"] | None,
+    ) -> None:
+        """
+        设置插件的规则匹配优先级.
+
+        Args:
+            plugin_name: 插件名称
+            priority: 匹配优先级, None 表示使用全局配置
+        """
+        self._factory.get_plugin_settings(plugin_name).rule_priority = priority
+        logger.info(f"Plugin '{plugin_name}' rule priority set to: {priority}")
         self._edited_plugins.add(plugin_name)
 
     def set_command_enabled(

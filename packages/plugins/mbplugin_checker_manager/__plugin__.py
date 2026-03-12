@@ -5,8 +5,9 @@ Checker Manager 插件
 
 指令列表:
     .checker global mode <whitelist|blacklist>  - 设置全局权限模式
+    .checker global priority <group_first|user_first> - 设置全局规则匹配优先级
     .checker global rules [user|group]          - 查看全局规则
-    .checker global add <user|group> <allow|deny> [id1,id2,...] - 添加全局规则
+    .checker global add <user|group> <allow|deny> [id1,id2,...|this] - 添加全局规则
     .checker global remove <user|group> <index> - 移除全局规则
     .checker global clear [user|group]          - 清除全局规则
 
@@ -17,14 +18,18 @@ Checker Manager 插件
     .checker plugin <name> enable               - 启用插件
     .checker plugin <name> disable              - 禁用插件
     .checker plugin <name> mode <whitelist|blacklist|inherit> - 设置插件权限模式
+    .checker plugin <name> priority <group_first|user_first|inherit> - 设置插件规则匹配优先级
     .checker plugin <name> rules [user|group]   - 查看插件规则
-    .checker plugin <name> add <user|group> <allow|deny> [id1,id2,...] - 添加插件规则
+    .checker plugin <name> add <user|group> <allow|deny> [id1,id2,...|this] - 添加插件规则
     .checker plugin <name> remove <user|group> <index> - 移除插件规则
     .checker plugin <name> clear [user|group]   - 清除插件规则
 
     .checker reload [global|<plugin_name>]      - 重新加载配置
     .checker save [global|<plugin_name>]        - 保存配置
     .checker status                             - 查看当前状态
+
+备注:
+    在 ids 参数中可以使用 "this" 代替当前群聊的群号 (仅限群聊中使用).
 """
 
 from lemony_checkers import EditContext, Rule, get_checker_factory
@@ -32,15 +37,22 @@ from lemony_checkers.factory import LemonyCheckerFactory
 from melobot import PluginPlanner, get_logger
 from melobot.handle import on_command
 from melobot.protocols.onebot.v11 import Adapter
-from melobot.protocols.onebot.v11.adapter.event import MessageEvent
+from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 from melobot.utils.parse import CmdArgs
 
-CheckerManager = PluginPlanner("1.0.0")
+CheckerManager = PluginPlanner("1.0.1")
 logger = get_logger()
 
 
 def _get_factory() -> LemonyCheckerFactory:
     return get_checker_factory()
+
+
+def _get_group_id(event: MessageEvent) -> int | None:
+    """从事件中获取群组ID, 私聊返回 None."""
+    if isinstance(event, GroupMessageEvent):
+        return event.group_id
+    return None
 
 
 def _check_privilege(user_id: int) -> bool:
@@ -61,12 +73,40 @@ def _format_rules(rules: list[Rule], rule_type: str) -> str:
     return "\n".join(lines)
 
 
-def _parse_ids(ids_str: str | None) -> list[int] | None:
-    """解析 ID 列表字符串"""
+class ThisInPrivateChatError(Exception):
+    """在私聊中使用了 'this' 简写"""
+
+
+def _parse_ids(ids_str: str | None, *, group_id: int | None = None) -> list[int] | None:
+    """解析 ID 列表字符串.
+
+    支持 "this" 简写, 在群聊中代表当前群号.
+
+    Args:
+        ids_str: ID 列表字符串, 逗号分隔. "all"/"none"/"*" 表示匹配所有.
+        group_id: 当前群组ID, 用于解析 "this".
+
+    Returns:
+        list[int] | None: 解析后的 ID 列表, None 表示匹配所有.
+
+    Raises:
+        ThisInPrivateChatError: 在私聊中使用了 "this".
+    """
     if ids_str is None or ids_str.lower() in ("all", "none", "*"):
         return None
     try:
-        return [int(id_.strip()) for id_ in ids_str.split(",") if id_.strip()]
+        result: list[int] = []
+        for id_ in ids_str.split(","):
+            id_ = id_.strip()
+            if not id_:
+                continue
+            if id_.lower() == "this":
+                if group_id is None:
+                    raise ThisInPrivateChatError()
+                result.append(group_id)
+            else:
+                result.append(int(id_))
+        return result
     except ValueError:
         return []
 
@@ -119,10 +159,16 @@ async def _handle_status(adapter: Adapter):
     global_settings = factory.global_settings
     admins = factory.get_admins()
 
+    priority_display = (
+        "先群组后用户"
+        if global_settings.rule_priority == "group_first"
+        else "先用户后群组"
+    )
     lines = [
         "Checker 状态:",
         f"  全局模式: {global_settings.mode}",
-        # f"  Owner: {owner or '未设置'}",
+        f"  规则优先级: {priority_display} ({global_settings.rule_priority})",
+        f"  Owner: {'有' if global_settings.owner else '未设置'}",
         f"  管理员数量: {len(admins)}",
         f"  全局用户规则: {len(global_settings.rules.user_rules)} 条",
         f"  全局群组规则: {len(global_settings.rules.group_rules)} 条",
@@ -136,8 +182,9 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
         await adapter.send_reply(
             "全局配置命令:\n"
             ".checker global mode <whitelist|blacklist>\n"
+            ".checker global priority <group_first|user_first>\n"
             ".checker global rules [user|group]\n"
-            ".checker global add <user|group> <allow|deny> [ids]\n"
+            ".checker global add <user|group> <allow|deny> [ids|this]\n"
             ".checker global remove <user|group> <index>\n"
             ".checker global clear [user|group]"
         )
@@ -159,6 +206,22 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
             with EditContext(_get_factory()) as ctx:
                 ctx.set_global_mode(mode)  # type: ignore
             await adapter.send_reply(f"全局模式已设置为: {mode}")
+
+        case "priority":
+            if not action_args:
+                global_settings = _get_factory().global_settings
+                await adapter.send_reply(
+                    f"当前全局规则优先级: {global_settings.rule_priority}"
+                )
+                return
+            priority = action_args[0].lower()
+            if priority not in ("group_first", "user_first"):
+                await adapter.send_reply("优先级必须是 group_first 或 user_first")
+                return
+            with EditContext(_get_factory()) as ctx:
+                ctx.set_global_rule_priority(priority)  # type: ignore
+            await adapter.send_reply(f"全局规则优先级已设置为: {priority}")
+
         case "rules":
             global_settings = _get_factory().global_settings
             rule_type = action_args[0].lower() if action_args else None
@@ -189,7 +252,12 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
                 await adapter.send_reply("动作必须是 allow 或 deny")
                 return
 
-            ids = _parse_ids(ids_str)
+            group_id = _get_group_id(event)
+            try:
+                ids = _parse_ids(ids_str, group_id=group_id)
+            except ThisInPrivateChatError:
+                await adapter.send_reply('"this" 只能在群聊中使用, 用于代替当前群号')
+                return
             with EditContext(_get_factory()) as ctx:
                 ctx.add_global_rule(rule_type, rule_action, ids)  # type: ignore
             ids_display = "所有" if ids is None else ", ".join(map(str, ids))
@@ -311,8 +379,9 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
             "插件配置命令:\n"
             ".checker plugin <name> enable|disable\n"
             ".checker plugin <name> mode <whitelist|blacklist|inherit>\n"
+            ".checker plugin <name> priority <group_first|user_first|inherit>\n"
             ".checker plugin <name> rules [user|group]\n"
-            ".checker plugin <name> add <user|group> <allow|deny> [ids]\n"
+            ".checker plugin <name> add <user|group> <allow|deny> [ids|this]\n"
             ".checker plugin <name> remove <user|group> <index>\n"
             ".checker plugin <name> clear [user|group]"
         )
@@ -352,6 +421,31 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
                 return
             await adapter.send_reply(f"插件 {plugin_name} 模式已设置为: {mode}")
 
+        case "priority":
+            if not action_args:
+                plugin_settings = _get_factory().get_plugin_settings(plugin_name)
+                priority_str = plugin_settings.rule_priority or "inherit (继承全局)"
+                await adapter.send_reply(
+                    f"插件 {plugin_name} 当前规则优先级: {priority_str}"
+                )
+                return
+
+            priority = action_args[0].lower()
+            if priority == "inherit":
+                with EditContext(_get_factory()) as ctx:
+                    ctx.set_plugin_rule_priority(plugin_name, None)
+            elif priority in ("group_first", "user_first"):
+                with EditContext(_get_factory()) as ctx:
+                    ctx.set_plugin_rule_priority(plugin_name, priority)  # type: ignore
+            else:
+                await adapter.send_reply(
+                    "优先级必须是 group_first, user_first 或 inherit"
+                )
+                return
+            await adapter.send_reply(
+                f"插件 {plugin_name} 规则优先级已设置为: {priority}"
+            )
+
         case "rules":
             plugin_settings = _get_factory().get_plugin_settings(plugin_name)
             rule_type = action_args[0].lower() if action_args else None
@@ -384,7 +478,12 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
                 await adapter.send_reply("动作必须是 allow 或 deny")
                 return
 
-            ids = _parse_ids(ids_str)
+            group_id = _get_group_id(event)
+            try:
+                ids = _parse_ids(ids_str, group_id=group_id)
+            except ThisInPrivateChatError:
+                await adapter.send_reply('"this" 只能在群聊中使用, 用于代替当前群号')
+                return
             with EditContext(_get_factory()) as ctx:
                 ctx.add_plugin_rule(plugin_name, rule_type, rule_action, ids)  # type: ignore
             ids_display = "所有" if ids is None else ", ".join(map(str, ids))
