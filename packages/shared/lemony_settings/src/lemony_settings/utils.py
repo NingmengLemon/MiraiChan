@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 from typing import Literal
 
@@ -6,7 +5,7 @@ from .consts import IDENTIFIER_PATTERN
 
 
 def check_identifier(value: str) -> str:
-    if re.fullmatch(IDENTIFIER_PATTERN, value) is None:
+    if IDENTIFIER_PATTERN.fullmatch(value) is None:
         raise ValueError(
             f"Value '{value}' does not match the pattern '{IDENTIFIER_PATTERN}'"
         )
