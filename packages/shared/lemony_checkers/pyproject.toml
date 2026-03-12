@@ -1,6 +1,6 @@
 [project]
 name = "lemony_checkers"
-version = "0.1.0"
+version = "0.1.1"
 description = "Lemoneko's permission checker library for MiraiChan"
 authors = [
     { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },

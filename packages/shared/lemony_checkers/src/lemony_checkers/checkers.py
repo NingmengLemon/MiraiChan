@@ -16,7 +16,7 @@ from melobot.log import get_logger
 from melobot.protocols.onebot.v11 import GroupMessageEvent, MessageEvent
 from melobot.utils.check import Checker
 
-from .models import CheckerGlobalSettings, CheckerPluginSettings, Rule
+from .models import CheckerGlobalSettings, CheckerPluginSettings, Rule, RuleSet
 
 if TYPE_CHECKING:
     from .factory import LemonyCheckerFactory
@@ -62,6 +62,62 @@ def _match_rules(
     return CheckResult.DEFAULT
 
 
+def _check_rules_for_group(
+    rules: RuleSet,
+    user_id: int,
+    group_id: int,
+    priority: Literal["group_first", "user_first"],
+) -> CheckResult:
+    """
+    按优先级检查群聊中的规则集.
+
+    Args:
+        rules: 规则集 (包含 user_rules 和 group_rules)
+        user_id: 用户ID
+        group_id: 群组ID
+        priority: 匹配优先级
+
+    Returns:
+        CheckResult: 检查结果
+    """
+    if priority == "group_first":
+        first_rules, first_id = rules.group_rules, group_id
+        second_rules, second_id = rules.user_rules, user_id
+    else:
+        first_rules, first_id = rules.user_rules, user_id
+        second_rules, second_id = rules.group_rules, group_id
+
+    result = _match_rules(first_rules, first_id)
+    if result != CheckResult.DEFAULT:
+        return result
+    result = _match_rules(second_rules, second_id)
+    if result != CheckResult.DEFAULT:
+        return result
+
+    return CheckResult.DEFAULT
+
+
+def _get_effective_rule_priority(
+    global_settings: CheckerGlobalSettings,
+    plugin_settings: CheckerPluginSettings | None,
+) -> Literal["group_first", "user_first"]:
+    """
+    获取有效的规则匹配优先级.
+
+    插件配置的 rule_priority 优先, 如果为 None 则使用全局配置.
+
+    Args:
+        global_settings: 全局配置
+        plugin_settings: 插件配置 (可为 None)
+
+    Returns:
+        有效的规则匹配优先级
+    """
+    if plugin_settings is not None and plugin_settings.rule_priority is not None:
+        return plugin_settings.rule_priority
+    return global_settings.rule_priority
+
+
 def _check_rules(
     global_settings: CheckerGlobalSettings,
     plugin_settings: CheckerPluginSettings | None,
@@ -75,6 +131,8 @@ def _check_rules(
     1. 全局规则 (私聊/群聊)
     2. 插件规则 (私聊/群聊)
 
+    在群聊中, 群组规则和用户规则的匹配顺序由 rule_priority 配置决定.
+
     Args:
         global_settings: 全局配置
         plugin_settings: 插件配置 (可为 None)
@@ -87,14 +145,14 @@ def _check_rules(
     # 判断消息类型
     is_group = group_id is not None
 
+    # 获取有效的规则优先级
+    priority = _get_effective_rule_priority(global_settings, plugin_settings)
+
     # 1. 检查全局规则
     if is_group:
-        # 群聊: 先检查群组规则
-        result = _match_rules(global_settings.rules.group_rules, group_id)
-        if result != CheckResult.DEFAULT:
-            return result
-        # 再检查用户规则
-        result = _match_rules(global_settings.rules.user_rules, user_id)
+        result = _check_rules_for_group(
+            global_settings.rules, user_id, group_id, priority
+        )
         if result != CheckResult.DEFAULT:
             return result
     else:
@@ -106,10 +164,9 @@ def _check_rules(
     # 2. 检查插件规则
     if plugin_settings is not None:
         if is_group:
-            result = _match_rules(plugin_settings.rules.group_rules, group_id)
-            if result != CheckResult.DEFAULT:
-                return result
-            result = _match_rules(plugin_settings.rules.user_rules, user_id)
+            result = _check_rules_for_group(
+                plugin_settings.rules, user_id, group_id, priority
+            )
             if result != CheckResult.DEFAULT:
                 return result
         else:

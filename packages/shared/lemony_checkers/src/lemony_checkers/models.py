@@ -59,6 +59,17 @@ class CheckerGlobalSettings(BaseSettings):
             """
         ).strip(),
     )
+    rule_priority: Literal["group_first", "user_first"] = Field(
+        default="group_first",
+        description=textwrap.dedent(
+            """
+            群聊中规则的匹配优先级, 决定先匹配群组规则还是用户规则.
+            - group_first: 先匹配群组规则, 再匹配用户规则 (默认).
+            - user_first: 先匹配用户规则, 再匹配群组规则.
+            私聊中不受此设置影响, 始终只匹配用户规则.
+            """
+        ).strip(),
+    )
     owner: int | None = Field(
         default=None,
         description="机器人所有者的QQ号. 无视所有权限检查, 始终通过.",
@@ -100,6 +111,16 @@ class CheckerPluginSettings(BaseSettings):
             插件的权限模式. 为 None 时使用全局配置的模式.
             - whitelist: 默认拒绝, 仅允许在规则中明确允许的操作.
             - blacklist: 默认允许, 仅禁止在规则中明确禁止的操作.
+            """
+        ).strip(),
+    )
+    rule_priority: Literal["group_first", "user_first"] | None = Field(
+        default=None,
+        description=textwrap.dedent(
+            """
+            插件级别的群聊规则匹配优先级. 为 None 时使用全局配置.
+            - group_first: 先匹配群组规则, 再匹配用户规则.
+            - user_first: 先匹配用户规则, 再匹配群组规则.
             """
         ).strip(),
     )
