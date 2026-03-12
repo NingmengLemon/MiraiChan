@@ -6,11 +6,14 @@ from io import BytesIO
 from pathlib import Path
 
 from lemony_images import FontCache, get_default_font_cache
-from lemony_storage_helper.database import DatabaseHelper, SQLModel, registry
+from lemony_storage_helper.database import (
+    SqliteDatabaseHelper,
+    SQLModel,
+    registry,
+)
 from lemony_utils.time import get_time_period_start
 from lemony_utils.uuid7 import uuid7
 from PIL import Image, ImageDraw, ImageOps
-from sqlalchemy import URL
 from sqlmodel import Field, Session, select
 
 deerdb_registry = registry()
@@ -33,12 +36,8 @@ class DeerRecord(DeerBase, table=True):
     combo: int = Field(default=1)
 
 
-DBPPATH = "data/record/deers.db"
-dburl = URL.create(
-    "sqlite+aiosqlite",
-    database=DBPPATH,
-)
-deerdbcore = DatabaseHelper(dburl, deerdb_registry.metadata)
+DBPPATH = "record/deers.db"
+deerdbcore = SqliteDatabaseHelper(DBPPATH, metadata=deerdb_registry.metadata)
 
 
 @deerdbcore.to_async
@@ -135,7 +134,9 @@ class Painter:
                 (
                     _to_image(user_avatar)
                     if user_avatar
-                    else _to_image("data/no_data.png")
+                    else _to_image(
+                        "data/no_data.png"
+                    )  # TODO: 从统一的资源管理器里拿, 别直接读相对路径, cwd 不一定是项目根
                 ),
                 (self.MARGIN_INFO, self.MARGIN_INFO),
             ),

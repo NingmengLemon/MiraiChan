@@ -1,12 +1,11 @@
 import asyncio
-import os
 import re
 import time
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 
-from lemony_checkers import get_checker_factory
+from lemony_checkers import get_checker_factory_wrapper
 from lemony_images import bytes_to_b64_url
 from lemony_settings import BaseSettings, require
 from lemony_utils.botutils import cached_avatar_source
@@ -18,7 +17,6 @@ from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, TextSegme
 from melobot.protocols.onebot.v11.handle import on_message
 
 from .core import (
-    DBPPATH,
     Painter,
     deerdbcore,
     query,
@@ -34,8 +32,12 @@ class CfgModel(BaseSettings):
     group_isolation: bool = False
     daily_limit: int = 100  # < 1 的值记为无限制
 
+    database_echo: bool = False
+    # 调试用
+    # 并且注意 melobot 的日志器似乎 hook 不到 sa 的日志
+    # 所以风格和其他日志不太一样 (这是重点吗)
 
-os.makedirs(os.path.dirname(DBPPATH), exist_ok=True)
+
 cfgloader = require(model=CfgModel, identifier=PLUGIN_IDENTIFIER)
 
 RESOURCE_PATH = Path(__file__).parent / "resources"
@@ -83,18 +85,17 @@ def post_init():
 async def _():
     cfgloader.load()
     await asyncio.to_thread(post_init)
-    await deerdbcore.startup(echo=True)
+    await deerdbcore.startup(echo=cfgloader.value.database_echo)
 
 
 deer_lock = asyncio.Lock()
+checker_factory = get_checker_factory_wrapper(
+    plugin_name=PLUGIN_IDENTIFIER,
+)
 
 
 @plugin.use
-@on_message(
-    checker=get_checker_factory().new_checker(
-        plugin_name=PLUGIN_IDENTIFIER, command_name="do_deer"
-    )
-)
+@on_message(checker=checker_factory(command_name="do_deer"))
 async def deer(event: GroupMessageEvent, adapter: Adapter):
     if not re.match(DEER_JUDGE_REGEX, (msg := event.text)):
         return
