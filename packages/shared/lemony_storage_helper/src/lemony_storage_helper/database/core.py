@@ -1,7 +1,7 @@
 import asyncio
 import functools
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, MutableMapping
 from pathlib import Path
 from types import TracebackType
 from typing import Concatenate, Literal, Self, overload
@@ -203,7 +203,10 @@ class SqliteDatabaseHelper(GenericDatabaseHelper):
         if _upper_layer_managed_relative_path_base is not None:
             if relative_path_base is not None:
                 logger.warning(
-                    "Upper layer is managing relative_path_base, ignoring the one provided to SqliteDatabaseHelper"
+                    "Upper layer is managing relative_path_base (%s), "
+                    "ignoring the one provided (%s)",
+                    _upper_layer_managed_relative_path_base,
+                    relative_path_base,
                 )
             relative_path_base = _upper_layer_managed_relative_path_base
 
@@ -231,6 +234,15 @@ class SqliteDatabaseHelper(GenericDatabaseHelper):
             self._db_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 所有 aiosqlite 都需要 check_same_thread=False
-        kw.setdefault("connect_args", {})["check_same_thread"] = False
+        connect_args = kw.pop("connect_args", {})
+        if not isinstance(connect_args, MutableMapping):
+            raise ValueError("connect_args must be a dict")
+        connect_args.setdefault("check_same_thread", False)
+        kw["connect_args"] = connect_args
 
         await super().startup(echo=echo, **kw)
+
+    @property
+    def in_memory(self) -> bool:
+        """是否为内存数据库"""
+        return self._db_path is None
