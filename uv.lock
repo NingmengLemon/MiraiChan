@@ -930,14 +930,12 @@ name = "mbplugin-moelottery"
 version = "1.0.0"
 source = { editable = "packages/plugins/mbplugin_moelottery" }
 dependencies = [
-    { name = "json5" },
     { name = "lemony-checkers" },
     { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "json5", specifier = ">=0.13.0" },
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "pydantic", specifier = ">=2.12.5" },
 ]
