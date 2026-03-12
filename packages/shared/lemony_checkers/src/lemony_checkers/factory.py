@@ -7,10 +7,13 @@
 import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from enum import Enum, auto
+from typing import TYPE_CHECKING, Literal
 
 from lemony_settings import LemonySettings, require
 from melobot.log import get_logger
+
+from lemony_checkers.checkers import LemonyChecker
 
 from .models import CheckerGlobalSettings, CheckerPluginSettings
 
@@ -58,11 +61,11 @@ class LemonyCheckerFactory:
         *,
         fail_cb: "FailCallback | None" = None,
         allow_admin: bool = True,
-    ) -> "CheckerFactoryWrapper":
+    ) -> "_CheckerFactoryWrapper":
         """
         创建一个预填充 plugin_name 和 command_name 的检查器工厂包装类.
         """
-        return CheckerFactoryWrapper(
+        return _CheckerFactoryWrapper(
             plugin_name=plugin_name,
             command_name=command_name,
             fail_cb=fail_cb,
@@ -292,7 +295,7 @@ def get_checker_factory_wrapper(
     *,
     fail_cb: "FailCallback | None" = None,
     allow_admin: bool = True,
-) -> "CheckerFactoryWrapper":
+) -> "_CheckerFactoryWrapper":
     """
     一步到位, 获取一个预填充 plugin_name 和 command_name 的检查器工厂包装类
 
@@ -334,7 +337,11 @@ def init_checker_factory() -> LemonyCheckerFactory:
     return _lemony_checker_factory
 
 
-class CheckerFactoryWrapper:
+class _Sentinel(Enum):
+    NOT_MODIFIED = auto()
+
+
+class _CheckerFactoryWrapper:
     """
     预填充 plugin_name 和 command_name 的检查器工厂包装类.
     这样就不需要在每个检查器实例上重复指定 plugin_name 和 command_name 了.
@@ -368,32 +375,50 @@ class CheckerFactoryWrapper:
         *,
         plugin_name: str | None = None,
         command_name: str | None = None,
-        fail_cb: "FailCallback | None" = None,
-        allow_admin: bool | None = None,
-    ):
+        fail_cb: "FailCallback | None | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
+        allow_admin: bool = True,
+    ) -> LemonyChecker:
+
         # TODO: 思索着应该让 checker_factory 完全惰加载,
         # 这样的话加载应该延迟到 checker 的 check 方法被调用的时候
         # 不过理论上插件被加载之前 miraichan 主程序就应该已经初始化好了 checker_factory 了, 所以现在这样也没什么问题
         # 只是觉得有点不够优雅x
 
+        # 此处的函数签名应该尽量保持与 new_checker 方法一致
+        # 因为算是有 proxy 链:
+        # LemonyChecker.__init__ -> LemonyCheckerFactory.new_checker -> _CheckerFactoryWrapper.__call__
+        # 感觉这样一层一层的 proxy 还是挺麻烦的, 以后可能需要重构一下设计
+
         return self._factory.new_checker(
-            plugin_name=plugin_name or self._plugin_name,
-            command_name=command_name or self._command_name,
-            fail_cb=fail_cb or self._fail_cb,
-            allow_admin=allow_admin if allow_admin is not None else self._allow_admin,
+            # ...是的这里有 or 的空值问题
+            # 但是空值它也不是合法的 identifier 说是 )
+            plugin_name=plugin_name if plugin_name is not None else self._plugin_name,
+            command_name=(
+                command_name if command_name is not None else self._command_name
+            ),
+            # 这里需要处理, 因为 None 是合法的 fail_cb 值
+            # 传入 None 时应该是清空 fail_cb 的意思, 于是用哨兵值
+            fail_cb=fail_cb if fail_cb is not _Sentinel.NOT_MODIFIED else self._fail_cb,
+            allow_admin=allow_admin,
         )
 
     def get_owner_checker(
-        self, fail_cb: "FailCallback | None" = None
+        self,
+        fail_cb: "FailCallback | None | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
     ) -> "OwnerChecker":
         """获取一个只允许 Owner 的检查器."""
-        return self._factory.new_owner_checker(fail_cb=fail_cb or self._fail_cb)
+        return self._factory.new_owner_checker(
+            fail_cb=fail_cb if fail_cb is not _Sentinel.NOT_MODIFIED else self._fail_cb
+        )
 
     def get_admin_checker(
-        self, fail_cb: "FailCallback | None" = None
+        self,
+        fail_cb: "FailCallback | None | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
     ) -> "AdminChecker":
         """获取一个允许 Owner 和 Admin 的检查器."""
-        return self._factory.new_admin_checker(fail_cb=fail_cb or self._fail_cb)
+        return self._factory.new_admin_checker(
+            fail_cb=fail_cb if fail_cb is not _Sentinel.NOT_MODIFIED else self._fail_cb
+        )
 
     def is_owner(self, user_id: int) -> bool:
         return self._factory.is_owner(user_id)
