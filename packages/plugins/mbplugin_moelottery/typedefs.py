@@ -1,6 +1,7 @@
+import time
 from typing import TypedDict
 
-from pydantic import TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter
 
 type LotWeight = float | int
 
@@ -14,15 +15,16 @@ class MoeAttrs(TypedDict):
     haircolor: dict[str, LotWeight]
     pupilcolor: dict[str, LotWeight]
     breast: dict[str, LotWeight]
+    race: dict[str, LotWeight]
 
 
 moeattrs_adapter = TypeAdapter(MoeAttrs)
 
 
 class DetailedMoeAttrs(TypedDict):
-    racial_feature: dict[str, LotWeight]
-    detailed_race: dict[str, LotWeight]
-    detailed_pupilcolor: dict[str, LotWeight]
+    racial_feature: dict[str, dict[str, LotWeight]]
+    detailed_race: dict[str, dict[str, LotWeight]]
+    detailed_pupilcolor: dict[str, dict[str, LotWeight]]
 
 
 detailed_moeattrs_adapter = TypeAdapter(DetailedMoeAttrs)
@@ -37,7 +39,7 @@ class MoeData(TypedDict):
 moedata_adapter = TypeAdapter(MoeData)
 
 
-class LotResult(TypedDict):
+class LotResult(BaseModel):
     age: str
     shallowchara: str
     deepchara: str
@@ -52,7 +54,4 @@ class LotResult(TypedDict):
     detailed_race: str | None
     detailed_pupilcolor: str | None
     # 记录时间
-    time: float
-
-
-lotresult_adapter = TypeAdapter(LotResult)
+    time: float = Field(default_factory=lambda: time.time())
