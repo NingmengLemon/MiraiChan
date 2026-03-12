@@ -18,7 +18,7 @@ from typer import Option, Typer
 
 from .config import DEFAULT_CONFIG_PATH, GlobalConfigModel
 from .loader import resolve_plugin_path
-from .utils import ALTERNATIVE_LOGO, custom_melobot_logo, get_project_root
+from .utils import ALTERNATIVE_LOGOS, custom_melobot_logo, get_project_root
 from .validation_patches.ob11 import patch_all
 
 if sys.platform == "win32":
@@ -30,7 +30,7 @@ else:
 
 logger = Logger()
 miraichan_cli_app = Typer(name="miraichan", help="Miraichan CLI commands.")
-custom_melobot_logo(ALTERNATIVE_LOGO)
+custom_melobot_logo(ALTERNATIVE_LOGOS["no_logo"])
 
 
 def init_modules(cfg: GlobalConfigModel):
