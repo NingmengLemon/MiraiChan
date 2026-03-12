@@ -18,7 +18,6 @@ class SettingsManager:
         preference: Literal["json", "yaml"] | str,
         config_root: str | PathLike,
     ) -> None:
-        self._preference = preference
         # 规划的文件目录结构:
         # configs/  # 可以指定别的配置根目录
         #   global.json
@@ -36,8 +35,8 @@ class SettingsManager:
         self._config_root = Path(config_root)
         self._settings_table: dict[tuple[str, str], LemonySettings] = {}
         self._global_settings: GlobalSettings | None = None
-        self._readwriter = get_readwriter(preference)
         self._preference = preference
+        self._readwriter = get_readwriter(preference)
 
         self._post_init()
 

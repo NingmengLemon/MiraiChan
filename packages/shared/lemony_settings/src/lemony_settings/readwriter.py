@@ -32,11 +32,11 @@ def register_readwriter[T: ConfigReadWriterABC](
     format: str,  # 需要注册的格式名称, 同时为扩展名
 ) -> Callable[[type[T]], type[T]]:
     def decorator(cls: type[T]) -> type[T]:
-        if (id := format.lower().strip()) in _readwriter_registry:
+        if (key := format.lower().strip()) in _readwriter_registry:
             warnings.warn(
-                f"ReadWriter for format {id!r} is already registered, it will be overwritten."
+                f"ReadWriter for format {key!r} is already registered, it will be overwritten."
             )
-        _readwriter_registry[id] = cls
+        _readwriter_registry[key] = cls
         return cls
 
     return decorator
