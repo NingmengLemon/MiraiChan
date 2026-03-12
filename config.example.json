@@ -1,0 +1,11 @@
+{
+    "forwwsio": {
+        "url": "ws://127.0.0.1:11451",
+        "access_token": "YOUR_ULTRA_SECRET_ACCESS_TOKEN_HERE"
+    },
+    "plugins": [
+        "mbplugin_checker_manager",
+        "mbplugin_deeeer",
+        "mbplugin_moelottery"
+    ]
+}
