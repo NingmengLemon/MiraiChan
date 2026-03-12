@@ -9,6 +9,7 @@ from lemony_checkers import init_checker_factory
 from lemony_images import init_default_font_cache
 from lemony_llm_provider.prompts.catgirl_assistant import EASTER_EGG_PROMPT
 from lemony_settings import init_settings_manager
+from lemony_storage_helper.database import set_relative_path_base
 from melobot import Bot, add_import_fallback
 from melobot.log import Logger, LogLevel
 from melobot.log.reflect import set_global_logger
@@ -39,13 +40,14 @@ def init_modules(cfg: GlobalConfigModel):
         config_root=cfg.config_root,
     )
     init_checker_factory()
+    set_relative_path_base(get_project_root() / "data")
 
 
 @miraichan_cli_app.command("launch", help="Launch Miraichan.")
-def main(
+def _(
     *,
     debug: bool = Option(
-        False, "--debug", help="Whether to launch the bot in debug mode."
+        False, "--debug", help="Whether to launch Miraichan in debug mode."
     ),
     no_easter_egg: bool = Option(
         False, "--no-easter-egg", help="Whether to disable the Easter egg."
@@ -54,6 +56,35 @@ def main(
     config_path: Path | None = Option(
         None, "--config-path", "-c", help="Path to the configuration file."
     ),
+):
+    _main(
+        debug=debug,
+        no_easter_egg=no_easter_egg,
+        nyan=nyan,
+        config_path=config_path,
+    )
+
+
+def main(
+    debug: bool = False,
+    no_easter_egg: bool = False,
+    nyan: bool = False,
+    config_path: Path | None = None,
+):
+    # 提供一个直接调用的入口, 以便在不使用命令行参数的情况下启动 Miraichan
+    _main(
+        debug=debug,
+        no_easter_egg=no_easter_egg,
+        nyan=nyan,
+        config_path=config_path,
+    )
+
+
+def _main(
+    debug: bool,
+    no_easter_egg: bool,
+    nyan: bool,
+    config_path: Path | None,
 ):
     # print easter egg prompt if it's April 1st
     # and the user hasn't disabled it via command line argument
