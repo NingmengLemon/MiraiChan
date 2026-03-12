@@ -369,7 +369,7 @@ class CheckerFactoryWrapper:
         plugin_name: str | None = None,
         command_name: str | None = None,
         fail_cb: "FailCallback | None" = None,
-        allow_admin: bool = True,
+        allow_admin: bool | None = None,
     ):
         # TODO: 思索着应该让 checker_factory 完全惰加载,
         # 这样的话加载应该延迟到 checker 的 check 方法被调用的时候
@@ -380,7 +380,7 @@ class CheckerFactoryWrapper:
             plugin_name=plugin_name or self._plugin_name,
             command_name=command_name or self._command_name,
             fail_cb=fail_cb or self._fail_cb,
-            allow_admin=allow_admin or self._allow_admin,
+            allow_admin=allow_admin if allow_admin is not None else self._allow_admin,
         )
 
     def get_owner_checker(
