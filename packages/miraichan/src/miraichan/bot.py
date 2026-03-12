@@ -9,7 +9,7 @@ from lemony_checkers import init_checker_factory
 from lemony_images import init_default_font_cache
 from lemony_llm_provider.prompts.catgirl_assistant import EASTER_EGG_PROMPT
 from lemony_settings import init_settings_manager
-from lemony_storage_helper.database import set_relative_path_base
+from lemony_storage_helper.database.sqlite import set_relative_path_base
 from melobot import Bot, add_import_fallback
 from melobot.log import Logger, LogLevel
 from melobot.log.reflect import set_global_logger

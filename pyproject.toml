@@ -12,7 +12,7 @@ dependencies = [
     "lemony_settings",
     "lemony_checkers",
     "lemony_llm_provider",
-    "lemony_storage_helper",
+    "lemony_storage_helper[all]",
     "lemony_images",
     "lemony_network",
     "melobot_telegram_protocol",

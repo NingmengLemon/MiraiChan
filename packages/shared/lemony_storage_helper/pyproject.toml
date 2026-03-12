@@ -1,19 +1,33 @@
 [project]
 name = "lemony_storage_helper"
-version = "0.1.0"
+version = "0.1.1"
 description = "Lemoneko's data storage helper library for MiraiChan"
 authors = [
     { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
 ]
 dependencies = [
-    "aiofiles>=25.1.0",
-    "aiosqlite>=0.22.1",
-    "asyncpg>=0.31.0",
-    "sqlalchemy-utils>=0.42.1",
-    "sqlalchemy[aiosqlite,asyncio,postgresql-asyncpg]>=2.0.45",
-    "sqlmodel>=0.0.31",
+    # "sqlalchemy-utils>=0.42.1",
 ]
+
 
 requires-python = ">=3.12,<3.14"
 readme = "README.md"
 license = { text = "AGPL3" }
+
+[project.optional-dependencies]
+sqlite = [
+    "sqlmodel>=0.0.31",
+    "aiosqlite>=0.22.1",
+    "sqlalchemy[aiosqlite,asyncio]>=2.0.45",
+]
+postgresql = [
+    "sqlmodel>=0.0.31",
+    "asyncpg>=0.31.0",
+    "sqlalchemy[postgresql-asyncpg,asyncio]>=2.0.45",
+]
+files = ["aiofiles>=25.1.0"]
+all = [
+    "lemony_storage_helper[sqlite]",
+    "lemony_storage_helper[postgresql]",
+    "lemony_storage_helper[files]",
+]
