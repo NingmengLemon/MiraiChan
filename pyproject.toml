@@ -19,6 +19,7 @@ dependencies = [
     # plugins
     "mbplugin_checker_manager",
     "mbplugin_deeeer",
+    "mbplugin_moelottery",
     # workspace members above
     "melobot[onebot]>=3.3.0",
     "pypinyin>=0.53.0",
@@ -44,11 +45,13 @@ members = [
     "packages/shared/*",
     "packages/plugins/mbplugin_checker_manager",
     "packages/plugins/mbplugin_deeeer",
+    "packages/plugins/mbplugin_moelottery",
     # "packages/plugins/*",
 ]
 
 [tool.uv.sources]
 miraichan = { workspace = true }
+# shared libs
 lemony_utils = { workspace = true }
 lemony_settings = { workspace = true }
 lemony_checkers = { workspace = true }
@@ -57,8 +60,10 @@ lemony_storage_helper = { workspace = true }
 lemony_images = { workspace = true }
 lemony_network = { workspace = true }
 melobot_telegram_protocol = { workspace = true }
+# plugins
 mbplugin_checker_manager = { workspace = true }
 mbplugin_deeeer = { workspace = true }
+mbplugin_moelottery = { workspace = true }
 
 [tool.pdm.scripts]
 melobot = { cmd = ["python", "-m", "melobot"] }

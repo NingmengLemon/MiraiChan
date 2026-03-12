@@ -13,6 +13,7 @@ members = [
     "lemony-utils",
     "mbplugin-checker-manager",
     "mbplugin-deeeer",
+    "mbplugin-moelottery",
     "melobot-telegram-protocol",
     "miraichan",
     "miraichan-workspace",
@@ -925,6 +926,23 @@ dependencies = [
 requires-dist = [{ name = "lemony-checkers", editable = "packages/shared/lemony_checkers" }]
 
 [[package]]
+name = "mbplugin-moelottery"
+version = "1.0.0"
+source = { editable = "packages/plugins/mbplugin_moelottery" }
+dependencies = [
+    { name = "json5" },
+    { name = "lemony-checkers" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "json5", specifier = ">=0.13.0" },
+    { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+]
+
+[[package]]
 name = "mdurl"
 version = "0.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1055,6 +1073,7 @@ dependencies = [
     { name = "lxml" },
     { name = "mbplugin-checker-manager" },
     { name = "mbplugin-deeeer" },
+    { name = "mbplugin-moelottery" },
     { name = "melobot", extra = ["onebot"] },
     { name = "melobot-telegram-protocol" },
     { name = "miraichan" },
@@ -1098,6 +1117,7 @@ requires-dist = [
     { name = "lxml", specifier = ">=5.3.0" },
     { name = "mbplugin-checker-manager", editable = "packages/plugins/mbplugin_checker_manager" },
     { name = "mbplugin-deeeer", editable = "packages/plugins/mbplugin_deeeer" },
+    { name = "mbplugin-moelottery", editable = "packages/plugins/mbplugin_moelottery" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.3.0" },
     { name = "melobot-telegram-protocol", editable = "packages/shared/melobot_telegram_protocol" },
     { name = "miraichan", editable = "packages/miraichan" },
