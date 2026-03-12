@@ -1,14 +1,20 @@
-from typing import TYPE_CHECKING, ClassVar
+import warnings
 
-from sqlalchemy import MetaData
-from sqlalchemy.orm import registry
-from sqlmodel import SQLModel as _SQLModel
-from sqlmodel import col
+try:
+    from sqlalchemy import MetaData
+    from sqlalchemy.orm import registry
+    from sqlmodel import col
+except ImportError:
+    warnings.warn(
+        "sqlalchemy and sqlmodel are required for lemony_storage_helper.database. "
+    )
+    raise
 
-from .core import GenericDatabaseHelper, SqliteDatabaseHelper, set_relative_path_base
+from .generic import GenericDatabaseHelper
 from .utils import (
     AsyncCallable,
     DatabaseAsyncCallable,
+    SQLModel,
     auto_begin,
     check_table_existence,
     check_table_existence_sync,
@@ -23,7 +29,6 @@ from .utils import (
 
 __all__ = [
     "GenericDatabaseHelper",
-    "SqliteDatabaseHelper",
     "AsyncCallable",
     "DatabaseAsyncCallable",
     "in_transaction",
@@ -35,7 +40,6 @@ __all__ = [
     "check_table_existence_sync",
     "check_table_existence",
     "datetime_column_tzaware",
-    "set_relative_path_base",
     "queryable",
     # 重导出
     "SQLModel",
@@ -44,9 +48,6 @@ __all__ = [
     "col",
 ]
 
-if TYPE_CHECKING:
-
-    class SQLModel(_SQLModel):
-        __tablename__: ClassVar[str]  # type: ignore
-else:
-    SQLModel = _SQLModel
+# 特定数据库后端对应的子模块, 有自己的依赖, 比如 sqlite 需要的 aiosqlite
+# 这些写在 pyproject.toml 的 optional-dependencies 中, 需要时才安装
+# 因此不在 __init__.py 中导出

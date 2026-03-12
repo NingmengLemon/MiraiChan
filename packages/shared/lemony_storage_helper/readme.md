@@ -32,17 +32,23 @@ class _ProblemAsyncAttrs:
     problemset: Awaitable["DBProblemSet"]
     tags: Awaitable[list["DBTag"]]
 
-class ProblemEntity(SQLModel, AsyncAttrs[_ProblemAsyncAttrs], table=True):
+class MyBase(SQLModel, registry=...):
+    ... # 这个是必要的, 因为神秘 SQLModel 的行为
+    # 或许可以让 helper 帮一下忙
+
+class ProblemEntity(MyBase, AsyncAttrs[_ProblemAsyncAttrs], table=True):
     ...
 
 # 然后插件自己起一个像 lemony_settings 里的 LemonySettings 一样的东西, 把 metadata 丢进去实例化, 后续就从这个obj里拿 AsyncSession 之类的操作
 # e.g.
-db = LemonyDatabaseHelper(identifier=..., ..., metadata=metadata, ...)
+db = LemonyDatabaseHelper(identifier=..., ..., metadata=registry.metadata, ...)
 
 async def some_async_func():
     async with db.get_session() as session:
         ...
 ```
+
+helper 或许应该可以协助用户进行表定义,
 
 以上是数据库形式的数据访问
 
@@ -54,8 +60,18 @@ async def some_async_func():
 
 或许可以参考QQ放媒体文件的方式? 看上去还得给这个共享库本身弄一个 global.db?
 
-## sqlite
+以及资源文件读取管理, 目前一些放在 {proj_root}/data, 一些放在 {pkg}/resources, 可能得重新考虑?
 
-## postgresql?
+## database
+
+### sqlite
+
+- [x]
+
+### postgresql?
+
+// TBD
+
+### redis or other cache?
 
 // TBD

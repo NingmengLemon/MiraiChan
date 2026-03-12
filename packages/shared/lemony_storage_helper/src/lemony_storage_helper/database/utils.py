@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Concatenate,
     Generic,
     ParamSpec,
@@ -27,6 +28,7 @@ from sqlalchemy.ext.asyncio.session import (
     AsyncSessionTransaction,
 )
 from sqlalchemy.orm import QueryableAttribute, Session
+from sqlmodel import SQLModel as _SQLModel
 
 __all__ = [
     "AsyncCallable",
@@ -45,6 +47,20 @@ __all__ = [
 P = ParamSpec("P")
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
+
+if TYPE_CHECKING:
+    # HACK:
+    # 子类用 __tablename__ = "xxx" 的方式指定表名时, pylance 会如此说道:
+    # Type "Literal['xxx']" is not assignable to declared type "declared_attr[Unknown]"
+    # 此问题已知, 总之我就像这样写了)
+    # https://github.com/microsoft/pylance-release/issues/2129
+    # https://github.com/microsoft/pylance-release/issues/3484
+    # https://github.com/fastapi/sqlmodel/issues/98
+    class SQLModel(_SQLModel):
+        __tablename__: ClassVar[str | Callable[..., str]]  # type: ignore
+
+else:
+    SQLModel = _SQLModel
 
 
 class AsyncCallable(Protocol[P, T_co]):
