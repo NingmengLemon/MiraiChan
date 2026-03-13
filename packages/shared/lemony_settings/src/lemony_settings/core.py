@@ -109,7 +109,7 @@ class LemonySettings[SettingModelT: BaseSettings]:
                 f"Settings '{self._identifier}:{self._namespace}' has not been loaded yet."
             )
 
-        global_settings = get_global_settings()
+        global_settings = self._manager.global_settings
         config_file = resolve_config_path(
             global_settings.config_path,
             global_settings.preference,
