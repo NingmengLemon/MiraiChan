@@ -373,8 +373,8 @@ class _CheckerFactoryWrapper:
     def __call__(
         self,
         *,
-        plugin_name: str | None = None,
-        command_name: str | None = None,
+        plugin_name: str | Literal[_Sentinel.NOT_MODIFIED] = _Sentinel.NOT_MODIFIED,
+        command_name: str | Literal[_Sentinel.NOT_MODIFIED] = _Sentinel.NOT_MODIFIED,
         fail_cb: "FailCallback | None | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
         allow_admin: bool = True,
     ) -> LemonyChecker:
@@ -390,11 +390,15 @@ class _CheckerFactoryWrapper:
         # 感觉这样一层一层的 proxy 还是挺麻烦的, 以后可能需要重构一下设计
 
         return self._factory.new_checker(
-            # ...是的这里有 or 的空值问题
-            # 但是空值它也不是合法的 identifier 说是 )
-            plugin_name=plugin_name if plugin_name is not None else self._plugin_name,
+            plugin_name=(
+                plugin_name
+                if plugin_name is not _Sentinel.NOT_MODIFIED
+                else self._plugin_name
+            ),
             command_name=(
-                command_name if command_name is not None else self._command_name
+                command_name
+                if command_name is not _Sentinel.NOT_MODIFIED
+                else self._command_name
             ),
             # 这里需要处理, 因为 None 是合法的 fail_cb 值
             # 传入 None 时应该是清空 fail_cb 的意思, 于是用哨兵值
