@@ -3,20 +3,17 @@ import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import TypeVar
 
 import tomli
 import tomli_w
 import yaml
 from pydantic import BaseModel
 
-MT = TypeVar("MT", bound=BaseModel)
-
 
 # 预期是无状态的通用工具
 class ConfigReadWriterABC(ABC):
     @abstractmethod
-    def read(self, file: Path, model: type[MT]) -> MT:
+    def read[MT: BaseModel](self, file: Path, model: type[MT]) -> MT:
         raise NotImplementedError
 
     @abstractmethod
@@ -44,7 +41,7 @@ def register_readwriter[T: ConfigReadWriterABC](
 
 @register_readwriter("toml")
 class TomlReadWriter(ConfigReadWriterABC):
-    def read(self, file: Path, model: type[MT]) -> MT:
+    def read[MT: BaseModel](self, file: Path, model: type[MT]) -> MT:
         with file.open("rb") as f:
             data = tomli.load(f)
         # 因为先前写入时排除了 None
@@ -62,7 +59,7 @@ class TomlReadWriter(ConfigReadWriterABC):
 
 @register_readwriter("yaml")
 class YamlReadWriter(ConfigReadWriterABC):
-    def read(self, file: Path, model: type[MT]) -> MT:
+    def read[MT: BaseModel](self, file: Path, model: type[MT]) -> MT:
         with file.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return model.model_validate(data)
@@ -74,7 +71,7 @@ class YamlReadWriter(ConfigReadWriterABC):
 
 @register_readwriter("json")
 class JsonReadWriter(ConfigReadWriterABC):
-    def read(self, file: Path, model: type[MT]) -> MT:
+    def read[MT: BaseModel](self, file: Path, model: type[MT]) -> MT:
         with file.open("r", encoding="utf-8") as f:
             data = json.load(f)
         return model.model_validate(data)
