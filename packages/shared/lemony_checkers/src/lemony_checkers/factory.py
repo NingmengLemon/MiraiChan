@@ -5,15 +5,11 @@
 """
 
 import warnings
-from collections.abc import Generator
-from contextlib import contextmanager
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Literal
 
 from lemony_settings import LemonySettings, require
 from melobot.log import get_logger
-
-from lemony_checkers.checkers import LemonyChecker
 
 from .models import CheckerGlobalSettings, CheckerPluginSettings
 
@@ -207,27 +203,6 @@ class LemonyCheckerFactory:
 
         return self.get_plugin_settings(plugin_name)
 
-    @contextmanager
-    def edit_global_settings(self) -> Generator[CheckerGlobalSettings, None, None]:
-        """
-        编辑全局配置.
-        """
-        yield self.global_settings
-        self.save_global_settings()
-
-    @contextmanager
-    def edit_plugin_settings(
-        self, plugin_name: str
-    ) -> Generator[CheckerPluginSettings, None, None]:
-        """
-        编辑插件配置.
-
-        Args:
-            plugin_name: 插件名称
-        """
-        yield self.get_plugin_settings(plugin_name)
-        self.save_plugin_settings(plugin_name)
-
     # 权限检查相关方法
 
     def is_owner(self, user_id: int) -> bool:
@@ -376,8 +351,8 @@ class _CheckerFactoryWrapper:
         plugin_name: str | Literal[_Sentinel.NOT_MODIFIED] = _Sentinel.NOT_MODIFIED,
         command_name: str | Literal[_Sentinel.NOT_MODIFIED] = _Sentinel.NOT_MODIFIED,
         fail_cb: "FailCallback | None | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
-        allow_admin: bool = True,
-    ) -> LemonyChecker:
+        allow_admin: "bool | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
+    ) -> "LemonyChecker":
 
         # TODO: 思索着应该让 checker_factory 完全惰加载,
         # 这样的话加载应该延迟到 checker 的 check 方法被调用的时候
@@ -403,7 +378,11 @@ class _CheckerFactoryWrapper:
             # 这里需要处理, 因为 None 是合法的 fail_cb 值
             # 传入 None 时应该是清空 fail_cb 的意思, 于是用哨兵值
             fail_cb=fail_cb if fail_cb is not _Sentinel.NOT_MODIFIED else self._fail_cb,
-            allow_admin=allow_admin,
+            allow_admin=(
+                allow_admin
+                if allow_admin is not _Sentinel.NOT_MODIFIED
+                else self._allow_admin
+            ),
         )
 
     def get_owner_checker(

@@ -2,23 +2,37 @@ from types import TracebackType
 from typing import Literal, Self
 
 from melobot.log import get_logger
+from pydantic import BaseModel
 
 from .factory import LemonyCheckerFactory
-from .models import CheckerGlobalSettings, Rule
+from .models import CheckerGlobalSettings, CheckerPluginSettings, Rule
 
 logger = get_logger()
 
 
 class EditContext:
+    """编辑配置的上下文管理器.
+
+    在上下文块中修改配置, 正常退出时自动保存, 异常退出时回滚所有修改.
+
+    使用 ``copy.deepcopy`` 在进入上下文时对全局配置和已访问的插件配置做快照,
+    异常退出时恢复快照以保证内存中的配置状态一致性.
+    """
+
     def __init__(self, factory: LemonyCheckerFactory) -> None:
         self._factory = factory
         self._entered = False
         self._exited = False
         self._edited_global = False
         self._edited_plugins: set[str] = set()
+        # 快照: 用于异常时回滚
+        self._global_snapshot: CheckerGlobalSettings | None = None
+        self._plugin_snapshots: dict[str, CheckerPluginSettings] = {}
 
     def __enter__(self) -> Self:
         self._entered = True
+        # 对全局配置做快照
+        self._global_snapshot = self._factory.global_settings.model_copy(deep=True)
         return self
 
     def __exit__(
@@ -27,15 +41,13 @@ class EditContext:
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        # 只有在正常退出上下文时才保存修改, 如果发生异常则不保存.
-
-        # TODO: 但是已经修改的配置要怎么回滚呢?
-        # 目前的实现是直接不保存修改, 但这可能会导致部分修改被保留,
-        # 部分修改未被保存的情况. 需要在工厂中实现一个回滚机制来彻底撤销未保存的修改.
+        # 只有在正常退出上下文时才保存修改, 如果发生异常则回滚.
         if exc_type is not None:
             logger.warning(
-                f"Exiting edit context due to exception: {exc_value!r}. Changes will not be saved."
+                f"Exiting edit context due to exception: {exc_value!r}. "
+                "Rolling back in-memory changes."
             )
+            self._rollback()
             self._exited = True
             # return None (or other falsey value) to propagate the exception
             return
@@ -44,6 +56,37 @@ class EditContext:
         for plugin_name in self._edited_plugins:
             self._factory.save_plugin_settings(plugin_name)
         self._exited = True
+
+    @staticmethod
+    def _restore_model_fields(target: BaseModel, snapshot: BaseModel) -> None:
+        """从快照恢复模型的所有字段值."""
+        for field_name in snapshot.__class__.model_fields:
+            setattr(target, field_name, getattr(snapshot, field_name))
+
+    def _rollback(self) -> None:
+        """回滚内存中的配置到进入上下文时的快照状态."""
+        # 回滚全局配置
+        if self._global_snapshot is not None:
+            self._restore_model_fields(
+                self._factory.global_settings, self._global_snapshot
+            )
+            logger.debug("Rolled back global settings to snapshot")
+
+        # 回滚插件配置
+        for plugin_name, snapshot in self._plugin_snapshots.items():
+            try:
+                ps = self._factory.get_plugin_settings(plugin_name)
+                self._restore_model_fields(ps, snapshot)
+                logger.debug(f"Rolled back plugin '{plugin_name}' settings to snapshot")
+            except Exception as e:
+                logger.error(f"Failed to rollback plugin '{plugin_name}' settings: {e}")
+
+    def _ensure_plugin_snapshot(self, plugin_name: str) -> None:
+        """确保指定插件的配置快照已创建 (仅在首次修改该插件时创建)."""
+        if plugin_name not in self._plugin_snapshots:
+            self._plugin_snapshots[plugin_name] = self._factory.get_plugin_settings(
+                plugin_name
+            ).model_copy(deep=True)
 
     @property
     def global_settings(self) -> CheckerGlobalSettings:
@@ -232,6 +275,7 @@ class EditContext:
             plugin_name: 插件名称
             enabled: 是否启用
         """
+        self._ensure_plugin_snapshot(plugin_name)
         self._factory.get_plugin_settings(plugin_name).enabled = enabled
         logger.info(f"Plugin '{plugin_name}' enabled set to: {enabled}")
         self._edited_plugins.add(plugin_name)
@@ -246,6 +290,7 @@ class EditContext:
             plugin_name: 插件名称
             mode: 权限模式, None 表示使用全局模式
         """
+        self._ensure_plugin_snapshot(plugin_name)
         self._factory.get_plugin_settings(plugin_name).mode = mode
         logger.info(f"Plugin '{plugin_name}' mode set to: {mode}")
         self._edited_plugins.add(plugin_name)
@@ -262,6 +307,7 @@ class EditContext:
             plugin_name: 插件名称
             priority: 匹配优先级, None 表示使用全局配置
         """
+        self._ensure_plugin_snapshot(plugin_name)
         self._factory.get_plugin_settings(plugin_name).rule_priority = priority
         logger.info(f"Plugin '{plugin_name}' rule priority set to: {priority}")
         self._edited_plugins.add(plugin_name)
@@ -277,6 +323,7 @@ class EditContext:
             command_name: 命令名称
             enabled: 是否启用
         """
+        self._ensure_plugin_snapshot(plugin_name)
         settings = self._factory.get_plugin_settings(plugin_name)
         settings.commands = {**settings.commands, command_name: enabled}
         logger.info(
@@ -295,6 +342,7 @@ class EditContext:
         Returns:
             bool: 是否成功移除 (如果不存在则返回 False)
         """
+        self._ensure_plugin_snapshot(plugin_name)
         settings = self._factory.get_plugin_settings(plugin_name)
         if command_name not in settings.commands:
             return False
@@ -326,6 +374,7 @@ class EditContext:
         Returns:
             Rule: 添加的规则对象
         """
+        self._ensure_plugin_snapshot(plugin_name)
         settings = self._factory.get_plugin_settings(plugin_name)
         rule = Rule(action=action, ids=ids)
 
@@ -357,6 +406,7 @@ class EditContext:
         Returns:
             Rule | None: 被移除的规则, 如果索引无效则返回 None
         """
+        self._ensure_plugin_snapshot(plugin_name)
         settings = self._factory.get_plugin_settings(plugin_name)
         rules = (
             settings.rules.user_rules
@@ -392,6 +442,7 @@ class EditContext:
         Returns:
             int: 被清除的规则数量
         """
+        self._ensure_plugin_snapshot(plugin_name)
         settings = self._factory.get_plugin_settings(plugin_name)
         count = 0
 
