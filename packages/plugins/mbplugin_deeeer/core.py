@@ -12,9 +12,9 @@ from lemony_storage_helper.database import (
 )
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
 from lemony_utils.time import get_time_period_start
-from lemony_utils.uuid7 import uuid7
 from PIL import Image, ImageDraw, ImageOps
 from sqlmodel import Field, Session, select
+from uuid_utils import uuid7
 
 deerdb_registry = registry()
 
