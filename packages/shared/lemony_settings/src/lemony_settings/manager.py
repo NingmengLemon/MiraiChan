@@ -1,4 +1,3 @@
-import warnings
 from os import PathLike
 from pathlib import Path
 from typing import Literal
@@ -74,6 +73,18 @@ class SettingsManager:
             return global_settings
         raise RuntimeError("Global settings have not been initialized.")
 
+    def save_global_settings(self) -> None:
+        """将全局设置的可持久化字段保存到配置文件中."""
+        gs = self.global_settings
+        config_file = resolve_config_path(
+            gs.config_path,
+            gs.preference,
+            id_ns=None,
+        )
+        ensure_config_path(config_file)
+        readwriter = get_readwriter(gs.preference)
+        readwriter.write(config_file, gs.persistent)
+
     def require[T: BaseSettings](
         self,
         *,
@@ -115,10 +126,10 @@ def init_settings_manager(
     """
     global _manager_instance
     if _manager_instance is not None:
-        warnings.warn(
-            "SettingsManager has already been initialized. Returning the existing instance."
+        raise RuntimeError(
+            "SettingsManager has already been initialized. "
+            "Use get_settings_manager() to retrieve the existing instance."
         )
-        return _manager_instance
 
     _manager_instance = SettingsManager(
         preference=preference,
