@@ -42,7 +42,7 @@ def register_readwriter[T: ConfigReadWriterABC](
     return decorator
 
 
-# @register_readwriter("toml")
+@register_readwriter("toml")
 class TomlReadWriter(ConfigReadWriterABC):
     def read(self, file: Path, model: type[MT]) -> MT:
         with file.open("rb") as f:

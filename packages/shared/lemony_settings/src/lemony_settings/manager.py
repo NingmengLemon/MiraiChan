@@ -120,11 +120,10 @@ def init_settings_manager(
         )
         return _manager_instance
 
-    if _manager_instance is None:
-        _manager_instance = SettingsManager(
-            preference=preference,
-            config_root=config_root,
-        )
+    _manager_instance = SettingsManager(
+        preference=preference,
+        config_root=config_root,
+    )
     return _manager_instance
 
 

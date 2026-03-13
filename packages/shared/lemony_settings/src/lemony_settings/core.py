@@ -11,7 +11,7 @@ from .utils import check_identifier, ensure_config_path, resolve_config_path
 if TYPE_CHECKING:
     from .manager import SettingsManager
 
-logger = getLogger()
+logger = getLogger(__name__)
 
 
 # 这个类不是给用户直接初始化的, 而是通过 require() 函数来获取实例.
