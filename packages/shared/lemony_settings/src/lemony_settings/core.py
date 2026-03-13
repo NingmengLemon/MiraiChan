@@ -2,6 +2,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
+from filelock import FileLock
 from pydantic import ValidationError
 
 from .models import BaseSettings, GlobalSettings
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
+# TODO: 完全异步化
 # 这个类不是给用户直接初始化的, 而是通过 require() 函数来获取实例.
 class LemonySettings[SettingModelT: BaseSettings]:
     def __init__(
@@ -116,10 +118,13 @@ class LemonySettings[SettingModelT: BaseSettings]:
             id_ns=(self._identifier, self._namespace),
         )
 
+        lock_file = config_file.with_suffix(config_file.suffix + ".lock")
+        lock = FileLock(lock_file, timeout=10)
         try:
-            ensure_config_path(config_file)
-            readwriter = get_readwriter(global_settings.preference)
-            readwriter.write(config_file, self._value)
+            with lock:
+                ensure_config_path(config_file)
+                readwriter = get_readwriter(global_settings.preference)
+                readwriter.write(config_file, self._value)
         except Exception as e:
             logger.error(
                 f"Failed to save settings '{self._identifier}:{self._namespace}': {e}"
@@ -137,15 +142,23 @@ class LemonySettings[SettingModelT: BaseSettings]:
             global_settings.preference,
             id_ns=(self._identifier, self._namespace),
         )
-        if config_file.exists():
-            self._value = self._load_from_file(config_file, global_settings.preference)
-        else:
-            self._value = self._resolve_value(None)
-            self.save()
-            logger.info(
-                f"config file {self._identifier}:{self._namespace} does not exist. "
-                f"Initialized with default values and saved as {config_file!r}.",
-            )
+        lock_file = config_file.with_suffix(config_file.suffix + ".lock")
+        lock = FileLock(lock_file, timeout=10)
+        with lock:
+            if config_file.exists():
+                self._value = self._load_from_file(
+                    config_file, global_settings.preference
+                )
+            else:
+                self._value = self._resolve_value(None)
+                # 在锁内保存, 避免竞态
+                ensure_config_path(config_file)
+                readwriter = get_readwriter(global_settings.preference)
+                readwriter.write(config_file, self._value)
+                logger.info(
+                    f"config file {self._identifier}:{self._namespace} does not exist. "
+                    f"Initialized with default values and saved as {config_file!r}.",
+                )
 
 
 # proxy for manager method
