@@ -14,6 +14,7 @@ from .generic import GenericDatabaseHelper
 from .utils import (
     AsyncCallable,
     DatabaseAsyncCallable,
+    GenericAsyncAttrs,
     SQLModel,
     auto_begin,
     check_table_existence,
@@ -41,6 +42,7 @@ __all__ = [
     "check_table_existence",
     "datetime_column_tzaware",
     "queryable",
+    "GenericAsyncAttrs",
     # 重导出
     "SQLModel",
     "registry",
