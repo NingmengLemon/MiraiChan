@@ -174,7 +174,9 @@ class GenericDatabaseHelper:
         **kwargs: P.kwargs,
     ) -> T:
         """单开一个 AsyncSession 来执行第一个参数是 Session 的同步函数"""
-        # sqlmodel session 是基于 sqlalchemy session 的浅封装, 因此兼容 sa session
+        # sqlmodel session 是基于 sqlalchemy session 的浅封装,
+        # 且没有 runtime warning, 只是把 sa 的方法用类型注解标成了 deprecated,
+        # 因此兼容 sa session
         async with self.get_session(style="sqlmodel") as asess:
             async with asess.begin():
                 return await asess.run_sync(func, *args, **kwargs)  # type: ignore
