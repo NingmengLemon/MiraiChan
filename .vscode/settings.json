@@ -5,5 +5,9 @@
     "**/*_cache": true,
     "**/.venv": true,
     "**/*.egg-info": true
-  }
+  },
+  "python.analysis.ignore": [
+    "references",
+    "packages/plugins/_to_be_migrated",
+  ]
 }
