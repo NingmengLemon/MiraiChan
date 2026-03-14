@@ -1,6 +1,7 @@
 import logging
 import warnings
 from collections.abc import MutableMapping
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +18,9 @@ except ImportError:
     raise
 
 
-_upper_layer_managed_relative_path_base: Path | None = None
+_upper_layer_managed_relative_path_base: ContextVar[Path | None] = ContextVar(
+    "lemony_storage_sqlite_relative_path_base", default=None
+)
 
 
 def set_relative_path_base(base: str | Path | None) -> None:
@@ -27,11 +30,10 @@ def set_relative_path_base(base: str | Path | None) -> None:
 
     如果你不知道自己在做什么, 就不要调用这个函数,
     直接在创建 SqliteDatabaseHelper 实例时传入 relative_path_base 参数即可"""
-    global _upper_layer_managed_relative_path_base
     if base is not None:
-        _upper_layer_managed_relative_path_base = Path(base).resolve()
+        _upper_layer_managed_relative_path_base.set(Path(base).resolve())
     else:
-        _upper_layer_managed_relative_path_base = None
+        _upper_layer_managed_relative_path_base.set(None)
 
 
 class SqliteDatabaseHelper(GenericDatabaseHelper):
@@ -49,15 +51,16 @@ class SqliteDatabaseHelper(GenericDatabaseHelper):
         # 显式拒绝空字符串, 避免歧义
         if db_path == "":
             raise ValueError("db_path cannot be empty string, use None for in-memory")
-        if _upper_layer_managed_relative_path_base is not None:
+        upper_base = _upper_layer_managed_relative_path_base.get()
+        if upper_base is not None:
             if relative_path_base is not None:
                 logger.warning(
                     "Upper layer is managing relative_path_base (%s), "
                     "ignoring the one provided (%s)",
-                    _upper_layer_managed_relative_path_base,
+                    upper_base,
                     relative_path_base,
                 )
-            relative_path_base = _upper_layer_managed_relative_path_base
+            relative_path_base = upper_base
 
         self._db_path = Path(db_path) if db_path else None
 

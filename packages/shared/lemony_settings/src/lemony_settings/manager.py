@@ -1,3 +1,4 @@
+from contextvars import ContextVar
 from os import PathLike
 from pathlib import Path
 from typing import Literal
@@ -113,7 +114,9 @@ class SettingsManager:
         return new_settings
 
 
-_manager_instance: SettingsManager | None = None
+_manager_instance: ContextVar[SettingsManager | None] = ContextVar(
+    "lemony_settings_manager", default=None
+)
 
 
 def init_settings_manager(
@@ -124,29 +127,30 @@ def init_settings_manager(
     """
     初始化全局的 SettingsManager 实例.
     """
-    global _manager_instance
-    if _manager_instance is not None:
+    if _manager_instance.get() is not None:
         raise RuntimeError(
             "SettingsManager has already been initialized. "
             "Use get_settings_manager() to retrieve the existing instance."
         )
 
-    _manager_instance = SettingsManager(
+    instance = SettingsManager(
         preference=preference,
         config_root=config_root,
     )
-    return _manager_instance
+    _manager_instance.set(instance)
+    return instance
 
 
 def get_settings_manager() -> SettingsManager:
     """
     获取全局的 SettingsManager 实例。如果尚未初始化，会抛出异常。
     """
-    if _manager_instance is None:
+    instance = _manager_instance.get()
+    if instance is None:
         raise RuntimeError(
             "SettingsManager has not been initialized. Call init_settings_manager() first."
         )
-    return _manager_instance
+    return instance
 
 
 def _reset_for_testing() -> None:
@@ -160,5 +164,4 @@ def _reset_for_testing() -> None:
         def setup_function():
             lemony_settings.manager._reset_for_testing()
     """
-    global _manager_instance
-    _manager_instance = None
+    _manager_instance.set(None)

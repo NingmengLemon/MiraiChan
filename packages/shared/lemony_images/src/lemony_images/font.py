@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from contextlib import contextmanager
+from contextvars import ContextVar
 
 from PIL import ImageFont
 
@@ -34,26 +35,30 @@ class FontCache:
 
 
 # 延迟加载，毕竟这个字体文件有点大
-_default_font_cache: FontCache | None = None
+_default_font_cache: ContextVar[FontCache | None] = ContextVar(
+    "lemony_images_default_font_cache", default=None
+)
 
 
 def get_default_font_cache() -> FontCache:
-    global _default_font_cache
-    if _default_font_cache is None:
+    instance = _default_font_cache.get()
+    if instance is None:
         raise RuntimeError(
             "Default font cache not initialized. Call init_default_font_cache first."
         )
-    return _default_font_cache
+    return instance
 
 
 def init_default_font_cache(
     font_file: _FontFileT,
     preload_sizes: Iterable[int] | None = None,
 ) -> FontCache:
-    global _default_font_cache
-    if _default_font_cache is None:
-        _default_font_cache = FontCache(font_file, preload_sizes=preload_sizes)
-    return _default_font_cache
+    existing = _default_font_cache.get()
+    if existing is not None:
+        return existing
+    instance = FontCache(font_file, preload_sizes=preload_sizes)
+    _default_font_cache.set(instance)
+    return instance
 
 
 def _reset_for_testing() -> None:
@@ -67,5 +72,4 @@ def _reset_for_testing() -> None:
         def setup_function():
             lemony_images.font._reset_for_testing()
     """
-    global _default_font_cache
-    _default_font_cache = None
+    _default_font_cache.set(None)
