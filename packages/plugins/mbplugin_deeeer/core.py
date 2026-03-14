@@ -6,24 +6,15 @@ from io import BytesIO
 from pathlib import Path
 
 from lemony_images import FontCache, get_default_font_cache
-from lemony_storage_helper.database import (
-    SQLModel,
-    registry,
-)
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
 from lemony_utils.time import get_time_period_start
 from PIL import Image, ImageDraw, ImageOps
 from sqlmodel import Field, Session, select
-from uuid_utils import uuid7
+from uuid_utils.compat import uuid7
 
-deerdb_registry = registry()
-
-
-class DeerBase(SQLModel, registry=deerdb_registry):
-    # 由于 sa 的神秘特性这里必须先定义一个 base
-    # 然后再让表模型继承 base
-    # 否则会出现注册失败的问题, 具体表现为 registry.metadata.tables 里没有内容
-    pass
+DeerBase, deerdb_registry = SqliteDatabaseHelper.new_base(
+    "DeerBase",
+)
 
 
 class DeerRecord(DeerBase, table=True):
