@@ -188,3 +188,4 @@ melobot.log*
 # 临时文件夹, 大概测试用
 # 不要把临时文件纳入版本控制
 /tmp/
+/references/
