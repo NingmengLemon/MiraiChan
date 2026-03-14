@@ -5,6 +5,7 @@
 """
 
 import warnings
+from contextvars import ContextVar
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Literal
 
@@ -250,18 +251,21 @@ class LemonyCheckerFactory:
         return self.global_settings.admins.copy()
 
 
-_lemony_checker_factory: LemonyCheckerFactory | None = None
+_lemony_checker_factory: ContextVar[LemonyCheckerFactory | None] = ContextVar(
+    "lemony_checker_factory", default=None
+)
 
 
 def get_checker_factory() -> LemonyCheckerFactory:
     """
     获取全局的 LemonyCheckerFactory 实例.
     """
-    if _lemony_checker_factory is None:
+    instance = _lemony_checker_factory.get()
+    if instance is None:
         raise RuntimeError(
             "LemonyCheckerFactory has not been initialized. Please call init_checker_factory() first."
         )
-    return _lemony_checker_factory
+    return instance
 
 
 def get_checker_factory_wrapper(
@@ -301,15 +305,16 @@ def init_checker_factory() -> LemonyCheckerFactory:
     Returns:
         LemonyCheckerFactory: 全局 factory 实例 (已初始化或已存在的).
     """
-    global _lemony_checker_factory
-    if _lemony_checker_factory is not None:
+    existing = _lemony_checker_factory.get()
+    if existing is not None:
         warnings.warn(
             "LemonyCheckerFactory has already been initialized. Returning the existing instance."
         )
-        return _lemony_checker_factory
-    _lemony_checker_factory = LemonyCheckerFactory()
-    _lemony_checker_factory.post_init()
-    return _lemony_checker_factory
+        return existing
+    instance = LemonyCheckerFactory()
+    instance.post_init()
+    _lemony_checker_factory.set(instance)
+    return instance
 
 
 class _Sentinel(Enum):
@@ -427,5 +432,4 @@ def _reset_for_testing() -> None:
             lemony_checkers.factory._reset_for_testing()
             lemony_settings.manager._reset_for_testing()
     """
-    global _lemony_checker_factory
-    _lemony_checker_factory = None
+    _lemony_checker_factory.set(None)
