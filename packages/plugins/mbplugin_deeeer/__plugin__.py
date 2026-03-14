@@ -95,9 +95,11 @@ checker_factory = get_checker_factory_wrapper(
 
 
 @plugin.use
-@on_message(checker=checker_factory(command_name="do_deer"))
+@on_message()
 async def deer(event: GroupMessageEvent, adapter: Adapter):
     if not re.match(DEER_JUDGE_REGEX, (msg := event.text)):
+        return
+    if not await checker_factory(command_name="do_deer").check(event):
         return
     combo = len(re.findall(DEER_COUNT_REGEX, msg))
     await deerdbcore.wait_until_initialized()
