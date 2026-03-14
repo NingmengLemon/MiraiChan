@@ -40,13 +40,14 @@ checker_factory = get_checker_factory_wrapper(
     ".",
     " ",
     ["今日人设"],
-    checker=checker_factory(command_name="draw_attrs"),
 )
 async def draw_attrs(event: GroupMessageEvent, adapter: Adapter, logger: GenericLogger):
     if not event.sender.user_id:
         # sender_id 为 None 是旧 QQ 的匿名用户, 现代 QQ 已经没有了
         # 但是我们亲爱的 OneBot11 协议仍然保留了这个特性, 以至于我们不得不在这里处理一下
         return  # 直接静默拒绝
+    if not await checker_factory(command_name="draw_attrs").check(event):
+        return
     gid = event.group_id if cfgloader.value.group_isolation else 0
     uid = event.sender.user_id
     if cd_table.get((uid, gid)) == (
