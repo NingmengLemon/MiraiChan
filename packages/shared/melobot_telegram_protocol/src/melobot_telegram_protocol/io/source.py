@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time as _time
 from typing import Any
 
 from aiogram import Bot, Dispatcher
@@ -71,7 +72,7 @@ class TelegramPollingIO(AbstractIOSource[InPacket, OutPacket, EchoPacket]):
         ) -> Any:
             await self._in_queue.put(
                 InPacket(
-                    time=float(update.update_id),
+                    time=_time.time(),
                     data=update,
                 )
             )
