@@ -5,9 +5,6 @@ from asyncio import subprocess
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from typing import Any
 
-from melobot.typ import AsyncCallable
-from typing_extensions import deprecated
-
 
 def to_thread_decorator(func):
     @functools.wraps(func)
@@ -114,37 +111,3 @@ async def gather_with_concurrency[T](
 
     tasks = [wrapper(aw) for aw in aws]
     return await asyncio.gather(*tasks, return_exceptions=return_exceptions)
-
-
-@deprecated("use tenacity instead")
-def async_retry[**P, T](
-    exceptions: type[Exception] | tuple[type[Exception], ...] = Exception,
-    max_retries: int = 3,
-    initial_delay: float = 1,
-    exp_backoff: bool = True,
-    max_delay: float | None = None,
-):
-    def decorator(func: AsyncCallable[P, T]):
-        @functools.wraps(func)
-        async def wrapper(*args: P.args, **kwargs: P.kwargs):
-            current_delay = initial_delay
-            retries = 0
-
-            while True:
-                try:
-                    return await func(*args, **kwargs)
-                except exceptions as e:
-                    if retries >= max_retries:
-                        raise e
-
-                    retries += 1
-                    await asyncio.sleep(current_delay)
-
-                    if exp_backoff:
-                        current_delay *= 2
-                        if max_delay is not None:
-                            current_delay = min(current_delay, max_delay)
-
-        return wrapper
-
-    return decorator
