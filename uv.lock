@@ -10,6 +10,7 @@ members = [
     "lemony-network",
     "lemony-settings",
     "lemony-storage-helper",
+    "lemony-utils",
     "lemony-utils-legacy",
     "mbplugin-checker-manager",
     "mbplugin-deeeer",
@@ -763,6 +764,16 @@ requires-dist = [
 provides-extras = ["sqlite", "postgresql", "files", "all"]
 
 [[package]]
+name = "lemony-utils"
+version = "0.1.0"
+source = { editable = "packages/shared/lemony_utils" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = []
+
+[[package]]
 name = "lemony-utils-legacy"
 version = "0.1.0"
 source = { editable = "packages/shared/lemony_utils_legacy" }
@@ -1080,6 +1091,7 @@ dependencies = [
     { name = "lemony-network" },
     { name = "lemony-settings" },
     { name = "lemony-storage-helper", extra = ["all"] },
+    { name = "lemony-utils" },
     { name = "lemony-utils-legacy" },
     { name = "lxml" },
     { name = "mbplugin-checker-manager" },
@@ -1124,6 +1136,7 @@ requires-dist = [
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", extras = ["all"], editable = "packages/shared/lemony_storage_helper" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "lemony-utils-legacy", editable = "packages/shared/lemony_utils_legacy" },
     { name = "lxml", specifier = ">=5.3.0" },
     { name = "mbplugin-checker-manager", editable = "packages/plugins/mbplugin_checker_manager" },
