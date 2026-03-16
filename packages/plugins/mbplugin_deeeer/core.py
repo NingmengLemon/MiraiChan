@@ -7,7 +7,7 @@ from pathlib import Path
 
 from lemony_images import FontCache, get_default_font_cache
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
-from lemony_utils.time import get_time_period_start
+from lemony_utils_legacy.time import get_time_period_start
 from PIL import Image, ImageDraw, ImageOps
 from sqlmodel import Field, Session, select
 from uuid_utils.compat import uuid7

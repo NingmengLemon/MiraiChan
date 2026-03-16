@@ -71,7 +71,7 @@ def avatar_url_to_uid(url: str | URL) -> int | None:
 
 @singleton
 class AvatarCache:
-    CACHE_DIR = "data/avatars"
+    CACHE_DIR = "data/avatars"  # TODO: 从统一的资源管理器里拿, 别直接读相对路径, cwd 不一定是项目根
     EXPIRES = 24 * 60 * 60
     FILENAME_TEMPLATE = "{uid}.png"
     HEADERS = http_headers.copy()

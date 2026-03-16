@@ -3,7 +3,7 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
-from lemony_utils.media import convert_audio
+from lemony_utils_legacy.media import convert_audio
 
 # 因为不可能把我的(大部分)无损曲库用于音乐抽签（出于带宽和服务器的存储容量考虑）
 # 所以试图写了这样一个

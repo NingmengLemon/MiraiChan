@@ -8,7 +8,7 @@ from pathlib import Path
 from lemony_checkers import get_checker_factory_wrapper
 from lemony_images import bytes_to_b64_url
 from lemony_settings import BaseSettings, require
-from lemony_utils.botutils import cached_avatar_source
+from lemony_utils_legacy.botutils import cached_avatar_source
 from melobot.bot import get_bot
 from melobot.plugin.base import PluginInfo, PluginPlanner
 from melobot.protocols.onebot.v11.adapter.base import Adapter
