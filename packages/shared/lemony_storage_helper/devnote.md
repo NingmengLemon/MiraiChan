@@ -1,6 +1,6 @@
 # dev note
 
-预期作为曾经的 lemony_utils.database 模块的继任者
+预期作为曾经的 lemony_utils_legacy.database 模块的继任者
 
 预期只提供异步接口
 
