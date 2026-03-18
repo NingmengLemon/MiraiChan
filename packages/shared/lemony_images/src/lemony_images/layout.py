@@ -60,12 +60,12 @@ def calc_font_size(
     此时直接使用返回的字号和断行文本绘制文本将会超出bbox的高度"""
     fsize = max_font_size
     while fsize > min_font_size:
-        with fontcache.usec(size=fsize) as font:
-            wrapped_lines = wrap_text_by_width(text, box_width, font)
-            bbox = font.getbbox("意义是无意识")  # 这里要的是字体高度所以填什么都好x
-            # getbbox 不认换行符所以像这样
-            if (bbox[3] - bbox[1] + spacing) * len(wrapped_lines) <= box_height:
-                break
+        font = fontcache.use(fsize)
+        wrapped_lines = wrap_text_by_width(text, box_width, font)
+        bbox = font.getbbox("意义是无意识")  # 这里要的是字体高度所以填什么都好x
+        # getbbox 不认换行符所以像这样
+        if (bbox[3] - bbox[1] + spacing) * len(wrapped_lines) <= box_height:
+            break
         fsize -= 1
     return fsize, "\n".join(wrap_text_by_width(text, box_width, fontcache.use(fsize)))
 

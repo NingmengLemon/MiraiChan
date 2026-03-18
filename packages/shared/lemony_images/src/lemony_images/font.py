@@ -1,6 +1,4 @@
 from collections.abc import Iterable
-from contextlib import contextmanager
-from contextvars import ContextVar
 
 from PIL import ImageFont
 
@@ -26,39 +24,35 @@ class FontCache:
             self._font_map[size] = ImageFont.truetype(self._font_file, size=size)
         return self._font_map[size]
 
-    @contextmanager
-    def usec(self, size: int):
-        yield self.use(size=size)
+    def clear(self) -> None:
+        """清除字体缓存"""
+        self._font_map.clear()
 
     def __getitem__(self, key: int):
         return self.use(key)
 
 
 # 延迟加载，毕竟这个字体文件有点大
-_default_font_cache: ContextVar[FontCache | None] = ContextVar(
-    "lemony_images_default_font_cache", default=None
-)
+_default_font_cache: FontCache | None = None
 
 
 def get_default_font_cache() -> FontCache:
-    instance = _default_font_cache.get()
-    if instance is None:
+    if _default_font_cache is None:
         raise RuntimeError(
             "Default font cache not initialized. Call init_default_font_cache first."
         )
-    return instance
+    return _default_font_cache
 
 
 def init_default_font_cache(
     font_file: _FontFileT,
     preload_sizes: Iterable[int] | None = None,
 ) -> FontCache:
-    existing = _default_font_cache.get()
-    if existing is not None:
-        return existing
-    instance = FontCache(font_file, preload_sizes=preload_sizes)
-    _default_font_cache.set(instance)
-    return instance
+    global _default_font_cache
+    if _default_font_cache is not None:
+        return _default_font_cache
+    _default_font_cache = FontCache(font_file, preload_sizes=preload_sizes)
+    return _default_font_cache
 
 
 def _reset_for_testing() -> None:
@@ -72,4 +66,5 @@ def _reset_for_testing() -> None:
         def setup_function():
             lemony_images.font._reset_for_testing()
     """
-    _default_font_cache.set(None)
+    global _default_font_cache
+    _default_font_cache = None
