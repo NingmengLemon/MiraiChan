@@ -1,3 +1,4 @@
+import asyncio
 from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -159,6 +160,20 @@ class LemonySettings[SettingModelT: BaseSettings]:
                     f"config file {self._identifier}:{self._namespace} does not exist. "
                     f"Initialized with default values and saved as {config_file!r}.",
                 )
+
+    async def save_async(self) -> None:
+        """
+        异步版本的 save().
+        在异步代码中调用此方法, 避免同步 FileLock 阻塞事件循环.
+        """
+        await asyncio.to_thread(self.save)
+
+    async def load_async(self) -> None:
+        """
+        异步版本的 load().
+        在异步代码中调用此方法, 避免同步 FileLock 阻塞事件循环.
+        """
+        await asyncio.to_thread(self.load)
 
 
 # proxy for manager method
