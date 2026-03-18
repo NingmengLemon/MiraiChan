@@ -203,8 +203,8 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
             if mode not in ("whitelist", "blacklist"):
                 await adapter.send_reply("模式必须是 whitelist 或 blacklist")
                 return
-            with EditContext(_get_factory()) as ctx:
-                ctx.set_global_mode(mode)  # type: ignore
+            async with EditContext(_get_factory()) as ctx:
+                ctx.set_global_mode(mode)
             await adapter.send_reply(f"全局模式已设置为: {mode}")
 
         case "priority":
@@ -218,8 +218,8 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
             if priority not in ("group_first", "user_first"):
                 await adapter.send_reply("优先级必须是 group_first 或 user_first")
                 return
-            with EditContext(_get_factory()) as ctx:
-                ctx.set_global_rule_priority(priority)  # type: ignore
+            async with EditContext(_get_factory()) as ctx:
+                ctx.set_global_rule_priority(priority)
             await adapter.send_reply(f"全局规则优先级已设置为: {priority}")
 
         case "rules":
@@ -258,8 +258,8 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
             except ThisInPrivateChatError:
                 await adapter.send_reply('"this" 只能在群聊中使用, 用于代替当前群号')
                 return
-            with EditContext(_get_factory()) as ctx:
-                ctx.add_global_rule(rule_type, rule_action, ids)  # type: ignore
+            async with EditContext(_get_factory()) as ctx:
+                ctx.add_global_rule(rule_type, rule_action, ids)
             ids_display = "所有" if ids is None else ", ".join(map(str, ids))
             await adapter.send_reply(
                 f"已添加全局{rule_type}规则: {rule_action} -> {ids_display}"
@@ -282,8 +282,8 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
                 await adapter.send_reply("规则类型必须是 user 或 group")
                 return
 
-            with EditContext(_get_factory()) as ctx:
-                removed = ctx.remove_global_rule(rule_type, index)  # type: ignore
+            async with EditContext(_get_factory()) as ctx:
+                removed = ctx.remove_global_rule(rule_type, index)
             if removed:
                 await adapter.send_reply(f"已移除全局{rule_type}规则 [{index}]")
             else:
@@ -291,11 +291,11 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
 
         case "clear":
             rule_type = action_args[0].lower() if action_args else None
-            if rule_type and rule_type not in ("user", "group"):
+            if rule_type is not None and rule_type not in ("user", "group"):
                 await adapter.send_reply("规则类型必须是 user 或 group")
                 return
-            with EditContext(_get_factory()) as ctx:
-                count = ctx.clear_global_rules(rule_type)  # type: ignore
+            async with EditContext(_get_factory()) as ctx:
+                count = ctx.clear_global_rules(rule_type)
             type_str = f"{rule_type}" if rule_type else "所有"
             await adapter.send_reply(f"已清除 {count} 条全局{type_str}规则")
 
@@ -344,7 +344,7 @@ async def _handle_admin(adapter: Adapter, event: MessageEvent, args: list[str]):
                 await adapter.send_reply("user_id 必须是数字")
                 return
 
-            with EditContext(factory) as ctx:
+            async with EditContext(factory) as ctx:
                 success = ctx.add_admin(uid)
             if success:
                 await adapter.send_reply(f"已添加管理员: {uid}")
@@ -361,7 +361,7 @@ async def _handle_admin(adapter: Adapter, event: MessageEvent, args: list[str]):
                 await adapter.send_reply("user_id 必须是数字")
                 return
 
-            with EditContext(factory) as ctx:
+            async with EditContext(factory) as ctx:
                 success = ctx.remove_admin(uid)
             if success:
                 await adapter.send_reply(f"已移除管理员: {uid}")
@@ -393,12 +393,12 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
 
     match action:
         case "enable":
-            with EditContext(_get_factory()) as ctx:
+            async with EditContext(_get_factory()) as ctx:
                 ctx.set_plugin_enabled(plugin_name, True)
             await adapter.send_reply(f"插件 {plugin_name} 已启用")
 
         case "disable":
-            with EditContext(_get_factory()) as ctx:
+            async with EditContext(_get_factory()) as ctx:
                 ctx.set_plugin_enabled(plugin_name, False)
             await adapter.send_reply(f"插件 {plugin_name} 已禁用")
 
@@ -411,11 +411,11 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
 
             mode = action_args[0].lower()
             if mode == "inherit":
-                with EditContext(_get_factory()) as ctx:
+                async with EditContext(_get_factory()) as ctx:
                     ctx.set_plugin_mode(plugin_name, None)
             elif mode in ("whitelist", "blacklist"):
-                with EditContext(_get_factory()) as ctx:
-                    ctx.set_plugin_mode(plugin_name, mode)  # type: ignore
+                async with EditContext(_get_factory()) as ctx:
+                    ctx.set_plugin_mode(plugin_name, mode)
             else:
                 await adapter.send_reply("模式必须是 whitelist, blacklist 或 inherit")
                 return
@@ -432,11 +432,11 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
 
             priority = action_args[0].lower()
             if priority == "inherit":
-                with EditContext(_get_factory()) as ctx:
+                async with EditContext(_get_factory()) as ctx:
                     ctx.set_plugin_rule_priority(plugin_name, None)
             elif priority in ("group_first", "user_first"):
-                with EditContext(_get_factory()) as ctx:
-                    ctx.set_plugin_rule_priority(plugin_name, priority)  # type: ignore
+                async with EditContext(_get_factory()) as ctx:
+                    ctx.set_plugin_rule_priority(plugin_name, priority)
             else:
                 await adapter.send_reply(
                     "优先级必须是 group_first, user_first 或 inherit"
@@ -484,8 +484,8 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
             except ThisInPrivateChatError:
                 await adapter.send_reply('"this" 只能在群聊中使用, 用于代替当前群号')
                 return
-            with EditContext(_get_factory()) as ctx:
-                ctx.add_plugin_rule(plugin_name, rule_type, rule_action, ids)  # type: ignore
+            async with EditContext(_get_factory()) as ctx:
+                ctx.add_plugin_rule(plugin_name, rule_type, rule_action, ids)
             ids_display = "所有" if ids is None else ", ".join(map(str, ids))
             await adapter.send_reply(
                 f"已为插件 {plugin_name} 添加{rule_type}规则: {rule_action} -> {ids_display}"
@@ -508,8 +508,8 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
                 await adapter.send_reply("规则类型必须是 user 或 group")
                 return
 
-            with EditContext(_get_factory()) as ctx:
-                removed = ctx.remove_plugin_rule(plugin_name, rule_type, index)  # type: ignore
+            async with EditContext(_get_factory()) as ctx:
+                removed = ctx.remove_plugin_rule(plugin_name, rule_type, index)
             if removed:
                 await adapter.send_reply(
                     f"已移除插件 {plugin_name} 的{rule_type}规则 [{index}]"
@@ -519,11 +519,14 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
 
         case "clear":
             rule_type = action_args[0].lower() if action_args else None
-            if rule_type and rule_type not in ("user", "group"):
+            if rule_type is not None and rule_type not in ("user", "group"):
                 await adapter.send_reply("规则类型必须是 user 或 group")
                 return
-            with EditContext(_get_factory()) as ctx:
-                count = ctx.clear_plugin_rules(plugin_name, rule_type)  # type: ignore
+            async with EditContext(_get_factory()) as ctx:
+                count = ctx.clear_plugin_rules(
+                    plugin_name=plugin_name,
+                    rule_type=rule_type,
+                )
             type_str = f"{rule_type}" if rule_type else "所有"
             await adapter.send_reply(
                 f"已清除插件 {plugin_name} 的 {count} 条{type_str}规则"
