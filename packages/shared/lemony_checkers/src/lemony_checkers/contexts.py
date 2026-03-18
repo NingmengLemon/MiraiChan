@@ -1,3 +1,4 @@
+import asyncio
 from types import TracebackType
 from typing import Literal, Self
 
@@ -55,6 +56,31 @@ class EditContext:
             self._factory.save_global_settings()
         for plugin_name in self._edited_plugins:
             self._factory.save_plugin_settings(plugin_name)
+        self._exited = True
+
+    async def __aenter__(self) -> Self:
+        """异步上下文管理器入口，与同步版本行为相同."""
+        return self.__enter__()
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """异步上下文管理器出口，使用 asyncio.to_thread 执行文件保存，避免阻塞事件循环."""
+        if exc_type is not None:
+            logger.warning(
+                f"Exiting edit context due to exception: {exc_value!r}. "
+                "Rolling back in-memory changes."
+            )
+            self._rollback()
+            self._exited = True
+            return
+        if self._edited_global:
+            await asyncio.to_thread(self._factory.save_global_settings)
+        for plugin_name in self._edited_plugins:
+            await asyncio.to_thread(self._factory.save_plugin_settings, plugin_name)
         self._exited = True
 
     @staticmethod
