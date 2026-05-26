@@ -9,7 +9,8 @@ from contextvars import ContextVar
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Literal
 
-from lemony_settings import LemonySettings, require
+from lemony_settings import LemonySettings, get_global_settings, require
+from lemony_settings.utils import resolve_config_path
 from melobot.adapter.model import Event
 from melobot.log import get_logger
 
@@ -45,8 +46,26 @@ class LemonyCheckerFactory:
             str, LemonySettings[CheckerPluginSettings]
         ] = {}
 
+    def _migrate_settings_file_if_needed(self, namespace: str) -> None:
+        global_settings = get_global_settings()
+        config_file = resolve_config_path(
+            global_settings.config_path,
+            global_settings.preference,
+            id_ns=(MODULE_IDENTIFIER, namespace),
+        )
+        kind = "global" if namespace == "global" else "plugin"
+
+        from .migration import migrate_config_file
+
+        if migrate_config_file(config_file, global_settings.preference, kind):
+            logger.info(
+                f"Migrated legacy checker config {MODULE_IDENTIFIER}:{namespace}; "
+                f"backup saved as {config_file.with_suffix(config_file.suffix + '.bak')!r}."
+            )
+
     def post_init(self):
         if self._global_checker_settings is None:
+            self._migrate_settings_file_if_needed("global")
             self._global_checker_settings = require(
                 identifier=MODULE_IDENTIFIER,
                 namespace="global",
@@ -141,6 +160,7 @@ class LemonyCheckerFactory:
             CheckerPluginSettings: 插件配置实例
         """
         if plugin_name not in self._plugin_settings_cache:
+            self._migrate_settings_file_if_needed(plugin_name)
             settings = require(
                 identifier=MODULE_IDENTIFIER,
                 namespace=plugin_name,
