@@ -12,7 +12,13 @@ from typing import TYPE_CHECKING, Literal
 from lemony_settings import LemonySettings, require
 from melobot.log import get_logger
 
-from .models import CheckerGlobalSettings, CheckerPluginSettings
+from .models import (
+    CheckerGlobalSettings,
+    CheckerPluginSettings,
+    UniqueUserConfig,
+    UniqueUserDataclassBase,
+)
+from .core import is_admin, is_owner
 
 if TYPE_CHECKING:
     from .checkers import AdminChecker, FailCallback, LemonyChecker, OwnerChecker
@@ -206,47 +212,45 @@ class LemonyCheckerFactory:
 
     # 权限检查相关方法
 
-    def is_owner(self, user_id: int) -> bool:
+    def is_owner(self, user: UniqueUserDataclassBase) -> bool:
         """
         检查用户是否是机器人所有者.
 
         Args:
-            user_id: 用户QQ号
+            user: 从事件中提取出的用户标识
 
         Returns:
             bool: 是否是所有者
         """
-        global_settings = self.global_settings
-        return global_settings.owner is not None and global_settings.owner == user_id
+        return is_owner(self.global_settings, user)
 
-    def is_admin(self, user_id: int) -> bool:
+    def is_admin(self, user: UniqueUserDataclassBase) -> bool:
         """
         检查用户是否是机器人管理员.
 
         Args:
-            user_id: 用户QQ号
+            user: 从事件中提取出的用户标识
 
         Returns:
             bool: 是否是管理员
         """
-        global_settings = self.global_settings
-        return user_id in global_settings.admins
+        return is_admin(self.global_settings, user)
 
-    def get_owner(self) -> int | None:
+    def get_owner(self) -> list[UniqueUserConfig]:
         """
-        获取机器人所有者的QQ号.
+        获取机器人所有者列表.
 
         Returns:
-            int | None: 所有者QQ号, 如果未设置则返回 None
+            list[UniqueUserConfig]: 所有者列表
         """
-        return self.global_settings.owner
+        return self.global_settings.owner.copy()
 
-    def get_admins(self) -> list[int]:
+    def get_admins(self) -> list[UniqueUserConfig]:
         """
         获取机器人管理员列表.
 
         Returns:
-            list[int]: 管理员QQ号列表
+            list[UniqueUserConfig]: 管理员列表
         """
         return self.global_settings.admins.copy()
 
@@ -408,11 +412,11 @@ class _CheckerFactoryWrapper:
             fail_cb=fail_cb if fail_cb is not _Sentinel.NOT_MODIFIED else self._fail_cb
         )
 
-    def is_owner(self, user_id: int) -> bool:
-        return self._factory.is_owner(user_id)
+    def is_owner(self, user: UniqueUserDataclassBase) -> bool:
+        return self._factory.is_owner(user)
 
-    def is_admin(self, user_id: int) -> bool:
-        return self._factory.is_admin(user_id)
+    def is_admin(self, user: UniqueUserDataclassBase) -> bool:
+        return self._factory.is_admin(user)
 
     @property
     def real_factory(self) -> LemonyCheckerFactory:

@@ -1,12 +1,19 @@
 import asyncio
 from types import TracebackType
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
 from melobot.log import get_logger
 from pydantic import BaseModel
 
+from lemony_checkers.exceptions import LemonyProgrammingError
+
 from .factory import LemonyCheckerFactory
-from .models import CheckerGlobalSettings, CheckerPluginSettings, Rule
+from .models import (
+    CheckerGlobalSettings,
+    CheckerPluginSettings,
+    Rule,
+    UniqueUserBase,
+)
 
 logger = get_logger()
 
@@ -117,57 +124,85 @@ class EditContext:
     @property
     def global_settings(self) -> CheckerGlobalSettings:
         if not self._entered or self._exited:
-            raise RuntimeError(
+            raise LemonyProgrammingError(
                 "Global settings can only be accessed within the context block."
             )
         return self._factory.global_settings
 
     # 配置修改与保存
 
-    def set_owner(self, user_id: int | None) -> None:
+    def add_owner(self, owner: UniqueUserBase) -> bool:
         """
-        设置机器人所有者.
+        添加机器人所有者.
 
         Args:
-            user_id: 用户QQ号, 设为 None 可清除所有者
-        """
-        self.global_settings.owner = user_id
-        logger.info(f"Owner set to: {user_id}")
-        self._edited_global = True
-
-    def add_admin(self, user_id: int) -> bool:
-        """
-        添加管理员.
-
-        Args:
-            user_id: 用户QQ号
+            owner: 用户标识 (UniqueUserBase 实例)
 
         Returns:
             bool: 是否成功添加 (如果已存在则返回 False)
         """
         settings = self.global_settings
-        if user_id in settings.admins:
+        if owner not in settings.owner:
+            settings.owner = [*settings.owner, owner]
+            logger.info(f"Owner added: {owner}")
+            self._edited_global = True
+            return True
+        else:
+            logger.info(f"Owner already exists: {owner}")
             return False
-        settings.admins = [*settings.admins, user_id]
-        logger.info(f"Admin added: {user_id}")
+
+    def remove_owner(self, owner: UniqueUserBase) -> bool:
+        """
+        移除机器人所有者.
+
+        Args:
+            owner: 用户标识
+
+        Returns:
+            bool: 是否成功移除
+        """
+        settings = self.global_settings
+        for o in settings.owner:
+            if o == owner:
+                settings.owner = [x for x in settings.owner if x != owner]
+                logger.info(f"Owner removed: {owner}")
+                self._edited_global = True
+                return True
+        return False
+
+    def add_admin(self, admin: UniqueUserBase) -> bool:
+        """
+        添加管理员.
+
+        Args:
+            admin: 用户标识 (UniqueUserBase 实例)
+
+        Returns:
+            bool: 是否成功添加 (如果已存在则返回 False)
+        """
+        settings = self.global_settings
+        if admin in settings.admins:
+            return False
+        settings.admins = [*settings.admins, admin]
+        logger.info(f"Admin added: {admin}")
         self._edited_global = True
         return True
 
-    def remove_admin(self, user_id: int) -> bool:
+    def remove_admin(self, admin: UniqueUserBase) -> bool:
         """
         移除管理员.
 
         Args:
-            user_id: 用户QQ号
+            admin: 用户标识
 
         Returns:
             bool: 是否成功移除 (如果不存在则返回 False)
         """
         settings = self.global_settings
-        if user_id not in settings.admins:
+        if admin not in settings.admins:
             return False
-        settings.admins = [uid for uid in settings.admins if uid != user_id]
-        logger.info(f"Admin removed: {user_id}")
+        settings.admins = [a for a in settings.admins if a != admin]
+        logger.info(f"Admin removed: {admin}")
         self._edited_global = True
         return True
 
@@ -182,114 +217,67 @@ class EditContext:
         self._edited_global = True
         logger.info(f"Global mode set to: {mode}")
 
-    def set_global_rule_priority(
-        self, priority: Literal["group_first", "user_first"]
-    ) -> None:
-        """
-        设置全局规则匹配优先级.
-
-        Args:
-            priority: 匹配优先级 ("group_first" 或 "user_first")
-        """
-        self.global_settings.rule_priority = priority
-        self._edited_global = True
-        logger.info(f"Global rule priority set to: {priority}")
-
     def add_global_rule(
         self,
-        rule_type: Literal["user", "group"],
         action: Literal["allow", "deny"],
-        ids: list[int] | None = None,
+        *,
+        protocol: str,
+        constrains: list[dict[str, list[Any]]] | None = None,
     ) -> Rule:
         """
         添加全局规则.
 
         Args:
-            rule_type: 规则类型 ("user" 用户规则, "group" 群组规则)
             action: 动作 ("allow" 允许, "deny" 拒绝)
-            ids: ID列表 (用户ID或群组ID), None 表示匹配所有
+            protocol: 适用的协议标识符
+            constrains: 约束条件, None 表示匹配所有
 
         Returns:
             Rule: 添加的规则对象
         """
         settings = self.global_settings
-        rule = Rule(action=action, ids=ids)
-
-        if rule_type == "user":
-            settings.rules.user_rules = [*settings.rules.user_rules, rule]
-        else:
-            settings.rules.group_rules = [*settings.rules.group_rules, rule]
-
-        logger.info(f"Global {rule_type} rule added: action={action}, ids={ids}")
+        rule = Rule(action=action, protocol=protocol, constrains=constrains)
+        settings.rules = [*settings.rules, rule]
+        logger.info(
+            f"Global rule added: action={action}, protocol={protocol}, constrains={constrains}"
+        )
         self._edited_global = True
         return rule
 
-    def remove_global_rule(
-        self,
-        rule_type: Literal["user", "group"],
-        index: int,
-    ) -> Rule | None:
+    def remove_global_rule(self, index: int) -> Rule | None:
         """
         移除指定索引的全局规则.
 
         Args:
-            rule_type: 规则类型 ("user" 或 "group")
             index: 规则索引
 
         Returns:
             Rule | None: 被移除的规则, 如果索引无效则返回 None
         """
         settings = self.global_settings
-        rules = (
-            settings.rules.user_rules
-            if rule_type == "user"
-            else settings.rules.group_rules
-        )
+        rules = settings.rules
 
         if index < 0 or index >= len(rules):
             return None
 
         removed = rules[index]
-        new_rules = [r for i, r in enumerate(rules) if i != index]
+        settings.rules = [r for i, r in enumerate(rules) if i != index]
 
-        if rule_type == "user":
-            settings.rules.user_rules = new_rules
-        else:
-            settings.rules.group_rules = new_rules
-
-        logger.info(f"Global {rule_type} rule removed at index {index}")
+        logger.info(f"Global rule removed at index {index}")
         self._edited_global = True
         return removed
 
-    def clear_global_rules(
-        self,
-        rule_type: Literal["user", "group"] | None,
-        # 三个值是等价的选择, 于是不添加默认值
-    ) -> int:
+    def clear_global_rules(self) -> int:
         """
-        清除全局规则.
-
-        Args:
-            rule_type: 规则类型, None 表示清除所有规则
+        清除所有全局规则.
 
         Returns:
             int: 被清除的规则数量
         """
         settings = self.global_settings
-        count = 0
-
-        if rule_type is None or rule_type == "user":
-            count += len(settings.rules.user_rules)
-            settings.rules.user_rules = []
-
-        if rule_type is None or rule_type == "group":
-            count += len(settings.rules.group_rules)
-            settings.rules.group_rules = []
-
-        logger.info(
-            f"Cleared {count} global rules"
-            + (f" (type={rule_type})" if rule_type else " (all)")
-        )
+        count = len(settings.rules)
+        settings.rules = []
+        logger.info(f"Cleared {count} global rules")
         self._edited_global = True
         return count
 
@@ -319,23 +307,6 @@ class EditContext:
         self._ensure_plugin_snapshot(plugin_name)
         self._factory.get_plugin_settings(plugin_name).mode = mode
         logger.info(f"Plugin '{plugin_name}' mode set to: {mode}")
-        self._edited_plugins.add(plugin_name)
-
-    def set_plugin_rule_priority(
-        self,
-        plugin_name: str,
-        priority: Literal["group_first", "user_first"] | None,
-    ) -> None:
-        """
-        设置插件的规则匹配优先级.
-
-        Args:
-            plugin_name: 插件名称
-            priority: 匹配优先级, None 表示使用全局配置
-        """
-        self._ensure_plugin_snapshot(plugin_name)
-        self._factory.get_plugin_settings(plugin_name).rule_priority = priority
-        logger.info(f"Plugin '{plugin_name}' rule priority set to: {priority}")
         self._edited_plugins.add(plugin_name)
 
     def set_command_enabled(
@@ -384,33 +355,30 @@ class EditContext:
     def add_plugin_rule(
         self,
         plugin_name: str,
-        rule_type: Literal["user", "group"],
         action: Literal["allow", "deny"],
-        ids: list[int] | None = None,
+        *,
+        protocol: str,
+        constrains: list[dict[str, list[Any]]] | None = None,
     ) -> Rule:
         """
         添加插件规则.
 
         Args:
             plugin_name: 插件名称
-            rule_type: 规则类型 ("user" 用户规则, "group" 群组规则)
             action: 动作 ("allow" 允许, "deny" 拒绝)
-            ids: ID列表 (用户ID或群组ID), None 表示匹配所有
+            protocol: 适用的协议标识符
+            constrains: 约束条件, None 表示匹配所有
 
         Returns:
             Rule: 添加的规则对象
         """
         self._ensure_plugin_snapshot(plugin_name)
         settings = self._factory.get_plugin_settings(plugin_name)
-        rule = Rule(action=action, ids=ids)
-
-        if rule_type == "user":
-            settings.rules.user_rules = [*settings.rules.user_rules, rule]
-        else:
-            settings.rules.group_rules = [*settings.rules.group_rules, rule]
-
+        rule = Rule(action=action, protocol=protocol, constrains=constrains)
+        settings.rules = [*settings.rules, rule]
         logger.info(
-            f"Plugin '{plugin_name}' {rule_type} rule added: action={action}, ids={ids}"
+            f"Plugin '{plugin_name}' rule added: action={action}, "
+            f"protocol={protocol}, constrains={constrains}"
         )
         self._edited_plugins.add(plugin_name)
         return rule
@@ -418,7 +386,6 @@ class EditContext:
     def remove_plugin_rule(
         self,
         plugin_name: str,
-        rule_type: Literal["user", "group"],
         index: int,
     ) -> Rule | None:
         """
@@ -426,7 +393,6 @@ class EditContext:
 
         Args:
             plugin_name: 插件名称
-            rule_type: 规则类型 ("user" 或 "group")
             index: 规则索引
 
         Returns:
@@ -434,55 +400,32 @@ class EditContext:
         """
         self._ensure_plugin_snapshot(plugin_name)
         settings = self._factory.get_plugin_settings(plugin_name)
-        rules = (
-            settings.rules.user_rules
-            if rule_type == "user"
-            else settings.rules.group_rules
-        )
+        rules = settings.rules
 
         if index < 0 or index >= len(rules):
             return None
 
         removed = rules[index]
-        new_rules = [r for i, r in enumerate(rules) if i != index]
+        settings.rules = [r for i, r in enumerate(rules) if i != index]
 
-        if rule_type == "user":
-            settings.rules.user_rules = new_rules
-        else:
-            settings.rules.group_rules = new_rules
-
-        logger.info(f"Plugin '{plugin_name}' {rule_type} rule removed at index {index}")
+        logger.info(f"Plugin '{plugin_name}' rule removed at index {index}")
         self._edited_plugins.add(plugin_name)
         return removed
 
-    def clear_plugin_rules(
-        self, plugin_name: str, rule_type: Literal["user", "group"] | None
-    ) -> int:
+    def clear_plugin_rules(self, plugin_name: str) -> int:
         """
-        清除插件规则.
+        清除指定插件的所有规则.
 
         Args:
             plugin_name: 插件名称
-            rule_type: 规则类型, None 表示清除所有规则
 
         Returns:
             int: 被清除的规则数量
         """
         self._ensure_plugin_snapshot(plugin_name)
         settings = self._factory.get_plugin_settings(plugin_name)
-        count = 0
-
-        if rule_type is None or rule_type == "user":
-            count += len(settings.rules.user_rules)
-            settings.rules.user_rules = []
-
-        if rule_type is None or rule_type == "group":
-            count += len(settings.rules.group_rules)
-            settings.rules.group_rules = []
-
-        logger.info(
-            f"Cleared {count} rules from plugin '{plugin_name}'"
-            + (f" (type={rule_type})" if rule_type else " (all)")
-        )
+        count = len(settings.rules)
+        settings.rules = []
+        logger.info(f"Cleared {count} rules from plugin '{plugin_name}'")
         self._edited_plugins.add(plugin_name)
         return count

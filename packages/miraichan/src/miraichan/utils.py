@@ -59,7 +59,7 @@ _ALTERNATIVE_LOGO_REBEL = r"""
 梅洛姬, 参上 Ciallo～(∠・ω< )⌒☆
 """
 _ALTERNATIVE_NO_LOGO = r"""
-梅洛姬气人, 已启动!
+梅洛姬气人, 启动中!
 梅洛姬, 参上 Ciallo～(∠・ω< )⌒☆
 """
 
