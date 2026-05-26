@@ -12,10 +12,14 @@ from lemony_checkers.models import (
     CheckerGlobalSettings,
     CheckerPluginSettings,
     Rule,
-    _legacy_ob11_rule,
-    _legacy_ob11_user_config,
-    _migrate_legacy_rules,
-    _migrate_legacy_unique_user_list,
+)
+from lemony_checkers.migration import (
+    legacy_ob11_rule,
+    legacy_ob11_user_config,
+    migrate_global_config_data,
+    migrate_legacy_rules,
+    migrate_legacy_unique_user_list,
+    migrate_plugin_config_data,
 )
 from pydantic import ValidationError
 
@@ -191,25 +195,25 @@ class TestRule:
 class TestLegacyMigrationFunctions:
     """测试旧配置迁移函数."""
 
-    def test_legacy_ob11_user_config(self):
-        """_legacy_ob11_user_config 将 int 转为 dict."""
-        result = _legacy_ob11_user_config(1001)
+    def testlegacy_ob11_user_config(self):
+        """legacy_ob11_user_config 将 int 转为 dict."""
+        result = legacy_ob11_user_config(1001)
         assert result == {
             "protocol": OB11_PROTOCOL_ID,
             "user_id": 1001,
             "group_id": None,
         }
 
-    def test_legacy_ob11_rule_all(self):
+    def testlegacy_ob11_rule_all(self):
         """ids=None 时 constrains=None."""
-        result = _legacy_ob11_rule("allow", None)
+        result = legacy_ob11_rule("allow", None)
         assert result["action"] == "allow"
         assert result["protocol"] == OB11_PROTOCOL_ID
         assert result["constrains"] is None
 
-    def test_legacy_ob11_rule_with_ids(self):
+    def testlegacy_ob11_rule_with_ids(self):
         """ids 不为 None 时包装为 user_id constraint."""
-        result = _legacy_ob11_rule("deny", {"user_id": [1001, 1002]})
+        result = legacy_ob11_rule("deny", {"user_id": [1001, 1002]})
         assert result["constrains"] == {"user_id": [1001, 1002]}
 
     def test_migrate_legacy_rules_group_first(self):
@@ -218,7 +222,7 @@ class TestLegacyMigrationFunctions:
             "user_rules": [{"action": "allow", "ids": [1001]}],
             "group_rules": [{"action": "deny", "ids": None}],
         }
-        result = _migrate_legacy_rules(legacy, rule_priority="group_first")
+        result = migrate_legacy_rules(legacy, rule_priority="group_first")
         assert len(result) == 2
         assert (
             result[0]["constrains"] is None
@@ -231,7 +235,7 @@ class TestLegacyMigrationFunctions:
             "user_rules": [{"action": "allow", "ids": [1001]}],
             "group_rules": [{"action": "deny", "ids": None}],
         }
-        result = _migrate_legacy_rules(legacy, rule_priority="user_first")
+        result = migrate_legacy_rules(legacy, rule_priority="user_first")
         assert len(result) == 2
         assert result[0]["constrains"] == {"user_id": [1001]}  # user_rules[0]
         assert (
@@ -241,41 +245,41 @@ class TestLegacyMigrationFunctions:
     def test_migrate_legacy_rules_no_rules_key(self):
         """无 user_rules/group_rules 时原样返回."""
         value = {"mode": "blacklist"}
-        result = _migrate_legacy_rules(value)
+        result = migrate_legacy_rules(value)
         assert result == value
 
     def test_migrate_legacy_rules_non_dict(self):
         """非 dict 输入原样返回."""
-        assert _migrate_legacy_rules(None) is None
-        assert _migrate_legacy_rules("invalid") == "invalid"
+        assert migrate_legacy_rules(None) is None
+        assert migrate_legacy_rules("invalid") == "invalid"
 
-    def test_migrate_legacy_unique_user_list_int(self):
+    def testmigrate_legacy_unique_user_list_int(self):
         """单个 int → 包装为列表."""
-        result = _migrate_legacy_unique_user_list(1001)
-        assert result == [_legacy_ob11_user_config(1001)]
+        result = migrate_legacy_unique_user_list(1001)
+        assert result == [legacy_ob11_user_config(1001)]
 
-    def test_migrate_legacy_unique_user_list_list_of_ints(self):
+    def testmigrate_legacy_unique_user_list_list_of_ints(self):
         """int 列表 → 每个 int 转为 dict."""
-        result = _migrate_legacy_unique_user_list([1001, 1002])
+        result = migrate_legacy_unique_user_list([1001, 1002])
         assert len(result) == 2
-        assert result[0] == _legacy_ob11_user_config(1001)
-        assert result[1] == _legacy_ob11_user_config(1002)
+        assert result[0] == legacy_ob11_user_config(1001)
+        assert result[1] == legacy_ob11_user_config(1002)
 
-    def test_migrate_legacy_unique_user_list_mixed(self):
+    def testmigrate_legacy_unique_user_list_mixed(self):
         """混合列表 (int + dict) → int 被转换, dict 保留."""
         existing_dict = {
             "user_id": 9999,
             "group_id": None,
             "protocol": OB11_PROTOCOL_ID,
         }
-        result = _migrate_legacy_unique_user_list([1001, existing_dict])
+        result = migrate_legacy_unique_user_list([1001, existing_dict])
         assert len(result) == 2
-        assert result[0] == _legacy_ob11_user_config(1001)
+        assert result[0] == legacy_ob11_user_config(1001)
         assert result[1] is existing_dict
 
-    def test_migrate_legacy_unique_user_list_none(self):
+    def testmigrate_legacy_unique_user_list_none(self):
         """None → 空列表."""
-        assert _migrate_legacy_unique_user_list(None) == []
+        assert migrate_legacy_unique_user_list(None) == []
 
 
 # ============================================================
@@ -287,10 +291,12 @@ class TestCheckerGlobalSettingsMigration:
     """测试 CheckerGlobalSettings 的旧配置自动迁移."""
 
     def test_legacy_int_owner_converted_to_list(self):
-        """旧格式 owner=int 自动转为新的 list[UniqueUserConfig]."""
-        settings = CheckerGlobalSettings.model_validate(
+        """旧格式 owner=int 经迁移函数转为新的 list[UniqueUserConfig]."""
+        migrated, changed = migrate_global_config_data(
             {"mode": "blacklist", "owner": 1001}
         )
+        assert changed is True
+        settings = CheckerGlobalSettings.model_validate(migrated)
         assert len(settings.owner) == 1
         owner = settings.owner[0]
         assert isinstance(owner, Ob11UniqueUser)
@@ -298,17 +304,19 @@ class TestCheckerGlobalSettingsMigration:
         assert owner.group_id is None
 
     def test_legacy_int_admins_converted(self):
-        """旧格式 admins=[int, int] 自动转换."""
-        settings = CheckerGlobalSettings.model_validate(
+        """旧格式 admins=[int, int] 经迁移函数转换."""
+        migrated, changed = migrate_global_config_data(
             {"mode": "blacklist", "admins": [1001, 1002]}
         )
+        assert changed is True
+        settings = CheckerGlobalSettings.model_validate(migrated)
         assert len(settings.admins) == 2
         assert settings.admins[0].user_id == 1001  # type: ignore
         assert settings.admins[1].user_id == 1002  # type: ignore
 
     def test_legacy_rules_migrated(self):
-        """旧格式 rules={user_rules:..., group_rules:...} 自动迁移."""
-        settings = CheckerGlobalSettings.model_validate(
+        """旧格式 rules={user_rules:..., group_rules:...} 经迁移函数转换."""
+        migrated, changed = migrate_global_config_data(
             {
                 "mode": "blacklist",
                 "rules": {
@@ -317,6 +325,8 @@ class TestCheckerGlobalSettingsMigration:
                 },
             }
         )
+        assert changed is True
+        settings = CheckerGlobalSettings.model_validate(migrated)
         assert len(settings.rules) == 1
         assert settings.rules[0].action == "allow"
         assert settings.rules[0].constrains == [{"user_id": [1001]}]
@@ -362,8 +372,8 @@ class TestCheckerPluginSettingsMigration:
     """测试 CheckerPluginSettings 的旧配置迁移."""
 
     def test_legacy_rules_migrated(self):
-        """插件旧格式 rules 自动迁移."""
-        settings = CheckerPluginSettings.model_validate(
+        """插件旧格式 rules 经迁移函数转换."""
+        migrated, changed = migrate_plugin_config_data(
             {
                 "rules": {
                     "user_rules": [{"action": "deny", "ids": [1002]}],
@@ -371,6 +381,8 @@ class TestCheckerPluginSettingsMigration:
                 },
             }
         )
+        assert changed is True
+        settings = CheckerPluginSettings.model_validate(migrated)
         assert len(settings.rules) == 1
         assert settings.rules[0].action == "deny"
         assert settings.rules[0].constrains == [{"user_id": [1002]}]

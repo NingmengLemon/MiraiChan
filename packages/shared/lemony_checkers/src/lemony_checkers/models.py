@@ -17,14 +17,12 @@ from pydantic import (
     Field,
     SerializeAsAny,
     field_validator,
-    model_validator,
 )
 from typing_extensions import TypeVar
 
 from .exceptions import LemonyInternalImplError, LemonyProgrammingError
 
 PCT = TypeVar("PCT", bound=str)
-OB11_PROTOCOL_IDENTIFIER = "OneBot-v11@Meloland"
 type Constraint = dict[str, list[Any]]
 
 _UNIQUE_USER_MODEL_REGISTRY: list[
@@ -188,89 +186,12 @@ class Rule(BaseModel):
         return value
 
 
-def _legacy_ob11_user_config(user_id: int) -> dict[str, Any]:
-    return {
-        "protocol": OB11_PROTOCOL_IDENTIFIER,
-        "user_id": user_id,
-        "group_id": None,
-    }
-
-
-def _legacy_ob11_rule(
-    action: Any, constrains: dict[str, list[int]] | None
-) -> dict[str, Any]:
-    return {
-        "action": action,
-        "protocol": OB11_PROTOCOL_IDENTIFIER,
-        "constrains": constrains,
-    }
-
-
-def _migrate_legacy_rules(value: Any, *, rule_priority: str = "group_first") -> Any:
-    if not isinstance(value, dict):
-        return value
-    if "user_rules" not in value and "group_rules" not in value:
-        return value
-
-    user_rules: list[dict[str, Any]] = []
-    for raw_rule in value.get("user_rules") or []:
-        if not isinstance(raw_rule, dict):
-            user_rules.append(raw_rule)
-            continue
-        ids = raw_rule.get("ids")
-        constrains = None if ids is None else {"user_id": ids}
-        user_rules.append(_legacy_ob11_rule(raw_rule.get("action"), constrains))
-
-    group_rules: list[dict[str, Any]] = []
-    for raw_rule in value.get("group_rules") or []:
-        if not isinstance(raw_rule, dict):
-            group_rules.append(raw_rule)
-            continue
-        ids = raw_rule.get("ids")
-        constrains = None if ids is None else {"group_id": ids}
-        group_rules.append(_legacy_ob11_rule(raw_rule.get("action"), constrains))
-
-    if rule_priority == "user_first":
-        return [*user_rules, *group_rules]
-    return [*group_rules, *user_rules]
-
-
-def _migrate_legacy_unique_user_list(value: Any) -> Any:
-    if value is None:
-        return []
-    if isinstance(value, int):
-        return [_legacy_ob11_user_config(value)]
-    if isinstance(value, list):
-        return [
-            _legacy_ob11_user_config(item) if isinstance(item, int) else item
-            for item in value
-        ]
-    return value
-
-
 class CheckerGlobalSettings(BaseSettings):
     """
     权限检查器的全局配置.
 
     保存在 configs/lemony_checkers/global.{format} 中.
     """
-
-    @model_validator(mode="before")
-    @classmethod
-    def _migrate_legacy_config(cls, data: Any) -> Any:
-        if not isinstance(data, dict):
-            return data
-        migrated = dict(data)
-        if "owner" in migrated:
-            migrated["owner"] = _migrate_legacy_unique_user_list(migrated["owner"])
-        if "admins" in migrated:
-            migrated["admins"] = _migrate_legacy_unique_user_list(migrated["admins"])
-        if "rules" in migrated:
-            migrated["rules"] = _migrate_legacy_rules(
-                migrated["rules"],
-                rule_priority=str(migrated.get("rule_priority", "group_first")),
-            )
-        return migrated
 
     mode: Literal["whitelist", "blacklist"] = Field(
         default="blacklist",
@@ -311,19 +232,6 @@ class CheckerPluginSettings(BaseSettings):
 
     每个插件可以有自己的配置文件, 保存在 configs/lemony_checkers/{plugin_name}.{format} 中.
     """
-
-    @model_validator(mode="before")
-    @classmethod
-    def _migrate_legacy_config(cls, data: Any) -> Any:
-        if not isinstance(data, dict):
-            return data
-        migrated = dict(data)
-        if "rules" in migrated:
-            migrated["rules"] = _migrate_legacy_rules(
-                migrated["rules"],
-                rule_priority=str(migrated.get("rule_priority", "group_first")),
-            )
-        return migrated
 
     enabled: bool = Field(
         default=True,
