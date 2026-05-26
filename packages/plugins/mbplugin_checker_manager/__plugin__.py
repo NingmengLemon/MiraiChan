@@ -34,8 +34,7 @@ Checker Manager 插件
 from typing import Any
 
 from lemony_checkers import EditContext, Rule, get_checker_factory, require_admin
-from lemony_checkers.adapters.ob11 import OB11_PROTOCOL_ID, Ob11UniqueUser
-from lemony_checkers.adapters.register import registry
+from lemony_checkers.adapters.ob11 import Ob11UniqueUser
 from lemony_checkers.factory import LemonyCheckerFactory
 from melobot import PluginPlanner, get_logger
 from melobot.handle import on_command
@@ -247,7 +246,7 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
             async with EditContext(_get_factory()) as ctx:
                 ctx.add_global_rule(
                     rule_action,
-                    protocol=OB11_PROTOCOL_ID,
+                    protocol=str(event.protocol),
                     constrains=constrains,
                 )
             constrains_display = "所有" if constrains is None else str(constrains)
@@ -284,8 +283,8 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
 async def _handle_admin(adapter: Adapter, event: MessageEvent, args: list[str]):
     """处理 admin 子命令 (仅 Owner 可用)"""
     # 管理员操作仅 Owner 可用 — 手动检查（作为内部子函数无法使用装饰器）
-    user = registry.extract_uniid_any(event)
     factory = _get_factory()
+    user = factory.extract_user(event)
     if user is None or not factory.is_owner(user):
         await adapter.send_reply("管理员操作仅 Owner 可用")
         return
@@ -326,7 +325,7 @@ async def _handle_admin(adapter: Adapter, event: MessageEvent, args: list[str]):
             new_admin = Ob11UniqueUser(
                 user_id=uid,
                 group_id=None,
-                protocol=OB11_PROTOCOL_ID,
+                protocol=str(event.protocol),  # type: ignore[arg-type]
             )
             async with EditContext(factory) as ctx:
                 success = ctx.add_admin(new_admin)
@@ -348,7 +347,7 @@ async def _handle_admin(adapter: Adapter, event: MessageEvent, args: list[str]):
             target = Ob11UniqueUser(
                 user_id=uid,
                 group_id=None,
-                protocol=OB11_PROTOCOL_ID,
+                protocol=str(event.protocol),  # type: ignore[arg-type]
             )
             async with EditContext(factory) as ctx:
                 success = ctx.remove_admin(target)
@@ -441,7 +440,7 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
                 ctx.add_plugin_rule(
                     plugin_name,
                     rule_action,
-                    protocol=OB11_PROTOCOL_ID,
+                    protocol=str(event.protocol),
                     constrains=constrains,
                 )
             constrains_display = "所有" if constrains is None else str(constrains)

@@ -1,7 +1,6 @@
 import time
 
 from lemony_checkers import get_checker_factory, require_permission
-from lemony_checkers.adapters.register import registry
 from lemony_settings import BaseSettings, require
 from melobot import get_logger
 from melobot.handle import on_command
@@ -47,8 +46,9 @@ async def draw_attrs(event: GroupMessageEvent, adapter: Adapter, logger: Generic
         return  # 直接静默拒绝
     gid = event.group_id if cfgloader.value.group_isolation else 0
     uid = event.sender.user_id
-    user = registry.extract_uniid_any(event)
-    is_owner = user is not None and get_checker_factory().is_owner(user)
+    factory = get_checker_factory()
+    user = factory.extract_user(event)
+    is_owner = user is not None and factory.is_owner(user)
     if (
         cd_table.get((uid, gid))
         == (now_date := time.strftime("%Y-%m-%d", time.localtime()))

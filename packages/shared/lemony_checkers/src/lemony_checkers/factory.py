@@ -10,6 +10,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Literal
 
 from lemony_settings import LemonySettings, require
+from melobot.adapter.model import Event
 from melobot.log import get_logger
 
 from .models import (
@@ -235,6 +236,22 @@ class LemonyCheckerFactory:
             bool: 是否是管理员
         """
         return is_admin(self.global_settings, user)
+
+    def extract_user(self, event: Event) -> UniqueUserDataclassBase | None:
+        """
+        从事件中提取用户身份标识.
+
+        委托给注册的协议适配器 ID 提取器.
+
+        Args:
+            event: melobot 事件对象
+
+        Returns:
+            UniqueUserDataclassBase | None: 提取出的用户标识, 无法提取时返回 None
+        """
+        from .adapters.register import registry
+
+        return registry.extract_uniid_any(event)
 
     def get_owner(self) -> list[UniqueUserConfig]:
         """
