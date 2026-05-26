@@ -15,7 +15,7 @@ class BaseSettings(BaseModel):
     model_config = {"validate_assignment": True}
 
 
-class PersistentGlobalSettings(BaseModel):
+class PersistentGlobalSettings(BaseSettings):
     # 这些设定会保存到 configs/global.{preference} 文件中.
     auto_reload: bool = Field(
         default=False,
@@ -28,7 +28,7 @@ class PersistentGlobalSettings(BaseModel):
     )
 
 
-class GlobalSettings(BaseModel):
+class GlobalSettings(BaseSettings):
     # 分为可持久化的设置和非持久化的设置.
     # 可持久化的设置会被保存到配置文件中.
     preference: Literal["yaml", "json"] | str = Field(

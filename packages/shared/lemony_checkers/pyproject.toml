@@ -5,7 +5,12 @@ description = "Lemoneko's permission checker library for MiraiChan"
 authors = [
     { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
 ]
-dependencies = ["lemony_settings", "melobot>=3.3.0", "pydantic>=2.12.5"]
+dependencies = [
+    "lemony_settings",
+    "lemony_utils",
+    "melobot>=3.3.0",
+    "pydantic>=2.12.5",
+]
 
 requires-python = ">=3.12,<3.14"
 readme = "README.md"
@@ -13,6 +18,7 @@ license = { text = "AGPL3" }
 
 [tool.uv.sources]
 lemony_settings = { workspace = true }
+lemony_utils = { workspace = true }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

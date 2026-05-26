@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
 
+import json5
 import tomli
 import tomli_w
 import yaml
@@ -73,11 +74,12 @@ class YamlReadWriter(ConfigReadWriterABC):
 class JsonReadWriter(ConfigReadWriterABC):
     def read[MT: BaseModel](self, file: Path, model: type[MT]) -> MT:
         with file.open("r", encoding="utf-8") as f:
-            data = json.load(f)
+            data = json5.load(f)
         return model.model_validate(data)
 
     def write(self, file: Path, data: BaseModel) -> None:
         with file.open("w", encoding="utf-8") as f:
+            # 宽进严出这一块, 用 json5 读用 json 写是故意的
             json.dump(data.model_dump(), f, indent=4, ensure_ascii=False)
 
 

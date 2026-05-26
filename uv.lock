@@ -636,6 +636,7 @@ version = "0.1.1"
 source = { editable = "packages/shared/lemony_checkers" }
 dependencies = [
     { name = "lemony-settings" },
+    { name = "lemony-utils" },
     { name = "melobot" },
     { name = "pydantic" },
 ]
@@ -643,6 +644,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "melobot", specifier = ">=3.3.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
 ]
@@ -704,6 +706,7 @@ version = "0.1.0"
 source = { editable = "packages/shared/lemony_settings" }
 dependencies = [
     { name = "filelock" },
+    { name = "json5" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "tomli" },
@@ -714,6 +717,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "filelock", specifier = ">=3.25.2" },
+    { name = "json5", specifier = ">=0.13.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "tomli", specifier = ">=2.4.0" },
