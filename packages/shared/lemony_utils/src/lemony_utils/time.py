@@ -1,45 +1,45 @@
 import time
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 
 
 class Timer:
-    def __init__(self):
+    def __init__(self) -> None:
         self._start: int | None = None
         self._end: int | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         self._start = time.perf_counter_ns()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self._end = time.perf_counter_ns()
 
     @property
-    def result_ns(self):
+    def result_ns(self) -> None | int:
         if self._start is None or self._end is None:
             return None
         return self._end - self._start
 
     @property
-    def result_us(self):
+    def result_us(self) -> None | float:
         r = self.result_ns
         return None if r is None else r / 10**3
 
     @property
-    def result_ms(self):
+    def result_ms(self) -> None | float:
         r = self.result_ns
         return None if r is None else r / 10**6
 
     @property
-    def result_s(self):
+    def result_s(self) -> None | float:
         r = self.result_ns
         return None if r is None else r / 10**9
 
 
 def get_time_period_start(
     period: Literal["day", "month", "year"], time_input: float | datetime | None = None
-):
+) -> datetime:
     if time_input is None:
         dt = datetime.now()
     elif isinstance(time_input, (float, int)):

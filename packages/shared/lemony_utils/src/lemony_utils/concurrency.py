@@ -1,10 +1,10 @@
+import asyncio
+import functools
 import threading
-from collections.abc import Generator
+from collections.abc import Awaitable, Callable, Generator
 from contextlib import contextmanager
 
-from melobot.utils.common import RWContext as AsyncRWContext
-
-__all__ = ["AsyncRWContext", "SyncRWContext"]
+__all__ = ["SyncRWContext", "to_async", "gather_with_concurrency"]
 
 
 class SyncRWContext:
@@ -54,3 +54,24 @@ class SyncRWContext:
             yield
         finally:
             self.write_semaphore.release()
+
+
+def to_async[**P, T](func: Callable[P, T]) -> Callable[P, Awaitable[T]]:
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        return await asyncio.to_thread(func, *args, **kwargs)
+
+    return wrapper
+
+
+async def gather_with_concurrency[T](
+    *aws: Awaitable[T], concurrency: int = 4, return_exceptions: bool = False
+) -> list[T | BaseException]:
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def wrapper(aw: Awaitable[T]) -> T:
+        async with semaphore:
+            return await aw
+
+    tasks = [wrapper(aw) for aw in aws]
+    return await asyncio.gather(*tasks, return_exceptions=return_exceptions)

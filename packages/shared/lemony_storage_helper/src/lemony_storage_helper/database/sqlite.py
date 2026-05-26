@@ -77,7 +77,7 @@ class SqliteDatabaseHelper(GenericDatabaseHelper):
             logger.debug("relative_path_base ignored for absolute db_path")
         dburl = URL.create(
             drivername="sqlite+aiosqlite",
-            database=str(self._db_path) if self._db_path else None,
+            database=self._db_path.as_posix() if self._db_path else None,
         )
         super().__init__(dburl, metadata)
 

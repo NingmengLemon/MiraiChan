@@ -1,25 +1,19 @@
 import subprocess
-from typing import Optional
-
-from .asyncutils import to_thread_decorator
 
 
-def call_ffmpeg(*args, check=True):
+def call_ffmpeg(*args: str, check=True):
     cmd = ["ffmpeg", "-loglevel", "quiet", "-nostdin", "-hide_banner"]
     cmd.extend(args)
     p = subprocess.run(cmd, capture_output=True, text=True, check=check)
     return p.returncode
 
 
-async_call_ffmpeg = to_thread_decorator(call_ffmpeg)
-
-
 def merge_avfile(
-    au_file: Optional[str],
+    au_file: str | None,
     vi_file: str,
     output_file: str,
-    cover_image: Optional[str] = None,
-    metadata: Optional[dict[str, str]] = None,
+    cover_image: str | None = None,
+    metadata: dict[str, str] | None = None,
     check: bool = True,
 ) -> int:
     """调用ffmpeg进行合流，并能添加元数据"""
@@ -48,17 +42,14 @@ def merge_avfile(
     return call_ffmpeg(*args, check=check)
 
 
-async_merge_avfile = to_thread_decorator(merge_avfile)
-
-
 def convert_audio(
     input_file: str,
     output_file: str,
-    quality: Optional[str] = None,
-    metadata: Optional[dict[str, str]] = None,
-    cover_image: Optional[str] = None,
+    quality: str | None = None,
+    metadata: dict[str, str] | None = None,
+    cover_image: str | None = None,
     check: bool = True,
-):
+) -> int:
     """
     转换音频文件格式，且能添加元数据和封面图片
     元数据名称参见：https://kodi.wiki/view/Video_file_tagging#Supported_Tags
@@ -91,6 +82,3 @@ def convert_audio(
 
     args.append(output_file)
     return call_ffmpeg(*args, check=check)
-
-
-async_convert_audio = to_thread_decorator(convert_audio)

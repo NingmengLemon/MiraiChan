@@ -7,11 +7,12 @@ members = [
     "lemony-checkers",
     "lemony-images",
     "lemony-llm-provider",
+    "lemony-media",
     "lemony-network",
+    "lemony-onebot-utils",
     "lemony-settings",
     "lemony-storage-helper",
     "lemony-utils",
-    "lemony-utils-legacy",
     "mbplugin-checker-manager",
     "mbplugin-deeeer",
     "mbplugin-moelottery",
@@ -686,6 +687,11 @@ requires-dist = [
 ]
 
 [[package]]
+name = "lemony-media"
+version = "0.1.0"
+source = { editable = "packages/shared/lemony_media" }
+
+[[package]]
 name = "lemony-network"
 version = "0.1.0"
 source = { editable = "packages/shared/lemony_network" }
@@ -698,6 +704,55 @@ dependencies = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.10.10" },
     { name = "yarl", specifier = ">=1.22.0" },
+]
+
+[[package]]
+name = "lemony-onebot-utils"
+version = "0.1.0"
+source = { editable = "packages/shared/lemony_onebot_utils" }
+dependencies = [
+    { name = "aiofiles" },
+    { name = "aiohttp" },
+    { name = "lemony-images" },
+    { name = "lemony-network" },
+    { name = "lemony-utils" },
+    { name = "melobot", extra = ["onebot"] },
+    { name = "pydantic" },
+    { name = "tenacity" },
+    { name = "yarl" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-sqlalchemy" },
+    { name = "pytest-sqlalchemy-mock" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiofiles", specifier = ">=25.1.0" },
+    { name = "aiohttp", specifier = ">=3.13.3" },
+    { name = "lemony-images", editable = "packages/shared/lemony_images" },
+    { name = "lemony-network", editable = "packages/shared/lemony_network" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.3.0" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "tenacity", specifier = ">=9.1.4" },
+    { name = "yarl", specifier = ">=1.23.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.17.1" },
+    { name = "pytest", specifier = ">=8.4.1" },
+    { name = "pytest-asyncio", specifier = ">=1.1.0" },
+    { name = "pytest-cov", specifier = ">=6.2.1" },
+    { name = "pytest-sqlalchemy", specifier = ">=0.3.0" },
+    { name = "pytest-sqlalchemy-mock", specifier = ">=0.1.7" },
 ]
 
 [[package]]
@@ -776,53 +831,6 @@ source = { editable = "packages/shared/lemony_utils" }
 
 [package.metadata.requires-dev]
 dev = []
-
-[[package]]
-name = "lemony-utils-legacy"
-version = "0.1.0"
-source = { editable = "packages/shared/lemony_utils_legacy" }
-dependencies = [
-    { name = "aiohttp" },
-    { name = "lemony-images" },
-    { name = "melobot", extra = ["onebot"] },
-    { name = "pillow" },
-    { name = "pypinyin" },
-    { name = "tenacity" },
-    { name = "typing-extensions" },
-    { name = "yarl" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "pytest-sqlalchemy" },
-    { name = "pytest-sqlalchemy-mock" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiohttp", specifier = ">=3.13.3" },
-    { name = "lemony-images", editable = "packages/shared/lemony_images" },
-    { name = "melobot", extras = ["onebot"], specifier = ">=3.3.0" },
-    { name = "pillow", specifier = ">=12.1.0" },
-    { name = "pypinyin", specifier = ">=0.55.0" },
-    { name = "tenacity", specifier = ">=9.1.2" },
-    { name = "typing-extensions", specifier = ">=4.15.0" },
-    { name = "yarl", specifier = ">=1.22.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = ">=1.17.1" },
-    { name = "pytest", specifier = ">=8.4.1" },
-    { name = "pytest-asyncio", specifier = ">=1.1.0" },
-    { name = "pytest-cov", specifier = ">=6.2.1" },
-    { name = "pytest-sqlalchemy", specifier = ">=0.3.0" },
-    { name = "pytest-sqlalchemy-mock", specifier = ">=0.1.7" },
-]
 
 [[package]]
 name = "librt"
@@ -944,12 +952,16 @@ version = "1.0.0"
 source = { editable = "packages/plugins/mbplugin_deeeer" }
 dependencies = [
     { name = "lemony-checkers" },
+    { name = "lemony-storage-helper" },
+    { name = "lemony-utils" },
     { name = "uuid-utils" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
+    { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
 ]
 
@@ -1033,7 +1045,6 @@ version = "0.1.0"
 source = { editable = "packages/miraichan" }
 dependencies = [
     { name = "json5" },
-    { name = "lemony-utils-legacy" },
     { name = "melobot", extra = ["onebot"] },
     { name = "pydantic" },
     { name = "typer" },
@@ -1058,7 +1069,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "json5", specifier = ">=0.13.0" },
-    { name = "lemony-utils-legacy", editable = "packages/shared/lemony_utils_legacy" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.3.0" },
     { name = "pydantic", specifier = ">=2.10.3" },
     { name = "typer", specifier = ">=0.24.1" },
@@ -1092,11 +1102,12 @@ dependencies = [
     { name = "lemony-checkers" },
     { name = "lemony-images" },
     { name = "lemony-llm-provider" },
+    { name = "lemony-media" },
     { name = "lemony-network" },
+    { name = "lemony-onebot-utils" },
     { name = "lemony-settings" },
     { name = "lemony-storage-helper", extra = ["all"] },
     { name = "lemony-utils" },
-    { name = "lemony-utils-legacy" },
     { name = "lxml" },
     { name = "mbplugin-checker-manager" },
     { name = "mbplugin-deeeer" },
@@ -1137,11 +1148,12 @@ requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-images", editable = "packages/shared/lemony_images" },
     { name = "lemony-llm-provider", editable = "packages/shared/lemony_llm_provider" },
+    { name = "lemony-media", editable = "packages/shared/lemony_media" },
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
+    { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", extras = ["all"], editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
-    { name = "lemony-utils-legacy", editable = "packages/shared/lemony_utils_legacy" },
     { name = "lxml", specifier = ">=5.3.0" },
     { name = "mbplugin-checker-manager", editable = "packages/plugins/mbplugin_checker_manager" },
     { name = "mbplugin-deeeer", editable = "packages/plugins/mbplugin_deeeer" },
