@@ -1,13 +1,17 @@
 [project]
 name = "mbplugin_deeeer"
 version = "1.0.0"
-description = "今天你deeeer了吗？"
+description = "今天你🦌了吗？"
 readme = "readme.md"
 requires-python = ">=3.12"
 dependencies = [
     "lemony_checkers",
+    "lemony_utils",
+    "lemony_storage_helper",
     "uuid-utils>=0.14.1",
 ]
 
 [tool.uv.sources]
 lemony_checkers = { workspace = true }
+lemony_utils = { workspace = true }
+lemony_storage_helper = { workspace = true }

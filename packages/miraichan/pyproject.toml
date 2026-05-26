@@ -7,7 +7,6 @@ authors = [
 ]
 dependencies = [
     "json5>=0.13.0",
-    "lemony_utils_legacy",
     "melobot[onebot]>=3.3.0",
     "pydantic>=2.10.3",
     "typer>=0.24.1",
@@ -21,7 +20,6 @@ license = { text = "AGPL3" }
 miraichan = "miraichan.bot:miraichan_cli_app"
 
 [tool.uv.sources]
-lemony_utils_legacy = { workspace = true }
 
 [dependency-groups]
 dev = [

@@ -8,6 +8,8 @@ from melobot.exceptions import PluginLoadError
 from melobot.log import get_logger
 from melobot.plugin.base import PluginPlanner
 
+from .utils import get_project_root
+
 logger = get_logger()
 type Loadable = ModuleType | str | PathLike[str] | PluginPlanner
 
@@ -47,7 +49,7 @@ def resolve_plugin_path(plugin_name: str) -> Loadable:
     pass  # TODO: 实现远程插件加载
 
     # -1. 作为项目自带的插件存在
-    packages_dir = Path(__file__).parent.parent.parent.parent.resolve()
+    packages_dir = get_project_root() / "packages"
     candidate_path = packages_dir / "plugins" / plugin_name
     if candidate_path.is_dir():
         logger.info(

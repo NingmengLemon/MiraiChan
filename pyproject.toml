@@ -8,7 +8,6 @@ authors = [
 dependencies = [
     "miraichan",
     # shared libs
-    "lemony_utils_legacy",
     "lemony_utils",
     "lemony_settings",
     "lemony_checkers",
@@ -17,6 +16,8 @@ dependencies = [
     "lemony_images",
     "lemony_network",
     "melobot_telegram_protocol",
+    "lemony_media",
+    "lemony_onebot_utils",
     # plugins
     "mbplugin_checker_manager",
     "mbplugin_deeeer",
@@ -53,7 +54,6 @@ members = [
 [tool.uv.sources]
 miraichan = { workspace = true }
 # shared libs
-lemony_utils_legacy = { workspace = true }
 lemony_utils = { workspace = true }
 lemony_settings = { workspace = true }
 lemony_checkers = { workspace = true }
@@ -62,6 +62,8 @@ lemony_storage_helper = { workspace = true }
 lemony_images = { workspace = true }
 lemony_network = { workspace = true }
 melobot_telegram_protocol = { workspace = true }
+lemony_media = { workspace = true }
+lemony_onebot_utils = { workspace = true }
 # plugins
 mbplugin_checker_manager = { workspace = true }
 mbplugin_deeeer = { workspace = true }
