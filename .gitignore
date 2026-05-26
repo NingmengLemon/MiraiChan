@@ -189,3 +189,4 @@ melobot.log*
 # 不要把临时文件纳入版本控制
 /tmp/
 /references/
+/docs/discussions/
