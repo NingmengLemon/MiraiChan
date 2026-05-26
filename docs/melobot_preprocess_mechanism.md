@@ -243,6 +243,26 @@ async def admin_cmd() -> None:
     ...
 ```
 
+### 4.1 MiraiChan 当前权限层的推荐分层
+
+基于上述机制，`lemony_checkers` 当前采用三层接口：
+
+1. `permissions.py`：框架无关的权限判定函数。输入已经提取好的 `UniqueUser`、全局配置、插件配置，输出布尔结果或规则匹配结果；这里不依赖 melobot，也不关心事件对象。
+2. `nodes.py`：melobot 推荐入口。`@require_permission` / `@require_admin` 适合普通 `@on_command` 等 handler；`PermissionNodeFactory` 适合手写复杂 `Flow` 时把权限检查作为 DAG 中的显式节点。
+3. `checkers.py`：兼容 melobot `Checker` 的低级适配层。它可以继续参与 `checker | checker` 这种组合，但不建议把用户可见的拒绝回复放到 checker `fail_cb` 中。
+
+`@require_permission` 放在 `@on_command` 与 handler 之间时不会破坏 melobot 的依赖注入，前提是装饰器内部保留 `functools.wraps(handler)`：melobot 在 `FlowDecorator.__call__` 中对收到的函数执行 `inject_deps(func, avoid_repeat=True)`，而 `inspect.signature()` 会沿着 `__wrapped__` 读取原始 handler 的签名。因此 DI 仍然能看到 `event: MessageEvent`、`adapter: Adapter`、`args: CmdArgs` 等原始参数注解；运行时 wrapper 会先收到这些已注入参数，再从参数中提取事件并执行权限检查。
+
+```python
+@Plugin.use
+@on_command(".", " ", ["今日人设"])
+@require_permission("moelottery", "draw_attrs")
+async def draw_attrs(event: GroupMessageEvent, adapter: Adapter, args: CmdArgs):
+    ...
+```
+
+这个顺序的实际效果是：命令解析先通过，DI 注入参数，然后 `require_permission` 的 wrapper 执行权限判定。拒绝回复只会发生在真正匹配该命令的消息上，不会落回 checker/fail_cb 的“所有消息先检查”陷阱。
+
 ---
 
 ## 五、`WrappedChecker` 的 fail_cb（逻辑运算后）
