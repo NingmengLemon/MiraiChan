@@ -2,8 +2,7 @@ import warnings
 
 try:
     from sqlalchemy import MetaData
-    from sqlalchemy.orm import registry
-    from sqlmodel import col
+    from sqlalchemy.orm import DeclarativeBase, registry
 except ImportError:
     warnings.warn(
         "sqlalchemy and sqlmodel are required for lemony_storage_helper.database. "
@@ -47,7 +46,7 @@ __all__ = [
     "SQLModel",
     "registry",
     "MetaData",
-    "col",
+    "DeclarativeBase",
 ]
 
 # 特定数据库后端对应的子模块, 有自己的依赖, 比如 sqlite 需要的 aiosqlite
