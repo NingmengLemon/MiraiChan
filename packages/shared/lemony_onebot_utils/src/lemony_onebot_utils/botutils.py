@@ -25,8 +25,10 @@ from melobot.utils.parse.cmd import CmdArgFormatInfo, CmdArgFormatter
 from tenacity import retry, stop_after_attempt, wait_exponential
 from yarl import URL
 
+from .qq import avatar_url_to_uid, uid_to_avatar_url
 
-async def text_to_imgseg(text: str, /, **kwargs):
+
+async def text_to_image_segment(text: str, /, **kwargs):
     return ImageSegment(
         file=await asyncio.to_thread(
             lambda: bytes_to_b64_url(text_to_image(text, **kwargs)),
@@ -43,31 +45,6 @@ async def get_reply(adapter: Adapter, event: MessageEvent) -> None | GetMsgEcho:
     if msg is None:
         return None
     return msg
-
-
-def get_mface_package_url(package_id: int):
-    return f"https://i.gtimg.cn/club/item/parcel/0/{package_id}_android.json"
-
-
-def get_mface_url(mface_id: str):
-    return f"https://gxh.vip.qq.com/club/item/parcel/item/{mface_id[0:2]}/{mface_id}/raw300.gif"
-
-
-def uid_to_avatar_url(uid: int) -> str:
-    # return f"https://q1.qlogo.cn/g?b=qq&nk={uid}&s=640"
-    return f"https://q.qlogo.cn/headimg_dl?dst_uin={uid}&spec=640&img_type=png"
-
-
-def avatar_url_to_uid(url: str | URL) -> int | None:
-    if isinstance(url, str):
-        url = URL(url)
-    if url.host not in ["q.qlogo.cn", "q1.qlogo.cn"]:
-        return None
-    uid = url.query.get("nk") or url.query.get("dst_uin")
-    if uid and uid.isdigit():
-        return int(uid)
-    else:
-        return None
 
 
 @singleton
