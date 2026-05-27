@@ -10,8 +10,8 @@ from typing import Any, Concatenate, Literal, Self, overload
 from sqlalchemy import URL, Engine, MetaData, make_url
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 from sqlalchemy.ext.asyncio.session import AsyncSession as SAAsyncSession
+from sqlalchemy.orm import DeclarativeBase, registry
 from sqlalchemy.orm import Session as SASession
-from sqlalchemy.orm import registry
 from sqlalchemy.sql.schema import Table
 from sqlalchemy.util import FacadeDict
 from sqlmodel import Session as SQLModelSession
@@ -48,6 +48,23 @@ class GenericDatabaseHelper:
         self._initialized = asyncio.Event()
         self._engine: AsyncEngine | None = None
 
+    @staticmethod
+    def new_metadata(
+        naming_convention: (
+            dict[str, str] | None | Literal[_Sentinel.USE_DEFAULT]
+        ) = _Sentinel.USE_DEFAULT,
+        schema: str | None = None,
+    ) -> MetaData:
+        if naming_convention is _Sentinel.USE_DEFAULT:
+            naming_convention = _DEFAULT_NAMING_CONVENTION
+        metadata_kwargs: dict[str, Any] = {}
+        if naming_convention is not None:
+            metadata_kwargs["naming_convention"] = naming_convention
+        if schema is not None:
+            metadata_kwargs["schema"] = schema
+        metadata = MetaData(**metadata_kwargs) if metadata_kwargs else MetaData()
+        return metadata
+
     @classmethod
     def new_base(
         cls,
@@ -57,35 +74,37 @@ class GenericDatabaseHelper:
             dict[str, str] | None | Literal[_Sentinel.USE_DEFAULT]
         ) = _Sentinel.USE_DEFAULT,
         schema: str | None = None,
-    ) -> tuple[type[SQLModel], registry]:
-        """
-        用于减少样板代码, 因为 SQLModel 的 registry 机制比较麻烦,
-        需要先创建一个 registry, 然后再创建一个 base class 来绑定这个 registry.
-
-        如果使用这个方法, 后续的表模型就都继承这个自动生成的 base class 就行了,
-        这样就不需要每个模块都写一大段样板代码了
-        """
-        if naming_convention is _Sentinel.USE_DEFAULT:
-            naming_convention = _DEFAULT_NAMING_CONVENTION
-        metadata_kwargs: dict[str, Any] = {}
-        if naming_convention is not None:
-            metadata_kwargs["naming_convention"] = naming_convention
-        if schema is not None:
-            metadata_kwargs["schema"] = schema
-        metadata = MetaData(**metadata_kwargs) if metadata_kwargs else MetaData()
-        isolated_registry = registry(metadata=metadata)
-
+    ) -> tuple[type[SQLModel], registry, MetaData]:
         base_name = f"{name.title().replace('_', '')}Base"
+        metadata = cls.new_metadata(
+            naming_convention=naming_convention,
+            schema=schema,
+        )
+        isolated_registry = registry(metadata=metadata)
         base = types.new_class(
             base_name,
             (SQLModel,),
             {
                 "registry": isolated_registry,
-                # "metadata": metadata,
-                # opus sensei 说这个没必要
             },
         )
-        return base, isolated_registry
+        return base, isolated_registry, metadata
+
+    @classmethod
+    def new_sa_base(
+        cls,
+        name: str,
+        *,
+        naming_convention: (
+            dict[str, str] | None | Literal[_Sentinel.USE_DEFAULT]
+        ) = _Sentinel.USE_DEFAULT,
+        schema: str | None = None,
+    ) -> tuple[type[DeclarativeBase], registry, MetaData]:
+        base_name = f"{name.title().replace('_', '')}Base"
+        metadata = cls.new_metadata(naming_convention=naming_convention, schema=schema)
+        isolated_registry = registry(metadata=metadata)
+        base = isolated_registry.generate_base(name=base_name)
+        return base, isolated_registry, metadata
 
     @property
     def tables(self) -> FacadeDict[str, Table]:

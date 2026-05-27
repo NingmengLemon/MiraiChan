@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw, ImageOps
 from sqlmodel import Field, Session, select
 from uuid_utils.compat import uuid7
 
-DeerBase, deerdb_registry = SqliteDatabaseHelper.new_base(
+DeerBase, _, deer_metadata = SqliteDatabaseHelper.new_base(
     "DeerBase",
 )
 
@@ -28,7 +28,7 @@ class DeerRecord(DeerBase, table=True):
 
 
 DBPPATH = "record/deers.db"
-deerdbcore = SqliteDatabaseHelper(DBPPATH, metadata=deerdb_registry.metadata)
+deerdbcore = SqliteDatabaseHelper(DBPPATH, metadata=deer_metadata)
 
 
 @deerdbcore.to_async
