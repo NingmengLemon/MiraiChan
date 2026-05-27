@@ -13,10 +13,15 @@ from lemony_storage_helper.database.sqlite import set_relative_path_base
 from melobot import Bot, add_import_fallback
 from melobot.log import Logger, LogLevel
 from melobot.log.reflect import set_global_logger
-from melobot.protocols.onebot.v11 import Adapter, ForwardWebSocketIO
+from melobot.protocols.onebot.v11 import Adapter, ForwardWebSocketIO, ReverseWebSocketIO
 from typer import Option, Typer
 
-from .config import DEFAULT_CONFIG_PATH, GlobalConfigModel
+from .config import (
+    DEFAULT_CONFIG_PATH,
+    ForwardWebsocketIOConfigModel,
+    GlobalConfigModel,
+    ReverseWebsocketIOConfigModel,
+)
 from .loader import resolve_plugin_path
 from .utils import ALTERNATIVE_LOGOS, custom_melobot_logo, get_project_root
 from .validation_patches.ob11 import patch_all
@@ -80,6 +85,25 @@ def main(
     )
 
 
+def _io_from_config_model(
+    cfg: ForwardWebsocketIOConfigModel | ReverseWebsocketIOConfigModel,
+):
+    if isinstance(cfg, ForwardWebsocketIOConfigModel):
+        return ForwardWebSocketIO(
+            url=cfg.url,
+            access_token=cfg.access_token.get_secret_value(),
+            cd_time=cfg.cd_time,
+        )
+    elif isinstance(cfg, ReverseWebsocketIOConfigModel):
+        return ReverseWebSocketIO(
+            host=cfg.host,
+            port=cfg.port,
+            access_token=cfg.access_token.get_secret_value(),
+            cd_time=cfg.cd_time,
+        )
+    raise ValueError(f"Invalid websocket config type: {type(cfg)}")
+
+
 def _main(
     debug: bool,
     no_easter_egg: bool,
@@ -98,8 +122,20 @@ def _main(
     os.chdir(get_project_root())
 
     if not config_path.is_file():
-        logger.error("配置文件 config.json 不存在, 无法启动 Miraichan.")
-        logger.error("预期的位置: %s", config_path.resolve())
+        try:
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(config_path, "w", encoding="utf-8") as fp:
+                fp.write(
+                    GlobalConfigModel().model_dump_json(
+                        indent=4, exclude_none=True, by_alias=True
+                    )
+                )
+            logger.info("配置文件 config.json 不存在, 已创建默认配置文件.")
+            logger.info("请根据需要修改配置文件后重新启动 Miraichan.")
+        except Exception as e:
+            logger.error("无法创建配置文件 config.json: %s", e)
+            logger.error("请检查权限或手动创建配置文件.")
+        logger.error("预期的配置文件位置: %s", config_path.resolve())
         sys.exit(1)
 
     with open(config_path, "rb") as fp:
@@ -119,12 +155,7 @@ def _main(
             "MiraiChan",
             logger=logger,
         )
-        .add_io(
-            ForwardWebSocketIO(
-                url=cfg.forwwsio.url,
-                access_token=cfg.forwwsio.access_token.get_secret_value(),
-            )
-        )
+        .add_io(_io_from_config_model(cfg.websocket))
         .add_adapter(patch_all(Adapter()))
     )
     bot.load_plugins(plugins, load_depth=cfg.load_depth)
