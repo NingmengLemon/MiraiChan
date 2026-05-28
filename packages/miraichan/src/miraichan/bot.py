@@ -1,13 +1,11 @@
 import asyncio
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import json5
 from lemony_checkers import init_checker_factory
 from lemony_images import init_default_font_cache
-from lemony_llm_provider.prompts.catgirl_assistant import EASTER_EGG_PROMPT
 from lemony_settings import init_settings_manager
 from lemony_storage_helper.database.sqlite import set_relative_path_base
 from melobot import Bot, add_import_fallback
@@ -54,33 +52,23 @@ def _(
     debug: bool = Option(
         False, "--debug", help="Whether to launch Miraichan in debug mode."
     ),
-    no_easter_egg: bool = Option(
-        False, "--no-easter-egg", help="Whether to disable the Easter egg."
-    ),
-    nyan: bool = Option(False, "--nyan", help="Whether to nyannnn~"),
     config_path: Path | None = Option(
         None, "--config-path", "-c", help="Path to the configuration file."
     ),
 ):
     _main(
         debug=debug,
-        no_easter_egg=no_easter_egg,
-        nyan=nyan,
         config_path=config_path,
     )
 
 
 def main(
     debug: bool = False,
-    no_easter_egg: bool = False,
-    nyan: bool = False,
     config_path: Path | None = None,
 ):
     # 提供一个直接调用的入口, 以便在不使用命令行参数的情况下启动 Miraichan
     _main(
         debug=debug,
-        no_easter_egg=no_easter_egg,
-        nyan=nyan,
         config_path=config_path,
     )
 
@@ -106,15 +94,8 @@ def _io_from_config_model(
 
 def _main(
     debug: bool,
-    no_easter_egg: bool,
-    nyan: bool,
     config_path: Path | None,
 ):
-    # print easter egg prompt if it's April 1st
-    # and the user hasn't disabled it via command line argument
-    if (not no_easter_egg and (d := datetime.now()).month == 4 and d.day == 1) or nyan:
-        print(EASTER_EGG_PROMPT)
-
     config_path = Path(config_path or DEFAULT_CONFIG_PATH)
     set_global_logger(logger)
 
@@ -130,8 +111,8 @@ def _main(
                         indent=4, exclude_none=True, by_alias=True
                     )
                 )
-            logger.info("配置文件 config.json 不存在, 已创建默认配置文件.")
-            logger.info("请根据需要修改配置文件后重新启动 Miraichan.")
+            logger.error("配置文件 config.json 不存在, 已创建默认配置文件.")
+            logger.error("请根据需要修改配置文件后重新启动 MiraiChan.")
         except Exception as e:
             logger.error("无法创建配置文件 config.json: %s", e)
             logger.error("请检查权限或手动创建配置文件.")
