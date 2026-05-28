@@ -78,7 +78,6 @@ class LotteryBox:
             if pool.depends_on is not None:
                 drawn[name] = self._draw_from_pool(pool, drawn)
 
-        logger.debug(f"抽取结果: {drawn}")
         return drawn
 
     # ---- 文本构建 ----
