@@ -290,4 +290,6 @@ class GenericAsyncAttrs(_AsyncAttrs, Generic[T]):
 
 
 def queryable(o: T) -> QueryableAttribute[T]:
+    if not isinstance(o, QueryableAttribute):
+        raise TypeError(f"Expected QueryableAttribute, got {type(o)!r}")
     return cast(QueryableAttribute, o)
