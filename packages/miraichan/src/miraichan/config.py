@@ -34,8 +34,10 @@ class GlobalConfigModel(BaseModel):
     plugins: list[str] = []
 
     settings_format: Literal["json", "yaml"] | str = "json"
-    config_root: str | Path = Field(default=get_project_root() / "configs")
+    config_root: str | Path = Field(default=(get_project_root() / "configs").as_posix())
 
     default_font_path: str | Path = Field(
-        default=get_project_root() / "data" / "fonts" / "sarasa-mono-sc-semibold.ttf"
+        default=(
+            get_project_root() / "data" / "fonts" / "sarasa-mono-sc-semibold.ttf"
+        ).as_posix()
     )
