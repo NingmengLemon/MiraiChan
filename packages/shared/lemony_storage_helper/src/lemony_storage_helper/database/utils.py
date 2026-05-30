@@ -20,7 +20,7 @@ from typing import (
     cast,
 )
 
-from sqlalchemy import URL, Column, Connection, DateTime, Table, inspect
+from sqlalchemy import URL, Column, Connection, DateTime, Table, inspect, func
 from sqlalchemy.ext.asyncio import AsyncAttrs as _AsyncAttrs
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.ext.asyncio.session import (
@@ -256,20 +256,30 @@ async def check_table_existence(session: AsyncSession, table: Table) -> bool:
 
 
 def datetime_column_tzaware(
-    *, onupdate: Any | None = None, index: bool = False
+    *,
+    default: Any | None = None,
+    onupdate: Any | None = None,
+    index: bool = False,
 ) -> Column[datetime]:
     """
     创建一个支持时区的日期时间列.
 
     Args:
+        default: 默认值.
         onupdate: 更新时的默认值.
         index: 是否创建索引.
 
     Returns:
         Column[datetime]: 日期时间列定义.
     """
+    if default is None:
+        default = func.now()
     return Column(
-        DateTime(timezone=True), nullable=False, onupdate=onupdate, index=index
+        DateTime(timezone=True),
+        nullable=False,
+        default=default,
+        onupdate=onupdate,
+        index=index,
     )
 
 

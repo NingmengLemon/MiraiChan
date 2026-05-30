@@ -43,10 +43,18 @@ class GenericDatabaseHelper:
         dburl: str | URL,
         metadata: MetaData,
     ) -> None:
-        self._dburl = make_url(dburl)
+        self._dburl_raw: Any = dburl
+        self._dburl = None
         self._metadata = metadata
         self._initialized = asyncio.Event()
         self._engine: AsyncEngine | None = None
+        # 把一切工作延迟到 startup 时, 在冷调试插件的时候很有用
+
+    def _resolve_dburl(self, raw_dburl: Any) -> URL:
+        if not isinstance(raw_dburl, (str, URL)):
+            raise TypeError("dburl must be a string or URL")
+        dburl = make_url(raw_dburl)
+        return dburl
 
     @staticmethod
     def new_metadata(
@@ -115,6 +123,10 @@ class GenericDatabaseHelper:
         if self._engine is not None:
             logger.warning("Storage helper already started up.")
             return
+        if not isinstance(self._dburl, URL):
+            self._dburl = self._resolve_dburl(self._dburl_raw)
+        if not isinstance(self._dburl, URL):
+            raise RuntimeError("database url not resolved yet, or not valid sa URL")
 
         try:
             self._engine = create_async_engine(self._dburl, echo=echo, **kw)
