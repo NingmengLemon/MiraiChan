@@ -17,7 +17,7 @@ class GroupPokeAction(Action):
         group_id: int
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("group_poke", kwargs)  # pyright: ignore[reportArgumentType]
+        super().__init__("group_poke", kwargs)  # type: ignore
 
 
 class FetchCustomFaceAction(Action):
@@ -27,7 +27,7 @@ class FetchCustomFaceAction(Action):
 
 class FetchCustomFaceEcho(Echo):
     class Model(Echo.Model):
-        data: list[str] | None  # pyright: ignore[reportIncompatibleVariableOverride]
+        data: list[str] | None  # type: ignore
 
     data: list[str] | None
 
@@ -39,7 +39,7 @@ class GetFriendMsgHistoryAction(Action):
         count: int
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("get_friend_msg_history", kwargs)  # pyright: ignore[reportArgumentType]
+        super().__init__("get_friend_msg_history", kwargs)  # type: ignore
 
 
 class GetGroupMsgHistoryAction(Action):
@@ -49,7 +49,7 @@ class GetGroupMsgHistoryAction(Action):
         count: int
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("get_group_msg_history", kwargs)  # pyright: ignore[reportArgumentType]
+        super().__init__("get_group_msg_history", kwargs)  # type: ignore
 
 
 class UploadGroupFileAction(Action):
@@ -60,7 +60,7 @@ class UploadGroupFileAction(Action):
         folder: NotRequired[str]
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("upload_group_file", kwargs)  # pyright: ignore[reportArgumentType]
+        super().__init__("upload_group_file", kwargs)  # type: ignore
 
 
 class UploadPrivateFileAction(Action):
@@ -70,7 +70,7 @@ class UploadPrivateFileAction(Action):
         name: str
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("upload_private_file", kwargs)  # pyright: ignore[reportArgumentType]
+        super().__init__("upload_private_file", kwargs)  # type: ignore
 
 
 class CreateGroupFileFolderAction(Action):
@@ -80,7 +80,7 @@ class CreateGroupFileFolderAction(Action):
         parent_id: str
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("create_group_file_folder", kwargs)  # pyright: ignore[reportArgumentType]
+        super().__init__("create_group_file_folder", kwargs)  # type: ignore
 
 
 class GetGroupRootFilesAction(Action):
@@ -94,7 +94,7 @@ class GetGroupFilesByFolderAction(Action):
         folder_id: str
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("get_group_files_by_folder", kwargs)  # pyright: ignore[reportArgumentType]
+        super().__init__("get_group_files_by_folder", kwargs)  # type: ignore
 
 
 class GetGroupFileUrlAction(Action):
@@ -104,7 +104,7 @@ class GetGroupFileUrlAction(Action):
         busid: int
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("get_group_file_url", kwargs)  # pyright: ignore[reportArgumentType]
+        super().__init__("get_group_file_url", kwargs)  # type: ignore
 
 
 class SetGroupSpecialTitleAction(Action):
@@ -114,7 +114,7 @@ class SetGroupSpecialTitleAction(Action):
         special_title: str
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("set_group_special_title", kwargs)  # pyright: ignore[reportArgumentType]
+        super().__init__("set_group_special_title", kwargs)  # type: ignore
 
 
 class SetGroupReactionAction(Action):
@@ -125,7 +125,7 @@ class SetGroupReactionAction(Action):
         is_add: bool
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("set_group_reaction", kwargs)  # pyright: ignore[reportArgumentType]
+        super().__init__("set_group_reaction", kwargs)  # type: ignore
 
 
 class SetEssenceMsgAction(Action):
@@ -154,7 +154,7 @@ class _GetEssenceMsgListEchoInterface(_GetEssenceMsgListEchoData):
 
 class GetEssenceMsgListEcho(Echo):
     class Model(Echo.Model):
-        data: list[_GetEssenceMsgListEchoData] | None  # pyright: ignore[reportIncompatibleVariableOverride]
+        data: list[_GetEssenceMsgListEchoData] | None  # type: ignore
 
     data: list[_GetEssenceMsgListEchoInterface] | None
 
@@ -178,7 +178,7 @@ class _MFaceData(TypedDict):
 
 
 class MfaceSegment(Segment[Literal["mface"], _MFaceData]):
-    class Model(BaseModel):  # pyright: ignore[reportIncompatibleVariableOverride]
+    class Model(BaseModel):  # type: ignore
         type: Literal["mface"]
         data: _MFaceData
 
