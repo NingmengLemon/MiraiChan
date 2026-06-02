@@ -207,7 +207,7 @@ class GenericDatabaseHelper:
         """单开一个 AsyncSession 来执行第一个参数是 Session 的同步函数"""
         # sqlmodel session 是基于 sqlalchemy session 的浅封装,
         # 且没有 runtime warning, 只是把 sa 的方法用类型注解标成了 deprecated,
-        # 因此兼容 sa session
+        # 因此理论上兼容 sa session
         async with self.get_session(style="sqlmodel") as asess:
             async with asess.begin():
                 return await asess.run_sync(func, *args, **kwargs)  # type: ignore
@@ -220,7 +220,7 @@ class GenericDatabaseHelper:
         """将执行第一个参数是同步 Session 的同步函数装饰成异步函数,
         运行时会单开一个 AsyncSession 及其 transaction"""
 
-        @functools.wraps(func)
+        @functools.wraps(func)  # type: ignore
         async def wrapped(*args: P.args, **kwargs: P.kwargs):
             return await self.run_sync(func, *args, **kwargs)
 
