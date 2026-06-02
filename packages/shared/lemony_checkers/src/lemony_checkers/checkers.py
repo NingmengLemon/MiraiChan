@@ -7,11 +7,11 @@ extraction model.
 """
 
 import asyncio
-from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING
 
 from melobot.adapter.model import Event
 from melobot.log import get_logger
+from melobot.typ import AsyncCallable
 from melobot.utils.check import Checker
 
 from .adapters.register import registry
@@ -24,8 +24,7 @@ logger = get_logger()
 
 
 # 失败回调类型
-# 接收一个 Event 参数的 AsyncCallable
-type FailCallback = Callable[[Event], Awaitable[Any]]
+type FailCallback = AsyncCallable[[], None]
 
 
 class FailCallbackMixin:
@@ -36,44 +35,25 @@ class FailCallbackMixin:
     """
 
     def __init__(self, fail_cb: FailCallback | None = None) -> None:
-        self._fail_cb = fail_cb
+        self.fail_cb = fail_cb
         # 持有后台 Task 的强引用, 防止 GC 在 Task 完成前回收它.
         # 参见: https://docs.python.org/3/library/asyncio-task.html#creating-tasks
         self._background_tasks: set[asyncio.Task[None]] = set()
 
-    @property
-    def fail_cb(self) -> FailCallback | None:
-        """获取当前的失败回调."""
-        return self._fail_cb
-
-    @fail_cb.setter
-    def fail_cb(self, value: FailCallback | None) -> None:
-        self._fail_cb = value
-
-    def set_fail_cb(self, fail_cb: FailCallback) -> Self:
-        """设置失败回调."""
-        self._fail_cb = fail_cb
-        return self  # 支持链式调用
-
-    def clear_fail_cb(self) -> Self:
-        """清除失败回调."""
-        self._fail_cb = None
-        return self  # 支持链式调用
-
-    async def _call_fail_cb(self, event: Event) -> None:
+    async def _call_fail_cb(self) -> None:
         """调用失败回调."""
-        if self._fail_cb is not None:
+        if self.fail_cb is not None:
             try:
-                await self._fail_cb(event)
+                await self.fail_cb()
             except Exception as e:
                 logger.error(f"Error in fail callback: {e}")
 
-    def _fire_fail_cb(self, event: Event) -> None:
+    def _fire_fail_cb(self) -> None:
         """fire-and-forget 调用失败回调, 避免阻塞检查流程.
 
         通过持有 Task 引用来防止 GC 提前回收 Task.
         """
-        task = asyncio.create_task(self._call_fail_cb(event))
+        task = asyncio.create_task(self._call_fail_cb())
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
 
@@ -97,7 +77,7 @@ class LemonyChecker(Checker[Event], FailCallbackMixin):
         *,
         plugin_name: str | None,
         command_name: str | None,
-        fail_cb: FailCallback | None,
+        fail_cb: FailCallback | None = None,
         allow_admin: bool = True,
         factory: "LemonyCheckerFactory",
     ) -> None:
@@ -110,7 +90,7 @@ class LemonyChecker(Checker[Event], FailCallbackMixin):
             fail_cb: 检查失败时的回调函数. 接收 event 参数.
             allow_admin: 是否允许管理员通过检查 (默认 True).
         """
-        Checker.__init__(self, fail_cb=None)
+        Checker.__init__(self, fail_cb=fail_cb)
         FailCallbackMixin.__init__(self, fail_cb=fail_cb)
         self._plugin_name = plugin_name
         self._command_name = command_name
@@ -147,7 +127,7 @@ class LemonyChecker(Checker[Event], FailCallbackMixin):
         user = registry.extract_uniid_any(event)
         if user is None:
             logger.debug("Cannot extract user identity from event, check failed")
-            self._fire_fail_cb(event)
+            self._fire_fail_cb()
             return False
 
         plugin_settings = (
@@ -169,7 +149,7 @@ class LemonyChecker(Checker[Event], FailCallbackMixin):
                 + (f" for plugin {self._plugin_name!r}" if self._plugin_name else "")
                 + (f" command {self._command_name!r}" if self._command_name else "")
             )
-            self._fire_fail_cb(event)
+            self._fire_fail_cb()
 
         return passed
 
@@ -184,7 +164,7 @@ class OwnerChecker(Checker[Event], FailCallbackMixin):
     def __init__(
         self, *, factory: "LemonyCheckerFactory", fail_cb: FailCallback | None = None
     ) -> None:
-        Checker.__init__(self, fail_cb=None)
+        Checker.__init__(self, fail_cb=fail_cb)
         FailCallbackMixin.__init__(self, fail_cb=fail_cb)
 
         self._factory = factory
@@ -192,13 +172,13 @@ class OwnerChecker(Checker[Event], FailCallbackMixin):
     async def check(self, event: Event) -> bool:
         user = registry.extract_uniid_any(event)
         if user is None:
-            self._fire_fail_cb(event)
+            self._fire_fail_cb()
             return False
 
         if self._factory.is_owner(user):
             return True
 
-        self._fire_fail_cb(event)
+        self._fire_fail_cb()
         return False
 
 
@@ -212,18 +192,18 @@ class AdminChecker(Checker[Event], FailCallbackMixin):
     def __init__(
         self, *, factory: "LemonyCheckerFactory", fail_cb: FailCallback | None = None
     ) -> None:
-        Checker.__init__(self, fail_cb=None)
+        Checker.__init__(self, fail_cb=fail_cb)
         FailCallbackMixin.__init__(self, fail_cb=fail_cb)
         self._factory = factory
 
     async def check(self, event: Event) -> bool:
         user = registry.extract_uniid_any(event)
         if user is None:
-            self._fire_fail_cb(event)
+            self._fire_fail_cb()
             return False
 
         if self._factory.is_owner(user) or self._factory.is_admin(user):
             return True
 
-        self._fire_fail_cb(event)
+        self._fire_fail_cb()
         return False
