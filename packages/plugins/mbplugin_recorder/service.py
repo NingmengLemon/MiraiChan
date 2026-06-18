@@ -64,7 +64,7 @@ class RecorderService:
             sender_filter = []
             if query.sender_only:
                 sender_filter.append(
-                    Message.sender_identity_id == base_message.sender_identity_id
+                    col(Message.sender_identity_id) == base_message.sender_identity_id
                 )
 
             earlier_messages: list[Message] = []
