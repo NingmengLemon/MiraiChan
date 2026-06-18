@@ -23,8 +23,6 @@ packages = [
 
 [tool.setuptools.package-dir]
 mbplugin_recorder = "."
-"mbplugin_recorder.adapters" = "adapters"
-"mbplugin_recorder.db" = "db"
 
 [tool.uv.sources]
 lemony_checkers = { workspace = true }
