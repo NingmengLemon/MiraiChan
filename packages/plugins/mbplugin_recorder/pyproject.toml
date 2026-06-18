@@ -1,0 +1,33 @@
+[project]
+name = "mbplugin_recorder"
+version = "1.0.0"
+description = "A plugin for recording and managing historical chat messages."
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiofiles",
+    "lemony_checkers",
+    "lemony_storage_helper",
+    "lemony_utils",
+    "lemony_network",
+    "puremagic>=2.2.0",
+    "uuid-utils>=0.14.1",
+]
+
+[tool.setuptools]
+packages = [
+    "mbplugin_recorder",
+    "mbplugin_recorder.adapters",
+    "mbplugin_recorder.db",
+]
+
+[tool.setuptools.package-dir]
+mbplugin_recorder = "."
+"mbplugin_recorder.adapters" = "adapters"
+"mbplugin_recorder.db" = "db"
+
+[tool.uv.sources]
+lemony_checkers = { workspace = true }
+lemony_storage_helper = { workspace = true }
+lemony_utils = { workspace = true }
+lemony_network = { workspace = true }

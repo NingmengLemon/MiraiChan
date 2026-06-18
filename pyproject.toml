@@ -22,6 +22,7 @@ dependencies = [
     "mbplugin_checker_manager",
     "mbplugin_deeeer",
     "mbplugin_moelottery",
+    "mbplugin_recorder",
     # workspace members above
     "melobot[onebot]>=3.3.0",
     "pypinyin>=0.53.0",
@@ -48,6 +49,7 @@ members = [
     "packages/plugins/mbplugin_checker_manager",
     "packages/plugins/mbplugin_deeeer",
     "packages/plugins/mbplugin_moelottery",
+    "packages/plugins/mbplugin_recorder",
     # "packages/plugins/*",
 ]
 
@@ -68,6 +70,7 @@ lemony_onebot_utils = { workspace = true }
 mbplugin_checker_manager = { workspace = true }
 mbplugin_deeeer = { workspace = true }
 mbplugin_moelottery = { workspace = true }
+mbplugin_recorder = { workspace = true }
 
 [tool.pdm.scripts]
 melobot = { cmd = ["python", "-m", "melobot"] }
