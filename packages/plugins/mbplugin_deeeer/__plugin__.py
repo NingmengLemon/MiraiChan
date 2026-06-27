@@ -1,9 +1,12 @@
 import asyncio
+import random
 import re
 import time
 from datetime import datetime
 from io import BytesIO
+from logging import getLogger
 from pathlib import Path
+from typing import TypedDict
 
 from lemony_checkers import get_checker_factory_wrapper
 from lemony_images import bytes_to_b64_url
@@ -15,6 +18,7 @@ from melobot.protocols.onebot.v11.adapter.base import Adapter
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, TextSegment
 from melobot.protocols.onebot.v11.handle import on_message
+from PIL import Image
 
 from .core import (
     Painter,
@@ -24,18 +28,30 @@ from .core import (
     record,
 )
 
+logger = getLogger(__name__)
+
 PLUGIN_IDENTIFIER = "deeeer"
+
+
+class DeerImgCfg(TypedDict):
+    filename: str
+    random_weight: float
+
+
+class DeerImg(DeerImgCfg):
+    data: Image.Image
 
 
 class CfgModel(BaseSettings):
     trigger_chars: str = "鹿撸🦌"
     group_isolation: bool = False
     daily_limit: int = 100  # < 1 的值记为无限制
+    enabled_deer_imgs: list[DeerImgCfg] = [
+        {"filename": "deer.jpg", "random_weight": 1.0},
+    ]
+    correct_sign_img: str = "correct.png"
 
     database_echo: bool = False
-    # 调试用
-    # 并且注意 melobot 的日志器似乎 hook 不到 sa 的日志
-    # 所以风格和其他日志不太一样 (这是重点吗)
 
 
 cfgloader = require(model=CfgModel, identifier=PLUGIN_IDENTIFIER)
@@ -43,7 +59,7 @@ cfgloader = require(model=CfgModel, identifier=PLUGIN_IDENTIFIER)
 RESOURCE_PATH = Path(__file__).parent / "resources"
 
 plugin = PluginPlanner(
-    "0.1.3",
+    "0.1.4",
     info=PluginInfo(
         desc="只是一个群签到插件",
     ),
@@ -57,6 +73,8 @@ DEER_JUDGE_REGEX: re.Pattern[str]
 DEER_COUNT_REGEX: re.Pattern[str]
 DAILY_LIMIT: int
 GROUP_ISOLATION: bool
+DEERS: list[DeerImg]
+CORRECT_SIGN_IMG: Image.Image
 
 
 def post_init():
@@ -66,7 +84,9 @@ def post_init():
         DEER_COUNT_REGEX, \
         DAILY_LIMIT, \
         GROUP_ISOLATION, \
-        PAINTER
+        PAINTER, \
+        DEERS, \
+        CORRECT_SIGN_IMG
 
     DEER_CHARS = cfgloader.value.trigger_chars
     DEER_JUDGE_REGEX = re.compile(
@@ -75,10 +95,21 @@ def post_init():
     DEER_COUNT_REGEX = re.compile(rf"[{re.escape(DEER_CHARS)}]", re.IGNORECASE)
     DAILY_LIMIT = cfgloader.value.daily_limit
     GROUP_ISOLATION = cfgloader.value.group_isolation
-    PAINTER = Painter(
-        RESOURCE_PATH / "deer.jpg",
-        RESOURCE_PATH / "correct.png",
-    )
+    DEERS = []
+    for d in cfgloader.value.enabled_deer_imgs:
+        DEERS.append(
+            {
+                "data": Image.open(RESOURCE_PATH / d["filename"]).convert("RGBA"),
+                "filename": d["filename"],
+                "random_weight": d["random_weight"],
+            }
+        )
+        logger.info(f"loaded deer img: {d['filename']}")
+    logger.info(f"loaded all deer imgs, {len(DEERS)} in total")
+    CORRECT_SIGN_IMG = Image.open(
+        RESOURCE_PATH / cfgloader.value.correct_sign_img
+    ).convert("RGBA")
+    PAINTER = Painter()
 
 
 @bot.on_started
@@ -133,9 +164,17 @@ async def deer(event: GroupMessageEvent, adapter: Adapter):
 
         nt = time.localtime()
         avatar = BytesIO(await cached_avatar_source.get(event.user_id))
+
+        random_deer = random.choices(
+            DEERS,
+            [deer["random_weight"] for deer in DEERS],
+        )[0]
+        logger.info(f"selected deer img: {random_deer['filename']}")
         pic = await asyncio.to_thread(
             PAINTER.draw,
-            records,
+            random_deer["data"],
+            CORRECT_SIGN_IMG,
+            records=records,
             year=nt.tm_year,
             month=nt.tm_mon,
             user_name=str(event.sender.nickname),

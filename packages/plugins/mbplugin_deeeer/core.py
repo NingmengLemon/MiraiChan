@@ -74,10 +74,10 @@ def record(
     session.commit()
 
 
-_ValidImageInput = BytesIO | str | Path | Image.Image
+ValidImageInput = BytesIO | str | Path | Image.Image
 
 
-def _to_image(pic: _ValidImageInput):
+def _to_image(pic: ValidImageInput):
     return (
         pic.convert("RGBA")
         if isinstance(pic, Image.Image)
@@ -96,26 +96,27 @@ class Painter:
 
     def __init__(
         self,
-        deer_pic: _ValidImageInput,
-        correct_sign: _ValidImageInput,
         font: FontCache | None = None,
     ):
-        bg = Image.new("RGBA", self.GRID_SIZE, color=self.BG_COLOR)
-        self._deer_pic = bg.copy()
-        self._deer_pic.paste(ImageOps.contain(_to_image(deer_pic), self.GRID_SIZE))
-        cs = bg.copy()
-        cs.paste(ImageOps.contain(_to_image(correct_sign), self.GRID_SIZE))
-        self._deer_pic_ok = Image.alpha_composite(self._deer_pic, cs)
         self._font = font if font else get_default_font_cache()
 
     def draw(
         self,
+        deer_pic: ValidImageInput,
+        correct_sign: ValidImageInput,
+        *,
         records: list[tuple[float, int]],
         year: int,
         month: int,
         user_name: str,
-        user_avatar: _ValidImageInput | None = None,
+        user_avatar: ValidImageInput | None = None,
     ):
+        deer_bg = Image.new("RGBA", self.GRID_SIZE, color=self.BG_COLOR)
+        deer_bg.paste(ImageOps.contain(_to_image(deer_pic), self.GRID_SIZE))
+        cs = Image.new("RGBA", self.GRID_SIZE, color=self.BG_COLOR)
+        cs.paste(ImageOps.contain(_to_image(correct_sign), self.GRID_SIZE))
+        deer_pic_ok = Image.alpha_composite(deer_bg, cs)
+
         mc = calendar.monthcalendar(year, month)
         user_avatar = Image.alpha_composite(
             Image.new(
@@ -178,7 +179,7 @@ class Painter:
                     ),
                 )
                 canvas.paste(
-                    (self._deer_pic_ok if day in deer_count_map else self._deer_pic),
+                    (deer_pic_ok if day in deer_count_map else deer_bg),
                     (x, y),
                 )
                 draw.text(
