@@ -21,7 +21,7 @@ from .config import (
     ReverseWebsocketIOConfigModel,
 )
 from .loader import resolve_plugin_path
-from .utils import ALTERNATIVE_LOGOS, custom_melobot_logo, get_project_root
+from .utils import ALTERNATIVE_LOGOS, customize_melobot_logo, get_project_root
 from .validation_patches.ob11 import patch_all
 
 if sys.platform == "win32":
@@ -33,7 +33,7 @@ else:
 
 logger = Logger()
 miraichan_cli_app = Typer(name="miraichan", help="Miraichan CLI commands.")
-custom_melobot_logo(ALTERNATIVE_LOGOS["no_logo"])
+customize_melobot_logo(ALTERNATIVE_LOGOS["no_logo"])
 
 
 def init_modules(cfg: GlobalConfigModel):
@@ -98,6 +98,9 @@ def _main(
 ):
     config_path = Path(config_path or DEFAULT_CONFIG_PATH)
     set_global_logger(logger)
+    # setLoggerClass(Logger)
+    # 能让使用 logging 记日志的库也使用全局日志记录器
+    # 但是目前 mb 的日志器在多线程环境有点问题所以暂时不用
 
     logger.info("少女祈祷中... plz wait...")
     os.chdir(get_project_root())

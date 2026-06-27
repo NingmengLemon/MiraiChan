@@ -32,10 +32,7 @@ def search_upwards_for_files(start_path: Path, *target_files: str) -> Path | Non
     return None
 
 
-def custom_melobot_logo(new_logo: str) -> None:
-    # target: melobot._meta.MetaInfoMeta
-    # 亲爱的律在这些字段上设置了只读描述器, 且使用了元类来阻止修改 __dict__
-    # 呐么让我们试试 ----
+def customize_melobot_logo(new_logo: str) -> None:
     try:
         from melobot._meta import MetaInfoMeta
         # 咳咳私有成员注意, 后续随时可能被改掉
