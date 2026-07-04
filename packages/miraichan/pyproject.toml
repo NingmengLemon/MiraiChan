@@ -8,6 +8,7 @@ authors = [
 dependencies = [
     "json5>=0.13.0",
     "melobot[onebot]>=3.3.0",
+    "packaging>=26.2",
     "pydantic>=2.10.3",
     "typer>=0.24.1",
     "uvloop>=0.21.0; sys_platform != 'win32'",
@@ -17,7 +18,7 @@ readme = "README.md"
 license = { text = "AGPL3" }
 
 [project.scripts]
-miraichan = "miraichan.bot:miraichan_cli_app"
+miraichan = "miraichan.main:miraichan_cli_app"
 
 [tool.uv.sources]
 

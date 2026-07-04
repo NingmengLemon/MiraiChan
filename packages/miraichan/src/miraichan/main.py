@@ -1,9 +1,11 @@
 import asyncio
 import os
 import sys
+from logging import setLoggerClass
 from pathlib import Path
 
 import json5
+import melobot
 from lemony_checkers import init_checker_factory
 from lemony_images import init_default_font_cache
 from lemony_settings import init_settings_manager
@@ -12,6 +14,7 @@ from melobot import Bot, add_import_fallback
 from melobot.log import Logger, LogLevel
 from melobot.log.reflect import set_global_logger
 from melobot.protocols.onebot.v11 import Adapter, ForwardWebSocketIO, ReverseWebSocketIO
+from packaging.version import Version
 from typer import Option, Typer
 
 from .config import (
@@ -22,7 +25,6 @@ from .config import (
 )
 from .loader import resolve_plugin_path
 from .utils import ALTERNATIVE_LOGOS, customize_melobot_logo, get_project_root
-from .validation_patches.ob11 import patch_all
 
 if sys.platform == "win32":
     add_import_fallback("_sqlite3")
@@ -30,6 +32,9 @@ else:
     import uvloop
 
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
+MELOBOT_VERSION = Version(melobot.__version__)
+
 
 logger = Logger()
 miraichan_cli_app = Typer(name="miraichan", help="Miraichan CLI commands.")
@@ -96,11 +101,21 @@ def _main(
     debug: bool,
     config_path: Path | None,
 ):
+    from .validation_patches.ob11 import patch_all
+
     config_path = Path(config_path or DEFAULT_CONFIG_PATH)
+
+    # logging configs
+    if Version("3.2.0") <= MELOBOT_VERSION <= Version("3.4.0"):
+        from .melobot_patches.logging import patch_melobot_thread_logging
+
+        patch_melobot_thread_logging()
+
     set_global_logger(logger)
-    # setLoggerClass(Logger)
+    setLoggerClass(Logger)
     # 能让使用 logging 记日志的库也使用全局日志记录器
-    # 但是目前 mb 的日志器在多线程环境有点问题所以暂时不用
+    # 目前(3.4.0, 相关函数简单追溯到了 3.2.0, 未测试) 的 melobot 的日志器在多线程环境有问题
+    # 在上面 patch 过了
 
     logger.info("少女祈祷中... plz wait...")
     os.chdir(get_project_root())
