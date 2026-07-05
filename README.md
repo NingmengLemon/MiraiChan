@@ -4,15 +4,50 @@
 
 一个简单的 Bot, 使用 [melobot](https://github.com/Meloland/melobot) 作为框架
 
-> melobot 是一个小巧可爱而强大的机器人开发框架，快去给她点点 star 吧！
+> melobot 是一个小巧可爱而强大的机器人开发框架，快去给*她*点点 star 吧！
 
-名字来自于最初基于的实现端 mirai ~~, 不会起名导致的~~,
+> 名字来自于最初使用的实现端 [mirai](https://github.com/mamoe/mirai) ~~, 不会起名导致的~~,  
+> 准确地说是 [Ariadne](https://github.com/GraiaProject/Ariadne) 及其系列生态库. 不过都是过去的事了uwu
 
 在 Python 3.12 下编写/测试/运行, 其他版本尚未经测试
 
 ## 功能
 
 > 绝赞重构中, plz wait...
+
+## 写给自己看的
+
+### 仓库结构
+
+目前仓库采用 monorepo 组织形式:
+
+- Mirai酱 主包: [`packages/miraichan`](packages/miraichan)
+- 共享库: [`packages/shared/*`](packages/shared)
+- 插件: [`packages/plugins/*`](packages/plugins)
+
+### 开发说明
+
+请使用 [uv](https://docs.astral.sh/uv/) 作为项目管理工具
+
+最好不要将Mirai酱的主包作为依赖包安装, 推荐直接 clone 整个仓库使用
+
+要单独使用某个共享包作为其他项目依赖的话可以:
+
+```bash
+uv add "git+https://github.com/NingmengLemon/MiraiChan.git#subdirectory=packages/shared/<package_name>"
+```
+
+(把 `<package_name>` 替换为实际的包名)
+
+这个写法是通用的, 理论上用 pip 也能行. 但是谁会拒绝 uv 呢 uwu
+
+或者在 `pyproject.toml` 中:
+
+```toml
+# 也记得在 project.dependencies 里加上
+[tool.uv.sources]
+"<package_name>" = { git = "https://github.com/NingmengLemon/MiraiChan.git", subdirectory = "packages/shared/<package_name>" }
+```
 
 ## 开源相关
 
