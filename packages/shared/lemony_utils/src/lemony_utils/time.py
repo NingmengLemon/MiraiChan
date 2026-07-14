@@ -1,5 +1,5 @@
 import time
-from datetime import datetime
+from datetime import UTC, datetime, timezone
 from typing import Literal, Self
 
 
@@ -61,3 +61,9 @@ def get_time_period_start(
         raise ValueError(f"Invalid period: {period}")
 
     return new_dt
+
+
+def tzaware_datetime_from_timestamp(
+    timestamp: int | float, tz: timezone | None = None
+) -> datetime:
+    return datetime.fromtimestamp(timestamp, tz or UTC)
