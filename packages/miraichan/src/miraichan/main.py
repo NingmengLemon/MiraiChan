@@ -106,7 +106,7 @@ def _main(
     config_path = Path(config_path or DEFAULT_CONFIG_PATH)
 
     # logging configs
-    if Version("3.2.0") <= MELOBOT_VERSION <= Version("3.4.0"):
+    if Version("3.2.0") <= MELOBOT_VERSION < Version("3.5.0"):
         from .melobot_patches.logging import patch_melobot_thread_logging
 
         patch_melobot_thread_logging()
@@ -114,7 +114,8 @@ def _main(
     set_global_logger(logger)
     setLoggerClass(Logger)
     # 能让使用 logging 记日志的库也使用全局日志记录器
-    # 目前(3.4.0, 相关函数简单追溯到了 3.2.0, 未测试) 的 melobot 的日志器在多线程环境有问题
+    # 目前 (3.4.0, 相关函数简单追溯到了 3.2.0, 未测试) 的 melobot 的日志器在多线程环境有问题
+    # 在 3.5.0 修了
     # 在上面 patch 过了
 
     logger.info("少女祈祷中... plz wait...")
