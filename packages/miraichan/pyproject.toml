@@ -36,3 +36,6 @@ dev = [
     "pytest-sqlalchemy>=0.3.0",
     "pytest-sqlalchemy-mock>=0.1.7",
 ]
+
+[tool.uv]
+package = true

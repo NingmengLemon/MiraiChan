@@ -7,6 +7,8 @@ authors = [
 ]
 dependencies = [
     "miraichan",
+    # protocol adapters
+    "melobot_telegram_protocol",
     # shared libs
     "lemony_utils",
     "lemony_settings",
@@ -15,7 +17,6 @@ dependencies = [
     "lemony_storage_helper[all]",
     "lemony_images",
     "lemony_network",
-    "melobot_telegram_protocol",
     "lemony_media",
     "lemony_onebot_utils",
     # plugins
@@ -24,19 +25,7 @@ dependencies = [
     "mbplugin_moelottery",
     "mbplugin_recorder",
     # workspace members above
-    "melobot[onebot]>=3.3.0",
-    "pypinyin>=0.53.0",
-    "aiofiles>=24.1.0",
-    "qrcode>=8.0",
-    "uvloop>=0.21.0; sys_platform != 'win32'",
-    "sqlmodel>=0.0.22",
-    "graphviz>=0.20.3",
-    "lxml>=5.3.0",
-    "pydantic>=2.10.3",
-    "romajitable>=0.0.1",
-    "aiosqlite>=0.21.0",
-    "apscheduler>=3.11.0",
-    "PyYAML>=6.0.2",
+    "melobot[onebot]>=3.5.0",
 ]
 requires-python = "==3.12.*"
 readme = "README.md"
@@ -55,6 +44,8 @@ members = [
 
 [tool.uv.sources]
 miraichan = { workspace = true }
+# protocol adapters
+melobot_telegram_protocol = { workspace = true }
 # shared libs
 lemony_utils = { workspace = true }
 lemony_settings = { workspace = true }
@@ -63,7 +54,6 @@ lemony_llm_provider = { workspace = true }
 lemony_storage_helper = { workspace = true }
 lemony_images = { workspace = true }
 lemony_network = { workspace = true }
-melobot_telegram_protocol = { workspace = true }
 lemony_media = { workspace = true }
 lemony_onebot_utils = { workspace = true }
 # plugins
