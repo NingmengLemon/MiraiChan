@@ -1,5 +1,8 @@
+import logging
+from logging import getLogger
+
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
-from melobot import PluginPlanner, get_bot, get_logger
+from melobot import PluginPlanner, get_bot
 from melobot.plugin import SyncShare
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent, NoticeEvent
 from melobot.protocols.onebot.v11.handle import on_message, on_notice
@@ -17,7 +20,7 @@ DATABASE_PATH = "record/recorder.db"
 MEDIA_CACHE_ROOT = "data/record/media"
 
 bot = get_bot()
-logger = get_logger()
+logger = getLogger(__name__)
 recorder_db = SqliteDatabaseHelper(DATABASE_PATH, metadata=recorder_metadata)
 recorder_service = RecorderService(recorder_db)
 media_worker = MediaDownloadWorker(recorder_db, cache_root=MEDIA_CACHE_ROOT)
@@ -48,12 +51,12 @@ plugin = PluginPlanner(
 )
 
 
-@bot.on_started
+@plugin.on_ready
 async def _() -> None:
     logger.info(
         f"Recorder 插件启动中: db={DATABASE_PATH}, media_cache={MEDIA_CACHE_ROOT}"
     )
-    await recorder_db.startup()
+    await recorder_db.startup(echo=logger.level == logging.DEBUG)
     media_worker.start()
     logger.info("Recorder 插件已启动")
 
@@ -86,9 +89,9 @@ async def record_onebot11_message(event: MessageEvent) -> None:
         logger.exception("数据库错误，消息记录终止")
         raise
     except Exception:
-        logger.generic_exc(
-            "记录 OneBot11 消息失败",
-            obj={
+        logger.exception(
+            "记录 OneBot11 消息失败: %s"
+            % {
                 "protocol": str(event.protocol),
                 "self_id": getattr(event, "self_id", None),
                 "message_id": getattr(event, "message_id", None),
@@ -128,9 +131,9 @@ async def record_onebot11_notice(event: NoticeEvent) -> None:
         logger.exception("数据库错误，成员事件记录终止")
         raise
     except Exception:
-        logger.generic_exc(
-            "记录 OneBot11 通知失败",
-            obj={
+        logger.exception(
+            "记录 OneBot11 通知失败: %s"
+            % {
                 "protocol": str(event.protocol),
                 "self_id": getattr(event, "self_id", None),
                 "notice_type": getattr(event, "notice_type", None),
