@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import random
 import re
 import time
@@ -50,8 +51,6 @@ class CfgModel(BaseSettings):
         {"filename": "deer.jpg", "random_weight": 1.0},
     ]
     correct_sign_img: str = "correct.png"
-
-    database_echo: bool = False
 
 
 cfgloader = require(model=CfgModel, identifier=PLUGIN_IDENTIFIER)
@@ -112,11 +111,11 @@ def post_init():
     PAINTER = Painter()
 
 
-@bot.on_started
-async def _():
+@plugin.on_ready
+async def _() -> None:
     cfgloader.load()
     await asyncio.to_thread(post_init)
-    await deerdbcore.startup(echo=cfgloader.value.database_echo)
+    await deerdbcore.startup(echo=logger.level == logging.DEBUG)
 
 
 deer_lock = asyncio.Lock()
