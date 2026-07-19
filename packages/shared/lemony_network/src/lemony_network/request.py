@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -15,7 +16,7 @@ from aiohttp.client import _RequestOptions
 from yarl import URL
 
 UrlStr = URL | str
-http_headers = {
+_HTTP_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
     "Accept-Encoding": "gzip, deflate, br, zstd",
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -30,7 +31,7 @@ http_headers = {
     "Sec-Fetch-User": "?1",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
 }
-
+HTTP_HEADERS = MappingProxyType(_HTTP_HEADERS)
 
 if TYPE_CHECKING:
     from aiohttp.client import _RequestOptions

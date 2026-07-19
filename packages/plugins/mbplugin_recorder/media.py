@@ -5,7 +5,7 @@ from uuid import uuid4
 import aiofiles
 import puremagic
 from aiohttp import ClientSession
-from lemony_network.request import http_headers
+from lemony_network.request import HTTP_HEADERS
 
 from .db.dto import MediaSourceInput
 from .db.enums import MediaDownloadStatus
@@ -104,7 +104,7 @@ async def download_media_source(
     magic_data = bytearray()
 
     try:
-        async with http_session.get(source.url, headers=http_headers) as response:
+        async with http_session.get(source.url, headers=HTTP_HEADERS) as response:
             response.raise_for_status()
             content_length = response.content_length
             if content_length is not None and content_length > max_bytes:

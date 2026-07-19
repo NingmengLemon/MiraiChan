@@ -8,7 +8,7 @@ from collections.abc import Awaitable
 import aiofiles
 from aiohttp import ClientSession
 from lemony_images import bytes_to_b64_url, text_to_image
-from lemony_network.request import async_http, http_headers
+from lemony_network.request import HTTP_HEADERS, async_http
 from lemony_utils.misc import to_ordinal
 from melobot import get_bot
 from melobot.adapter.base import Adapter as BaseAdapter
@@ -52,7 +52,7 @@ class AvatarCache:
     CACHE_DIR = "data/avatars"  # TODO: 从统一的资源管理器里拿, 别直接读相对路径, cwd 不一定是项目根
     EXPIRES = 24 * 60 * 60
     FILENAME_TEMPLATE = "{uid}.png"
-    HEADERS = http_headers.copy()
+    HEADERS = HTTP_HEADERS.copy()
 
     def __init__(self, *, auto_close: bool = True):
         # auto_close 依赖 bot 的 stopped 事件关闭 session
