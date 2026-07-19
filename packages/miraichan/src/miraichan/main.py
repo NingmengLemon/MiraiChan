@@ -97,6 +97,20 @@ def _io_from_config_model(
     raise ValueError(f"Invalid websocket config type: {type(cfg)}")
 
 
+def _setup_logging():
+    # logging configs
+    if Version("3.2.0") <= MELOBOT_VERSION < Version("3.5.0"):
+        from .melobot_patches.logging import patch_melobot_thread_logging
+
+        # 目前 (3.4.0, 相关函数简单追溯到了 3.2.0, 未测试) 的 melobot 的日志器在多线程环境有问题
+        # 在 3.5.0 修了
+        patch_melobot_thread_logging()
+
+    set_global_logger(logger)
+    # 让使用 logging 记日志的库也使用全局日志记录器
+    setLoggerClass(Logger)
+
+
 def _main(
     debug: bool,
     config_path: Path | None,
@@ -104,19 +118,7 @@ def _main(
     from .validation_patches.ob11 import patch_all
 
     config_path = Path(config_path or DEFAULT_CONFIG_PATH)
-
-    # logging configs
-    if Version("3.2.0") <= MELOBOT_VERSION < Version("3.5.0"):
-        from .melobot_patches.logging import patch_melobot_thread_logging
-
-        patch_melobot_thread_logging()
-
-    set_global_logger(logger)
-    setLoggerClass(Logger)
-    # 能让使用 logging 记日志的库也使用全局日志记录器
-    # 目前 (3.4.0, 相关函数简单追溯到了 3.2.0, 未测试) 的 melobot 的日志器在多线程环境有问题
-    # 在 3.5.0 修了
-    # 在上面 patch 过了
+    _setup_logging()
 
     logger.info("少女祈祷中... plz wait...")
     os.chdir(get_project_root())
@@ -130,7 +132,7 @@ def _main(
                         indent=4, exclude_none=True, by_alias=True
                     )
                 )
-            logger.error("配置文件 config.json 不存在, 已创建默认配置文件.")
+            logger.error("配置文件 config.json 不存在, 已创建默认配置文件")
             logger.error("请根据需要修改配置文件后重新启动 MiraiChan.")
         except Exception as e:
             logger.error("无法创建配置文件 config.json: %s", e)

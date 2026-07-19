@@ -10,12 +10,14 @@ PROJECT_ROOT_MAKERS = ("miracle_entrance.py",)
 
 @cache
 def get_project_root() -> Path:
-    proj_root = search_upwards_for_files(
-        Path(__file__).parent,
-        *PROJECT_ROOT_MAKERS,
-    )
-    if proj_root is None:
-        raise FileNotFoundError("Could not find the project root.")
+    if (
+        proj_root := search_upwards_for_files(
+            Path(__file__).parent,
+            *PROJECT_ROOT_MAKERS,
+        )
+    ) is None:
+        logger.debug("Project root not found, using current working directory.")
+        return Path.cwd()
     logger.debug(f"Project root found at: {proj_root}")
     return proj_root
 
@@ -53,11 +55,11 @@ _ALTERNATIVE_LOGO_REBEL = r"""
  ▒███ ▒███ ▒███ ▒███▒▒▒   ▒███ ▒███ ▒███ ▒███ ▒███▒███ ▒███  ▒███ ███
  █████▒███ █████▒▒██████  █████▒▒██████  ████████ ▒▒██████   ▒▒█████ 
 ▒▒▒▒▒ ▒▒▒ ▒▒▒▒▒  ▒▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒▒▒  ▒▒▒▒▒▒▒▒   ▒▒▒▒▒▒     ▒▒▒▒▒  
-梅洛姬, 参上 Ciallo～(∠・ω< )⌒☆
+梅洛姬, 参上 ～(∠・ω< )⌒☆
 """
 _ALTERNATIVE_NO_LOGO = r"""
 梅洛姬气人, 启动中!
-梅洛姬, 参上 Ciallo～(∠・ω< )⌒☆
+梅洛姬, 参上 ～(∠・ω< )⌒☆
 """
 
 
