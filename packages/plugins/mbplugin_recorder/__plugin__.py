@@ -90,8 +90,8 @@ async def record_onebot11_message(event: MessageEvent) -> None:
         raise
     except Exception:
         logger.exception(
-            "记录 OneBot11 消息失败: %s"
-            % {
+            "记录 OneBot11 消息失败: %s",
+            {
                 "protocol": str(event.protocol),
                 "self_id": getattr(event, "self_id", None),
                 "message_id": getattr(event, "message_id", None),
@@ -127,13 +127,13 @@ async def record_onebot11_notice(event: NoticeEvent) -> None:
                     f"已记录 OneBot11 成员事件: type={member_payload.event_type} "
                     f"event_id={member_event.id} raw_id={member_payload.raw_event_id}"
                 )
-    except (IntegrityError, OperationalError):
-        logger.exception("数据库错误，成员事件记录终止")
+    except (IntegrityError, OperationalError) as e:
+        logger.exception("数据库错误，成员事件记录终止: %s", e)
         raise
     except Exception:
         logger.exception(
-            "记录 OneBot11 通知失败: %s"
-            % {
+            "记录 OneBot11 通知失败: %s",
+            {
                 "protocol": str(event.protocol),
                 "self_id": getattr(event, "self_id", None),
                 "notice_type": getattr(event, "notice_type", None),
