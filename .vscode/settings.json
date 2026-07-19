@@ -9,5 +9,6 @@
   "python.analysis.ignore": [
     "references",
     "packages/plugins/_to_be_migrated",
+    "**/.nox",
   ]
 }

@@ -1,0 +1,23 @@
+[project]
+name = "mbplugin_emergency_alerts"
+version = "0.1.0"
+description = ""
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = [
+    "lemony_checkers",
+    "lemony_utils",
+    "lemony_storage_helper",
+    "lemony-network",
+    "uuid-utils>=0.14.1",
+    "websockets>=14.2",
+    "json5>=0.15.0",
+    "pydantic>=2.13.4",
+    "aiohttp>=3.14.1",
+]
+
+[tool.uv.sources]
+lemony_checkers = { workspace = true }
+lemony_utils = { workspace = true }
+lemony_storage_helper = { workspace = true }
+lemony-network = { workspace = true }
