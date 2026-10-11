@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import random
 import re
 import time
@@ -28,6 +27,7 @@ from .core import (
     query_one_day_total,
     record,
 )
+from .migration import migrate
 
 logger = getLogger(__name__)
 
@@ -111,11 +111,23 @@ def post_init():
     PAINTER = Painter()
 
 
+_ready = asyncio.Event()
+_init_failed = False
+
+
 @plugin.on_ready
 async def _() -> None:
-    cfgloader.load()
-    await asyncio.to_thread(post_init)
-    await deerdbcore.startup(echo=logger.level == logging.DEBUG)
+    # melobot 会吞掉 hook 里的异常, 这里自己记下失败, 让 handler 放弃而不是挂起或 NameError
+    global _init_failed
+    try:
+        cfgloader.load()
+        await asyncio.to_thread(post_init)
+        await deerdbcore.startup(prepare=migrate)
+    except Exception:
+        _init_failed = True
+        logger.exception("deeeer 初始化失败, 插件将不响应")
+    finally:
+        _ready.set()
 
 
 deer_lock = asyncio.Lock()
@@ -127,12 +139,14 @@ checker_factory = get_checker_factory_wrapper(
 @plugin.use
 @on_message()
 async def deer(event: GroupMessageEvent, adapter: Adapter):
+    await _ready.wait()
+    if _init_failed:
+        return
     if not re.match(DEER_JUDGE_REGEX, (msg := event.text)):
         return
     if not await checker_factory(command_name="do_deer").check(event):
         return
     combo = len(re.findall(DEER_COUNT_REGEX, msg))
-    await deerdbcore.wait_until_initialized()
 
     async with deer_lock:
         today_total = await query_one_day_total(
