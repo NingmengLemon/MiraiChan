@@ -1,6 +1,6 @@
-import logging
 from logging import getLogger
 
+from lemony_storage_helper.database import StorageStartupError
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
 from melobot import PluginPlanner, get_bot
 from melobot.plugin import SyncShare
@@ -56,9 +56,19 @@ async def _() -> None:
     logger.info(
         f"Recorder 插件启动中: db={DATABASE_PATH}, media_cache={MEDIA_CACHE_ROOT}"
     )
-    await recorder_db.startup(echo=logger.level == logging.DEBUG)
+    # 异常会被 melobot 的 hook 吞掉, 失败状态由 helper 记住, handler 据此放弃
+    await recorder_db.startup()
     media_worker.start()
     logger.info("Recorder 插件已启动")
+
+
+async def _db_ready() -> bool:
+    try:
+        await recorder_db.wait_until_initialized()
+    except StorageStartupError:
+        logger.debug("Recorder 数据库未能启动, 跳过本次记录")
+        return False
+    return True
 
 
 @bot.on_stopped
@@ -75,7 +85,8 @@ async def _() -> None:
 async def record_onebot11_message(event: MessageEvent) -> None:
     if not onebot11_adapter.supports(event):
         return
-    await recorder_db.wait_until_initialized()
+    if not await _db_ready():
+        return
     payload = onebot11_adapter.to_recorded_message(event)
     try:
         async with recorder_db.get_session(style="sqlalchemy") as session:
@@ -104,7 +115,8 @@ async def record_onebot11_message(event: MessageEvent) -> None:
 async def record_onebot11_notice(event: NoticeEvent) -> None:
     if not onebot11_adapter.supports_notice(event):
         return
-    await recorder_db.wait_until_initialized()
+    if not await _db_ready():
+        return
     payload = onebot11_adapter.to_notice(event)
     if payload is None:
         logger.debug(
