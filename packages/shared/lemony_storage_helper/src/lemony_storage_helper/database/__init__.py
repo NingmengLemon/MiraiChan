@@ -9,7 +9,7 @@ except ImportError:
     )
     raise
 
-from .generic import GenericDatabaseHelper
+from .generic import GenericDatabaseHelper, StorageStartupError
 from .utils import (
     AsyncCallable,
     DatabaseAsyncCallable,
@@ -29,6 +29,7 @@ from .utils import (
 
 __all__ = [
     "GenericDatabaseHelper",
+    "StorageStartupError",
     "AsyncCallable",
     "DatabaseAsyncCallable",
     "in_transaction",

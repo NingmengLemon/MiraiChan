@@ -7,7 +7,7 @@ from enum import Enum, auto
 from types import MappingProxyType, TracebackType
 from typing import Any, Concatenate, Literal, Self, overload
 
-from sqlalchemy import URL, Engine, MetaData, make_url
+from sqlalchemy import URL, Connection, Engine, MetaData, make_url
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 from sqlalchemy.ext.asyncio.session import AsyncSession as SAAsyncSession
 from sqlalchemy.orm import DeclarativeBase, registry
@@ -35,6 +35,10 @@ class _Sentinel(Enum):
     USE_DEFAULT = auto()
 
 
+class StorageStartupError(RuntimeError):
+    """storage helper 的 startup 已经失败, 等待方据此放弃而不是继续等待"""
+
+
 class GenericDatabaseHelper:
     """generic class for storage helpers."""
 
@@ -46,7 +50,10 @@ class GenericDatabaseHelper:
         self._dburl_raw: Any = dburl
         self._dburl = None
         self._metadata = metadata
-        self._initialized = asyncio.Event()
+        # _settled 在 startup 成功或失败时都会被 set, 失败原因记在 _failure,
+        # 这样等待方不会因为初始化失败而永久挂起
+        self._settled = asyncio.Event()
+        self._failure: BaseException | None = None
         self._engine: AsyncEngine | None = None
         # 把一切工作延迟到 startup 时, 在冷调试插件的时候很有用
 
@@ -118,29 +125,53 @@ class GenericDatabaseHelper:
     def tables(self) -> FacadeDict[str, Table]:
         return self._metadata.tables
 
-    async def startup(self, *, echo: bool = False, **kw: Any) -> None:
-        """Start up the storage helper."""
+    def _configure_engine(self, engine: AsyncEngine) -> None:
+        """引擎创建后、首次连接前的钩子, 子类用来挂方言相关的事件"""
+
+    async def startup(
+        self,
+        *,
+        echo: bool = False,
+        prepare: Callable[[Connection], object] | None = None,
+        **kw: Any,
+    ) -> None:
+        """Start up the storage helper.
+
+        prepare: 在 create_all 之前、同一个事务里执行的同步回调, 用于手写的
+        schema 迁移。它抛错时整个事务回滚, helper 进入失败状态。
+
+        失败时异常会向上抛出, 同时记录为失败状态, 之后的 wait_until_initialized
+        会抛出 StorageStartupError 而不是永久等待。
+
+        SQL 日志建议通过 logging 的 ``sqlalchemy.engine`` 日志器级别控制,
+        echo 参数仅作为显式开关保留。"""
         if self._engine is not None:
             logger.warning("Storage helper already started up.")
             return
-        if not isinstance(self._dburl, URL):
-            self._dburl = self._resolve_dburl(self._dburl_raw)
-        if not isinstance(self._dburl, URL):
-            raise RuntimeError("database url not resolved yet, or not valid sa URL")
-
+        self._failure = None
+        self._settled.clear()
         try:
+            if not isinstance(self._dburl, URL):
+                self._dburl = self._resolve_dburl(self._dburl_raw)
+            if not isinstance(self._dburl, URL):
+                raise RuntimeError(
+                    "database url not resolved yet, or not valid sa URL"
+                )
             self._engine = create_async_engine(self._dburl, echo=echo, **kw)
-        except Exception as e:
-            logger.exception("Failed to create engine: %s", e)
-            raise
-        try:
+            self._configure_engine(self._engine)
             async with self._engine.begin() as conn:
+                if prepare is not None:
+                    await conn.run_sync(prepare)
                 await conn.run_sync(self._metadata.create_all, checkfirst=True)
-        except Exception as e:
-            logger.exception("Failed to create tables: %s", e)
-            await self.close()
+        except BaseException as e:
+            logger.exception("Storage helper startup failed")
+            if self._engine is not None:
+                await self._engine.dispose()
+                self._engine = None
+            self._failure = e
+            self._settled.set()
             raise
-        self._initialized.set()
+        self._settled.set()
 
     @property
     def engine(self) -> AsyncEngine:
@@ -154,8 +185,13 @@ class GenericDatabaseHelper:
         return self.engine.sync_engine
 
     def is_initialized(self) -> bool:
-        """Check if the helper has been initialized."""
-        return self._initialized.is_set()
+        """Check if the helper has been initialized successfully."""
+        return self._settled.is_set() and self._failure is None
+
+    @property
+    def startup_failure(self) -> BaseException | None:
+        """startup 失败时的异常, 未失败或尚未启动时为 None"""
+        return self._failure
 
     @overload
     def get_session(
@@ -226,15 +262,25 @@ class GenericDatabaseHelper:
 
         return wrapped
 
-    async def wait_until_initialized(self) -> None:
-        """Wait until the helper is initialized."""
-        await self._initialized.wait()
+    async def wait_until_initialized(self, timeout: float | None = None) -> None:
+        """等待 startup 结束。
+
+        startup 失败时抛出 StorageStartupError (原异常作为 __cause__);
+        超时抛出 TimeoutError。"""
+        async with asyncio.timeout(timeout):
+            await self._settled.wait()
+        if self._failure is not None:
+            raise StorageStartupError("storage helper failed to start up") from (
+                self._failure
+            )
 
     async def close(self) -> None:
-        """Close the storage helper."""
-        await self.engine.dispose()
-        self._engine = None
-        self._initialized.clear()
+        """Close the storage helper. 未启动时调用是空操作"""
+        if self._engine is not None:
+            await self._engine.dispose()
+            self._engine = None
+        self._failure = None
+        self._settled.clear()
 
     def get_connection(self) -> AsyncConnection:
         """Get a connection from the engine.
