@@ -2,7 +2,7 @@ import asyncio
 import functools
 import logging
 import types
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from enum import Enum, auto
 from types import MappingProxyType, TracebackType
 from typing import Any, Concatenate, Literal, Self, overload
@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio.session import AsyncSession as SAAsyncSession
 from sqlalchemy.orm import DeclarativeBase, registry
 from sqlalchemy.orm import Session as SASession
 from sqlalchemy.sql.schema import Table
-from sqlalchemy.util import FacadeDict
 from sqlmodel import Session as SQLModelSession
 from sqlmodel.ext.asyncio.session import AsyncSession as SQLModelAsyncSession
 
@@ -122,7 +121,8 @@ class GenericDatabaseHelper:
         return base, isolated_registry, metadata
 
     @property
-    def tables(self) -> FacadeDict[str, Table]:
+    def tables(self) -> Mapping[str, Table]:
+        # SA 2.1 的 FacadeDict 不再是可下标的泛型, 对外只承诺只读映射
         return self._metadata.tables
 
     def _configure_engine(self, engine: AsyncEngine) -> None:
