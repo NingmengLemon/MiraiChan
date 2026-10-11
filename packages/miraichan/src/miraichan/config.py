@@ -36,6 +36,10 @@ class GlobalConfigModel(BaseModel):
     settings_format: Literal["json", "yaml"] | str = "json"
     config_root: str | Path = Field(default=(Path("configs")).as_posix())
 
+    # 标准 logging 的子树级别覆盖, 例如 {"sqlalchemy.engine": "INFO"} 打开 SQL 日志,
+    # {"mbplugin_recorder": "DEBUG"} 只给一个插件开 debug。root 级别由 debug 决定
+    log_levels: dict[str, str] = {}
+
     default_font_path: str | Path = Field(
         default=(Path("data") / "fonts" / "sarasa-mono-sc-semibold.ttf").as_posix()
     )

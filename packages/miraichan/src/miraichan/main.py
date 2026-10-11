@@ -1,11 +1,10 @@
 import asyncio
+import logging
 import os
 import sys
-from logging import setLoggerClass
 from pathlib import Path
 
 import json5
-import melobot
 from lemony_checkers import init_checker_factory
 from lemony_images import init_default_font_cache
 from lemony_settings import init_settings_manager
@@ -14,7 +13,6 @@ from melobot import Bot, add_import_fallback
 from melobot.log import Logger, LogLevel
 from melobot.log.reflect import set_global_logger
 from melobot.protocols.onebot.v11 import Adapter, ForwardWebSocketIO, ReverseWebSocketIO
-from packaging.version import Version
 from typer import Option, Typer
 
 from .config import (
@@ -24,6 +22,7 @@ from .config import (
     ReverseWebsocketIOConfigModel,
 )
 from .loader import resolve_plugin_path
+from .logging_bridge import install_logging_bridge
 from .utils import ALTERNATIVE_LOGOS, customize_melobot_logo, get_project_root
 
 if sys.platform == "win32":
@@ -32,9 +31,6 @@ else:
     import uvloop
 
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
-MELOBOT_VERSION = Version(melobot.__version__)
-
 
 logger = Logger()
 miraichan_cli_app = Typer(name="miraichan", help="Miraichan CLI commands.")
@@ -97,18 +93,15 @@ def _io_from_config_model(
     raise ValueError(f"Invalid websocket config type: {type(cfg)}")
 
 
-def _setup_logging():
-    # logging configs
-    if Version("3.2.0") <= MELOBOT_VERSION < Version("3.5.0"):
-        from .melobot_patches.logging import patch_melobot_thread_logging
-
-        # 目前 (3.4.0, 相关函数简单追溯到了 3.2.0, 未测试) 的 melobot 的日志器在多线程环境有问题
-        # 在 3.5.0 修了
-        patch_melobot_thread_logging()
-
+def _setup_logging(*, debug: bool, levels: dict[str, str]) -> None:
     set_global_logger(logger)
-    # 让使用 logging 记日志的库也使用全局日志记录器
-    setLoggerClass(Logger)
+    logger.set_level(LogLevel.DEBUG if debug else LogLevel.INFO)
+    # 标准 logging 的记录统一转给 melobot 日志器输出, 级别由 logging 层级控制
+    install_logging_bridge(
+        logger,
+        root_level=logging.DEBUG if debug else logging.INFO,
+        levels=levels,
+    )
 
 
 def _main(
@@ -118,7 +111,7 @@ def _main(
     from .validation_patches.ob11 import patch_all
 
     config_path = Path(config_path or DEFAULT_CONFIG_PATH)
-    _setup_logging()
+    set_global_logger(logger)
 
     logger.info("少女祈祷中... plz wait...")
     os.chdir(get_project_root())
@@ -143,7 +136,7 @@ def _main(
     with open(config_path, "rb") as fp:
         cfg = GlobalConfigModel.model_validate(json5.load(fp))
     debug = debug or cfg.debug
-    logger.set_level(LogLevel.DEBUG if debug else LogLevel.INFO)
+    _setup_logging(debug=debug, levels=cfg.log_levels)
 
     logger.debug("Config: " + cfg.model_dump_json(indent=4))
     os.makedirs("data", exist_ok=True)
