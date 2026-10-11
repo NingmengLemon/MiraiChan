@@ -8,7 +8,7 @@ authors = [
 dependencies = [
     "lemony_settings",
     "lemony_utils",
-    "melobot>=3.3.0",
+    "melobot>=3.5.0",
     "pydantic>=2.12.5",
 ]
 

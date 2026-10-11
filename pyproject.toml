@@ -68,14 +68,6 @@ mbplugin_recorder = { workspace = true }
 mbplugin_emergency_alerts = { workspace = true }
 mbplugin_rebootable = { workspace = true }
 
-[tool.pdm.scripts]
-melobot = { cmd = ["python", "-m", "melobot"] }
-deploy = { cmd = ["melobot", "run", "miracle_entrance.py"] }
-dev = { cmd = ["miracle_entrance.py", "--debug"] }
-
-[tool.pdm]
-distribution = false
-
 [dependency-groups]
 dev = [
     "ipykernel>=6.29.5",
@@ -83,13 +75,24 @@ dev = [
     "types-qrcode>=8.0.0.20241004",
     "types-lxml>=2024.11.8",
     "types-aiofiles>=24.1.0.20240626",
-    "mypy>=1.19.1",
     "pytest>=8.4.1",
     "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.2.1",
     "pytest-sqlalchemy>=0.3.0",
     "pytest-sqlalchemy-mock>=0.1.7",
+    "ty>=0.0.86",
+    "ruff>=0.17.0",
 ]
+
+[tool.pytest.ini_options]
+# references/ 下是外部仓库, 不能被收集; 各包的测试目录在这里显式列出
+testpaths = [
+    "tests",
+    "packages/shared/lemony_checkers/tests",
+    "packages/shared/lemony_storage_helper/tests",
+]
+norecursedirs = ["references", "tmp", "data", ".venv", "_to_be_migrated"]
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.mypy]
 follow_imports = "normal"
