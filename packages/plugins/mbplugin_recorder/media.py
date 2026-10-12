@@ -1,3 +1,4 @@
+from contextlib import suppress
 from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
@@ -139,8 +140,11 @@ async def download_media_source(
         target_path = base / relative_path
         target_path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path.replace(target_path)
-    except Exception:
-        tmp_path.unlink(missing_ok=True)
+    except BaseException:
+        # CancelledError 不是 Exception: 进程停止 (worker.stop 取消任务) 时下载会被取消,
+        # 只捕 Exception 的话每次取消都会在媒体目录里留下一个 .download 半成品
+        with suppress(OSError):
+            tmp_path.unlink(missing_ok=True)
         raise
 
     return MediaSourceInput(

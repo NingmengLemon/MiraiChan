@@ -1,5 +1,6 @@
-"""recorder 媒体下载队列: 退避、放弃、优先级、中断回收, 以及 schema 迁移。"""
+"""recorder 媒体下载队列: 退避、放弃、优先级、中断回收、取消清理, 以及 schema 迁移。"""
 
+import asyncio
 import sqlite3
 import sys
 from collections.abc import AsyncIterator
@@ -35,6 +36,7 @@ from mbplugin_recorder.db.operations import (
     record_message,
     retry_delay,
 )
+from mbplugin_recorder.media import download_media_source
 from mbplugin_recorder.migration import migrate
 from mbplugin_recorder.worker import is_permanent_failure
 from multidict import CIMultiDict, CIMultiDictProxy
@@ -370,6 +372,96 @@ async def test_abandoned_source_revives_only_with_new_url(
     assert revived.attempt_count == 0
     assert revived.next_attempt_at is None
     assert await _pending_ids(db) == ["dead"]
+
+
+class _FakeContent:
+    """按块产出内容, 可在第 N 块之后抛 CancelledError (模拟进程停止时取消下载)."""
+
+    def __init__(self, chunks: list[bytes], cancel_after: int | None = None) -> None:
+        self._chunks = chunks
+        self._cancel_after = cancel_after
+
+    async def iter_chunked(self, size: int) -> AsyncIterator[bytes]:
+        for index, chunk in enumerate(self._chunks):
+            yield chunk
+            if self._cancel_after is not None and index + 1 == self._cancel_after:
+                raise asyncio.CancelledError
+
+
+class _FakeResponse:
+    def __init__(self, chunks: list[bytes], *, cancel_after: int | None = None) -> None:
+        self.content = _FakeContent(chunks, cancel_after)
+        self.content_length: int | None = None
+
+    def raise_for_status(self) -> None:
+        return None
+
+
+class _FakeGet:
+    def __init__(self, response: _FakeResponse) -> None:
+        self._response = response
+
+    async def __aenter__(self) -> _FakeResponse:
+        return self._response
+
+    async def __aexit__(self, *exc: object) -> bool:
+        return False
+
+
+class _FakeSession:
+    def __init__(self, response: _FakeResponse) -> None:
+        self._response = response
+
+    def get(self, url: str, **kwargs: object) -> _FakeGet:
+        return _FakeGet(self._response)
+
+
+@pytest.mark.asyncio
+async def test_cancelled_download_cleans_up_tmp_file(
+    db: SqliteDatabaseHelper, tmp_path: Path
+) -> None:
+    """回归: 取消 (CancelledError) 不是 Exception, 旧的清理分支漏掉了它.
+
+    进程停止时 worker.stop() 会取消正在下载的任务, 于是每次重启都在媒体目录里留下
+    一个 .download 半成品。
+    """
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["img"]))
+    source = await _get(db, "img")
+    session = _FakeSession(_FakeResponse([b"abc", b"def"], cancel_after=1))
+
+    with pytest.raises(asyncio.CancelledError):
+        await download_media_source(
+            session,  # type: ignore[arg-type]
+            source,
+            root="media",
+            data_root=tmp_path,
+        )
+
+    assert list((tmp_path / "media").rglob("*.download")) == []
+
+
+@pytest.mark.asyncio
+async def test_successful_download_leaves_no_tmp_file(
+    db: SqliteDatabaseHelper, tmp_path: Path
+) -> None:
+    """正常下载: 临时文件被改名成最终文件, 不残留 .download."""
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["img"]))
+    source = await _get(db, "img")
+    session = _FakeSession(_FakeResponse([b"abc", b"def"]))
+
+    payload = await download_media_source(
+        session,  # type: ignore[arg-type]
+        source,
+        root="media",
+        data_root=tmp_path,
+    )
+
+    assert payload.download_status is MediaDownloadStatus.DOWNLOADED
+    assert payload.size == 6
+    assert list((tmp_path / "media").rglob("*.download")) == []
+    assert (tmp_path / payload.cache_path).is_file()
 
 
 LEGACY_SCHEMA = """
