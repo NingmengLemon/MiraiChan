@@ -277,7 +277,10 @@ async def _deliver(
                 artifact.id, str(echo.data["message_id"])
             )
     except Exception:
-        logger.debug("记录发送消息 id 失败", exc_info=True)
+        # 记不上 message_id 时这张图之后无法用指令撤回, 留一条可查的 warning
+        logger.warning(
+            f"记录已发送消息 id 失败, artifact={artifact.id} 将无法撤回", exc_info=True
+        )
 
 
 def _record(
