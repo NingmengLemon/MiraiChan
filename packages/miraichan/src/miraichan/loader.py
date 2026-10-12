@@ -41,8 +41,11 @@ def resolve_plugin_path(plugin_name: str) -> Loadable:
                 f"Resolved plugin path for {plugin_name!r} as installed package: {module!r}."
             )
             return module
-    except ModuleNotFoundError:
-        pass  # 后面还有流程, 你先别急
+    except ModuleNotFoundError as e:
+        # 只有"找不到这个插件本身"才继续往下找; 插件自己的依赖缺失要原样抛出,
+        # 否则会被当成路径不存在, 最后报出与真实原因无关的 "Cannot resolve plugin path"
+        if e.name != plugin_name:
+            raise
     logger.debug(f"Plugin name {plugin_name!r} is not an installed package.")
 
     # 3. url 形式的远程插件

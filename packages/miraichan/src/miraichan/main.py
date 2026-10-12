@@ -21,7 +21,7 @@ from .config import (
     GlobalConfigModel,
     ReverseWebsocketIOConfigModel,
 )
-from .loader import resolve_plugin_path
+from .loader import Loadable, resolve_plugin_path
 from .logging_bridge import install_logging_bridge
 from .utils import ALTERNATIVE_LOGOS, customize_melobot_logo, get_project_root
 
@@ -45,6 +45,39 @@ def init_modules(cfg: GlobalConfigModel):
     )
     init_checker_factory()
     set_relative_path_base(get_project_root() / "data")
+
+
+def _resolve_plugins(names: list[str]) -> list[tuple[str, Loadable]]:
+    """解析插件名; 单个插件解析失败只记录并跳过, 不拖垮其他插件"""
+    resolved: list[tuple[str, Loadable]] = []
+    for name in names:
+        try:
+            resolved.append((name, resolve_plugin_path(name)))
+        except Exception:
+            logger.exception(f"插件 {name!r} 解析失败, 已跳过")
+    return resolved
+
+
+def _load_plugins(
+    bot: Bot, plugins: list[tuple[str, Loadable]], *, load_depth: int
+) -> None:
+    """逐个加载插件.
+
+    melobot 的 Bot.load_plugins 是裸循环: 任何一个插件抛异常都会中断后续所有插件的加载,
+    于是一个坏插件就能让整个 bot 起不来。这里逐个隔离, 失败的记录在案并汇总。
+    """
+    failed: list[str] = []
+    for name, plugin in plugins:
+        try:
+            bot.load_plugin(plugin, load_depth=load_depth)
+        except Exception:
+            failed.append(name)
+            logger.exception(f"插件 {name!r} 加载失败, 已跳过")
+    if failed:
+        logger.error(
+            f"{len(failed)}/{len(plugins)} 个插件加载失败: {', '.join(failed)}; "
+            "其余插件已正常加载"
+        )
 
 
 @miraichan_cli_app.command("launch", help="Launch Miraichan.")
@@ -143,7 +176,7 @@ def _main(
 
     init_modules(cfg)
 
-    plugins = [resolve_plugin_path(p) for p in cfg.plugins]
+    plugins = _resolve_plugins(cfg.plugins)
 
     bot = (
         Bot(
@@ -153,7 +186,7 @@ def _main(
         .add_io(_io_from_config_model(cfg.websocket))
         .add_adapter(patch_all(Adapter()))
     )
-    bot.load_plugins(plugins, load_depth=cfg.load_depth)
+    _load_plugins(bot, plugins, load_depth=cfg.load_depth)
     bot.run(debug=debug, strict_log=debug)
 
 
