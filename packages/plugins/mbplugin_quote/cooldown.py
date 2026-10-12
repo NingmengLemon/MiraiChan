@@ -43,5 +43,9 @@ class Cooldown:
         while len(self._expires) > self._capacity:
             self._expires.popitem(last=False)
 
+    def clear(self, key: Hashable) -> None:
+        """撤销一次登记, 用于请求最终被静默放弃的情况"""
+        self._expires.pop(key, None)
+
     def __len__(self) -> int:
         return len(self._expires)

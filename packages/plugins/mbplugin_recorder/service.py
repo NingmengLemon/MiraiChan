@@ -153,8 +153,19 @@ class RecorderService:
             )
             if base is None:
                 return None
+            excluded = tuple(query.exclude_sender_external_ids)
+            if base.sender.external_id in excluded:
+                return []
 
             filters = [queryable(Message.conversation_id) == conversation.id]
+            if excluded:
+                filters.append(
+                    queryable(Message.sender_identity_id).not_in(
+                        select(queryable(ExternalIdentity.id)).where(
+                            queryable(ExternalIdentity.external_id).in_(excluded)
+                        )
+                    )
+                )
             if query.sender_only:
                 filters.append(
                     queryable(Message.sender_identity_id) == base.sender_identity_id

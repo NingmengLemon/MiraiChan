@@ -30,6 +30,14 @@ def test_capacity_evicts_oldest() -> None:
     assert cd.remaining("c") == 10
 
 
+def test_clear_undoes_touch() -> None:
+    cd = Cooldown(10, clock=FakeClock())
+    cd.touch("k")
+    cd.clear("k")
+    cd.clear("missing")
+    assert cd.remaining("k") == 0
+
+
 def test_zero_seconds_disables() -> None:
     cd = Cooldown(0, clock=FakeClock())
     cd.touch("k")

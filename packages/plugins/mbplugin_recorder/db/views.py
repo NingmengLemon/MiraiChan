@@ -50,3 +50,5 @@ class MessageWindowQuery:
     start: int = 0
     end: int = 0
     sender_only: bool = False
+    # 这些发送者的消息不计入窗口, 偏移也不数它们; 基准消息本身属于其中时结果为空
+    exclude_sender_external_ids: tuple[str, ...] = ()

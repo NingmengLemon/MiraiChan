@@ -5,6 +5,7 @@
 
 import asyncio
 import logging
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
@@ -211,6 +212,10 @@ def _window_query(event: GroupMessageEvent):
             start=req.start,
             end=req.end,
             sender_only=req.sender_only,
+            # 默认不引用 bot 自己: bot 的消息不进窗口, 偏移也不数它们
+            exclude_sender_external_ids=(
+                () if state.settings.allow_quote_self else (str(event.self_id),)
+            ),
         )
 
     return make
@@ -297,10 +302,40 @@ def _record(
     )
 
 
-def _self_quote_blocked(event: GroupMessageEvent, sources: list[SourceMessage]) -> bool:
-    return not state.settings.allow_quote_self and any(
-        m.sender_id == event.self_id for m in sources
-    )
+def _drop_self(
+    event: GroupMessageEvent, sources: Sequence[SourceMessage]
+) -> list[SourceMessage]:
+    """默认把 bot 自己的消息当作不存在 (不画、不报错)"""
+    if state.settings.allow_quote_self:
+        return list(sources)
+    return [m for m in sources if m.sender_id != event.self_id]
+
+
+def _base_is_self(event: GroupMessageEvent, base_sender: int | None) -> bool:
+    return not state.settings.allow_quote_self and base_sender == event.self_id
+
+
+class _MsgCache:
+    """一次请求内对同一条消息只调一次 get_msg"""
+
+    def __init__(self, adapter: Adapter) -> None:
+        self._adapter = adapter
+        self._cache: dict[str, SourceMessage | None] = {}
+
+    async def get(self, message_id: str) -> SourceMessage | None:
+        if message_id not in self._cache:
+            self._cache[message_id] = await _get_msg(self._adapter, message_id)
+        return self._cache[message_id]
+
+    async def sender_of(self, message_id: str) -> int | None:
+        one = await self.get(message_id)
+        return one.sender_id if one is not None else None
+
+
+def _release(event: GroupMessageEvent, target_key: tuple) -> None:
+    """请求被静默放弃时撤销这次登记的冷却"""
+    state.target_cd.clear(target_key)
+    state.user_cd.clear((event.group_id, event.user_id))
 
 
 @plugin.use
@@ -317,21 +352,23 @@ async def quote_card(event: GroupMessageEvent, adapter: Adapter) -> None:
     if not await _gate(event, adapter, "card", target_key):
         return
     try:
+        msgs = _MsgCache(adapter)
         async with state.pending:
             result = await fetch_messages(
                 ChatRequest(),
                 base_id,
                 recorder=_recorder(),
                 make_query=_window_query(event),
-                fetch_one=lambda mid: _get_msg(adapter, mid),
+                fetch_one=msgs.get,
             )
-            if result is None or not result.messages:
+            sources = _drop_self(event, result.messages if result else ())
+            if not sources:
+                if _base_is_self(event, await msgs.sender_of(base_id)):
+                    _release(event, target_key)
+                    return
                 await adapter.send_reply("取不到这条消息")
                 return
-            source = result.messages[0]
-            if _self_quote_blocked(event, [source]):
-                await adapter.send_reply("不可以引用咱自己的话")
-                return
+            source = sources[0]
             rendered = await render_card_quote(
                 source,
                 resolver=state.resolver,
@@ -388,26 +425,29 @@ async def quote_chat(event: GroupMessageEvent, adapter: Adapter, args: CmdArgs) 
     if not await _gate(event, adapter, "chat", target_key):
         return
     try:
+        msgs = _MsgCache(adapter)
         async with state.pending:
             result = await fetch_messages(
                 req,
                 base_id,
                 recorder=_recorder(),
                 make_query=_window_query(event),
-                fetch_one=lambda mid: _get_msg(adapter, mid),
+                fetch_one=msgs.get,
             )
-            if result is None or not result.messages:
-                await adapter.send_reply(
-                    "记录里没有这条消息的上下文"
-                    if result is not None and result.degraded_to_single
-                    else "取不到这条消息"
-                )
+            sources = _drop_self(event, result.messages if result else ())
+            if not sources:
+                if _base_is_self(event, await msgs.sender_of(base_id)):
+                    _release(event, target_key)
+                    return
+                if result is None:
+                    msg = "取不到这条消息"
+                elif result.degraded_to_single:
+                    msg = "记录里没有这条消息的上下文"
+                else:
+                    msg = "区间内没有消息"
+                await adapter.send_reply(msg)
                 return
-            sources = list(result.messages)
-            if _self_quote_blocked(event, sources):
-                await adapter.send_reply("不可以引用咱自己的话")
-                return
-            if result.degraded_to_single:
+            if result is not None and result.degraded_to_single:
                 await adapter.send_reply("记录里没有这条消息的上下文, 只能引用它本身")
             rendered = await render_chat_quote(
                 sources,

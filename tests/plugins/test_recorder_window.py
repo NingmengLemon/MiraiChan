@@ -151,6 +151,30 @@ async def test_sender_only_counts_offsets_among_same_sender(
 
 
 @pytest.mark.asyncio
+async def test_excluded_senders_are_skipped_and_not_counted(
+    service: RecorderService,
+) -> None:
+    q = _query(-2, 2)
+    q.exclude_sender_external_ids = (BOB,)
+    views = await service.get_message_window(q)
+    assert views is not None
+    # 去掉 BOB 后 ALICE 的序列是 m0 m2 m4 m6, 偏移按这个序列数
+    assert [(v.offset, v.external_message_id) for v in views] == [
+        (-2, "m0"),
+        (-1, "m2"),
+        (0, "m4"),
+        (1, "m6"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_excluded_base_gives_empty_window(service: RecorderService) -> None:
+    q = _query(-1, 1, base="m3")
+    q.exclude_sender_external_ids = (BOB,)
+    assert await service.get_message_window(q) == []
+
+
+@pytest.mark.asyncio
 async def test_unknown_base_returns_none(service: RecorderService) -> None:
     assert await service.get_message_window(_query(0, 0, base="nope")) is None
 
