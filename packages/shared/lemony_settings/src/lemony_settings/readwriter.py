@@ -1,7 +1,9 @@
 import json
+import os
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from contextlib import suppress
 from pathlib import Path
 
 import json5
@@ -9,6 +11,33 @@ import tomli
 import tomli_w
 import yaml
 from pydantic import BaseModel
+
+
+def _atomic_write(file: Path, content: str | bytes) -> None:
+    """原子写入配置文件: 先写同目录下的临时文件, 再 os.replace 覆盖目标.
+
+    直接截断写目标文件时, 写到一半崩溃 / 断电 / 磁盘写满都会留下半个配置文件: 下次加载
+    解析失败, 而文件"存在"又不会重新生成默认配置。临时文件与目标同目录, 保证 replace 是
+    同文件系统内的原子重命名。
+    """
+    tmp = file.with_name(f".{file.name}.tmp")
+    try:
+        if isinstance(content, bytes):
+            with open(tmp, "wb") as fp:
+                fp.write(content)
+                fp.flush()
+                os.fsync(fp.fileno())
+        else:
+            with open(tmp, "w", encoding="utf-8") as fp:
+                fp.write(content)
+                fp.flush()
+                os.fsync(fp.fileno())
+        os.replace(tmp, file)
+    except BaseException:
+        # 取消 (CancelledError) 不是 Exception, 同样要清掉半成品
+        with suppress(OSError):
+            tmp.unlink(missing_ok=True)
+        raise
 
 
 # 预期是无状态的通用工具
@@ -54,8 +83,8 @@ class TomlReadWriter(ConfigReadWriterABC):
         # toml 不支持 None/null/nil
         # see https://github.com/toml-lang/toml/issues/921
         data_dict = data.model_dump(exclude_none=True)
-        with file.open("wb") as f:
-            tomli_w.dump(data_dict, f)
+        # 保持原来的二进制写出方式 (不经过文本模式的换行转换)
+        _atomic_write(file, tomli_w.dumps(data_dict).encode("utf-8"))
 
 
 @register_readwriter("yaml")
@@ -66,8 +95,7 @@ class YamlReadWriter(ConfigReadWriterABC):
         return model.model_validate(data)
 
     def write(self, file: Path, data: BaseModel) -> None:
-        with file.open("w", encoding="utf-8") as f:
-            yaml.safe_dump(data.model_dump(), f, allow_unicode=True)
+        _atomic_write(file, yaml.safe_dump(data.model_dump(), allow_unicode=True))
 
 
 @register_readwriter("json")
@@ -78,9 +106,11 @@ class JsonReadWriter(ConfigReadWriterABC):
         return model.model_validate(data)
 
     def write(self, file: Path, data: BaseModel) -> None:
-        with file.open("w", encoding="utf-8") as f:
-            # 宽进严出这一块, 用 json5 读用 json 写是故意的
-            json.dump(data.model_dump(), f, indent=4, ensure_ascii=False)
+        # 宽进严出这一块, 用 json5 读用 json 写是故意的
+        _atomic_write(
+            file,
+            json.dumps(data.model_dump(), indent=4, ensure_ascii=False),
+        )
 
 
 def get_readwriter(format: str) -> ConfigReadWriterABC:
