@@ -198,6 +198,75 @@ async def test_reclaim_stale_downloading(db: SqliteDatabaseHelper) -> None:
     assert await _pending_ids(db) == ["a"]
 
 
+@pytest.mark.asyncio
+async def test_run_once_reclaims_orphaned_downloading(
+    db: SqliteDatabaseHelper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """回归: 崩溃后很快重启留下的 DOWNLOADING 不会再被永久漏掉.
+
+    旧实现只在启动时回收一次, 且要求行已超过 request_timeout。崩溃后很快重启
+    (间隔小于 request_timeout) 的行既不在待下载列表里, 也没被回收, 就此永远卡住。
+    """
+    from mbplugin_recorder import worker as worker_mod
+
+    payload = MediaSourceInput(
+        source_file_id="orphan",
+        media_type="image",
+        url="https://x/orphan",
+        download_status=MediaDownloadStatus.DOWNLOADED,
+        sha256="a" * 64,
+        size=3,
+        cache_path="record/media/image/orphan.png",
+    )
+    downloaded: list[str] = []
+
+    async def fake_download(session, source, *, root, data_root=None, max_bytes=0):
+        downloaded.append(source.source_file_id)
+        return payload
+
+    monkeypatch.setattr(worker_mod, "download_media_source", fake_download)
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["orphan"]))
+    orphan = await _get(db, "orphan")
+    async with db.get_session(style="sqlalchemy") as s:
+        await mark_media_source_downloading(s, orphan.id)  # 模拟下载中进程退出
+    # DOWNLOADING 不在待下载列表里, 只有回收能把它放回来
+    assert await _pending_ids(db) == []
+
+    w = worker_mod.MediaDownloadWorker(db, data_root=None, request_timeout=-1)
+    await w.run_once(http_session=None)  # type: ignore[arg-type]
+
+    assert downloaded == ["orphan"]
+    assert (await _get(db, "orphan")).download_status is MediaDownloadStatus.DOWNLOADED
+
+
+@pytest.mark.asyncio
+async def test_run_once_keeps_fresh_downloading(
+    db: SqliteDatabaseHelper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """正在下载的行 (updated_at 新鲜) 不能被回收后重复下载."""
+    from mbplugin_recorder import worker as worker_mod
+
+    downloaded: list[str] = []
+
+    async def fake_download(session, source, *, root, data_root=None, max_bytes=0):
+        downloaded.append(source.source_file_id)
+        raise AssertionError("正在下载的行不应该被再次下载")
+
+    monkeypatch.setattr(worker_mod, "download_media_source", fake_download)
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["busy"]))
+    busy = await _get(db, "busy")
+    async with db.get_session(style="sqlalchemy") as s:
+        await mark_media_source_downloading(s, busy.id)
+
+    w = worker_mod.MediaDownloadWorker(db, data_root=None, request_timeout=120)
+    await w.run_once(http_session=None)  # type: ignore[arg-type]
+
+    assert downloaded == []
+    assert (await _get(db, "busy")).download_status is MediaDownloadStatus.DOWNLOADING
+
+
 LEGACY_SCHEMA = """
 CREATE TABLE recorder_media_source (
     id CHAR(32) NOT NULL PRIMARY KEY, source_file_id VARCHAR NOT NULL,
