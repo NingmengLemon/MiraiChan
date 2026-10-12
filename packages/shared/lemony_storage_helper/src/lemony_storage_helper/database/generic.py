@@ -2,7 +2,8 @@ import asyncio
 import functools
 import logging
 import types
-from collections.abc import Callable, Mapping
+from collections.abc import AsyncGenerator, Callable, Mapping
+from contextlib import asynccontextmanager
 from enum import Enum, auto
 from types import MappingProxyType, TracebackType
 from typing import Any, Concatenate, Literal, Self, overload
@@ -218,7 +219,10 @@ class GenericDatabaseHelper:
     ) -> SAAsyncSession | SQLModelAsyncSession:
         """Get a new AsyncSession.
 
-        用完记得释放, 推荐使用(异步)上下文管理器"""
+        用完记得释放, 推荐使用(异步)上下文管理器。
+
+        注意: 作为上下文管理器退出时只关闭会话, 不会提交。读过数据之后再写入时,
+        写入会因为没提交的外层事务而静默丢失, 需要写入请用 :meth:`session_scope`"""
         return (
             SAAsyncSession(
                 self.engine,
@@ -232,6 +236,33 @@ class GenericDatabaseHelper:
                 expire_on_commit=expire_on_commit,
             )
         )
+
+    @asynccontextmanager
+    async def session_scope(
+        self,
+        *,
+        autoflush: bool = False,
+        expire_on_commit: bool = False,
+        style: Literal["sqlalchemy", "sqlmodel"] = "sqlmodel",
+    ) -> AsyncGenerator[SAAsyncSession | SQLModelAsyncSession]:
+        """会话作用域: 正常退出时提交, 出错时回滚, 最后关闭。
+
+        与直接 ``async with get_session()`` 的区别: 后者退出时只关闭会话。
+        会话里一旦有过读取, SQLAlchemy 会自动开始一个事务, 之后的 ``auto_begin``
+        只加 savepoint; 若没人提交外层事务, 退出时这些写入会随事务一起回滚, 且不报错。
+        需要写入时一律用这个作用域 (或自己显式 ``session.begin()``)。
+        """
+        session = self.get_session(
+            autoflush=autoflush, expire_on_commit=expire_on_commit, style=style
+        )
+        try:
+            yield session
+            await session.commit()
+        except BaseException:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
     async def run_sync[**P, T](
         self,

@@ -79,7 +79,7 @@ class MediaDownloadWorker:
     async def _run(self) -> None:
         try:
             await self.db.wait_until_initialized()
-            async with self.db.get_session(style="sqlalchemy") as session:
+            async with self.db.session_scope(style="sqlalchemy") as session:
                 # 上次进程中途退出时留下的 DOWNLOADING
                 if n := await reclaim_stale_downloading(
                     session, older_than=timedelta(seconds=self.request_timeout)
@@ -102,46 +102,49 @@ class MediaDownloadWorker:
 
     async def run_once(self, http_session: ClientSession) -> None:
         await self.db.wait_until_initialized()
-        async with self.db.get_session(style="sqlalchemy") as session:
+        # 每步用独立作用域: 写入立即提交, 下载期间不占着写事务 (BEGIN IMMEDIATE)
+        async with self.db.session_scope(style="sqlalchemy") as session:
             sources = await list_pending_media_sources(session, limit=self.batch_size)
-            if sources:
-                logger.debug(f"媒体下载 worker 获取到 {len(sources)} 个待处理来源")
-            for source in sources:
-                await mark_media_source_downloading(session, source.id)
-                logger.debug(
-                    f"开始下载媒体: source_id={source.id} "
-                    f"type={source.media_type} file_id={source.source_file_id}"
+        if sources:
+            logger.debug(f"媒体下载 worker 获取到 {len(sources)} 个待处理来源")
+        for source in sources:
+            source_id = source.id
+            async with self.db.session_scope(style="sqlalchemy") as session:
+                await mark_media_source_downloading(session, source_id)
+            logger.debug(
+                f"开始下载媒体: source_id={source_id} "
+                f"type={source.media_type} file_id={source.source_file_id}"
+            )
+            try:
+                payload = await download_media_source(
+                    http_session,
+                    source,
+                    root=self.cache_root,
+                    data_root=self.data_root,
+                    max_bytes=self.max_bytes,
                 )
-                try:
-                    payload = await download_media_source(
-                        http_session,
-                        source,
-                        root=self.cache_root,
-                        data_root=self.data_root,
-                        max_bytes=self.max_bytes,
-                    )
-                except Exception as exc:
-                    permanent = is_permanent_failure(exc)
+            except Exception as exc:
+                permanent = is_permanent_failure(exc)
+                async with self.db.session_scope(style="sqlalchemy") as session:
                     await mark_media_source_failed(
                         session,
-                        source.id,
+                        source_id,
                         repr(exc),
                         max_attempts=self.max_attempts,
                         retry_base=self.retry_base,
                         retry_cap=self.retry_cap,
                         permanent=permanent,
                     )
-                    # 链接过期是常态, 不刷 warning
-                    log = logger.info if permanent else logger.warning
-                    log(
-                        f"媒体下载失败{'(不再重试)' if permanent else ''}: "
-                        f"source_id={source.id} type={source.media_type} "
-                        f"error={exc!r}"
-                    )
-                    continue
-                await mark_media_source_downloaded(session, source.id, payload)
-                logger.info(
-                    f"媒体下载完成: source_id={source.id} type={source.media_type} "
-                    f"size={payload.size} sha256={payload.sha256} "
-                    f"path={payload.cache_path}"
+                # 链接过期是常态, 不刷 warning
+                log = logger.info if permanent else logger.warning
+                log(
+                    f"媒体下载失败{'(不再重试)' if permanent else ''}: "
+                    f"source_id={source_id} type={source.media_type} error={exc!r}"
                 )
+                continue
+            async with self.db.session_scope(style="sqlalchemy") as session:
+                await mark_media_source_downloaded(session, source_id, payload)
+            logger.info(
+                f"媒体下载完成: source_id={source_id} type={source.media_type} "
+                f"size={payload.size} sha256={payload.sha256} path={payload.cache_path}"
+            )

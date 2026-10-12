@@ -149,6 +149,43 @@ async def test_abandon_after_max_attempts_or_permanent(db: SqliteDatabaseHelper)
 
 
 @pytest.mark.asyncio
+async def test_run_once_persists_status_changes(
+    db: SqliteDatabaseHelper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """回归: worker 先 SELECT 再写, 状态必须真正落库 (曾经全部被回滚)"""
+    from mbplugin_recorder import worker as worker_mod
+
+    payload = MediaSourceInput(
+        source_file_id="ok",
+        media_type="image",
+        url="https://x/ok",
+        download_status=MediaDownloadStatus.DOWNLOADED,
+        sha256="a" * 64,
+        size=3,
+        cache_path="record/media/image/ok.png",
+    )
+
+    async def fake_download(session, source, *, root, data_root=None, max_bytes=0):
+        if source.source_file_id == "bad":
+            raise RuntimeError("nope")
+        return payload
+
+    monkeypatch.setattr(worker_mod, "download_media_source", fake_download)
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["ok", "bad"]))
+
+    w = worker_mod.MediaDownloadWorker(db, data_root=None, retry_base=0, max_attempts=2)
+    await w.run_once(http_session=None)  # type: ignore[arg-type]
+
+    assert (await _get(db, "ok")).download_status is MediaDownloadStatus.DOWNLOADED
+    bad = await _get(db, "bad")
+    assert bad.download_status is MediaDownloadStatus.FAILED
+    assert bad.attempt_count == 1
+    # 已下载的不再出现在待处理里; 失败的在退避 (retry_base=0 时立刻可重试)
+    assert await _pending_ids(db) == ["bad"]
+
+
+@pytest.mark.asyncio
 async def test_reclaim_stale_downloading(db: SqliteDatabaseHelper) -> None:
     async with db.get_session(style="sqlalchemy") as s:
         await record_message(s, _payload("m1", ["a"]))
