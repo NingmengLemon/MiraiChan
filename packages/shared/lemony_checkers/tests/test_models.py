@@ -146,6 +146,57 @@ class TestOb11UniqueUserDataclass:
 
 
 # ============================================================
+# 省略 group_id 的配置 (TOML 写不出 null)
+# ============================================================
+
+
+class TestOptionalGroupId:
+    """group_id 可以省略: TOML 无法表示 null, 写入时会丢掉该字段."""
+
+    def test_pydantic_default_is_none(self):
+        u = Ob11UniqueUser(user_id=1001, protocol=OB11_PROTOCOL_ID)
+        assert u.group_id is None
+        assert u.model_dump()["group_id"] is None
+
+    def test_dataclass_default_is_none(self):
+        """省略 group_id 得到 None, 而不是 FieldInfo 之类的脏值."""
+        u = Ob11UniqueUserDataclass.from_kwargs(user_id=1001, protocol=OB11_PROTOCOL_ID)
+        assert u.group_id is None  # type: ignore
+        assert u.to_dict() == {
+            "protocol": OB11_PROTOCOL_ID,
+            "user_id": 1001,
+            "group_id": None,
+        }
+
+    def test_required_fields_stay_required(self):
+        """没有默认值的字段仍然不可省略."""
+        with pytest.raises(TypeError):
+            Ob11UniqueUserDataclass.from_kwargs(protocol=OB11_PROTOCOL_ID)
+
+    def test_toml_round_trip(self, tmp_path):
+        """TOML 往返: 省略 group_id 的配置重新加载不得抛校验错误."""
+        from lemony_settings.readwriter import TomlReadWriter
+
+        settings = CheckerGlobalSettings(
+            mode="blacklist",
+            owner=[
+                Ob11UniqueUser(user_id=1001, group_id=None, protocol=OB11_PROTOCOL_ID)
+            ],
+        )
+        path = tmp_path / "global.toml"
+        writer = TomlReadWriter()
+        writer.write(path, settings)
+
+        raw = path.read_text(encoding="utf-8")
+        assert "group_id" not in raw  # toml 表示不了 null, 该字段被丢掉
+
+        loaded = writer.read(path, CheckerGlobalSettings)
+        assert len(loaded.owner) == 1
+        assert loaded.owner[0].user_id == 1001  # type: ignore
+        assert loaded.owner[0].group_id is None  # type: ignore
+
+
+# ============================================================
 # Rule model
 # ============================================================
 

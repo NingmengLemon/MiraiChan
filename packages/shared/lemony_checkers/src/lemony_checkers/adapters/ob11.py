@@ -19,7 +19,8 @@ OB11_PROTOCOL_ID: Final[_OB11_PROTOCOL_ID_LITERAL] = _PROTOCOL_IDENTIFIER  # typ
 
 class Ob11UniqueUser(UniqueUserBase[_OB11_PROTOCOL_ID_LITERAL]):
     user_id: int
-    group_id: int | None
+    # TOML 无法表示 null, 写入时会丢掉这个字段, 必须给默认值, 否则重新加载会校验失败
+    group_id: int | None = None
 
 
 Ob11UniqueUserDataclass = Ob11UniqueUser.get_dataclass()
