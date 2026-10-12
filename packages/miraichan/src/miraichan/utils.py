@@ -1,3 +1,4 @@
+import os
 from functools import cache
 from pathlib import Path
 
@@ -6,10 +7,18 @@ from melobot.log import get_logger
 logger = get_logger()
 
 PROJECT_ROOT_MAKERS = ("miracle_entrance.py",)
+PROJECT_ROOT_ENV = "MIRAICHAN_PROJECT_ROOT"
 
 
 @cache
 def get_project_root() -> Path:
+    """项目根目录: 环境变量 MIRAICHAN_PROJECT_ROOT 优先, 用于在隔离目录里运行
+    (测试、演练); 否则从包所在位置向上找 miracle_entrance.py"""
+    if override := os.environ.get(PROJECT_ROOT_ENV):
+        root = Path(override).resolve()
+        if not root.is_dir():
+            raise RuntimeError(f"{PROJECT_ROOT_ENV}={override!r} is not a directory")
+        return root
     if (
         proj_root := search_upwards_for_files(
             Path(__file__).parent,
