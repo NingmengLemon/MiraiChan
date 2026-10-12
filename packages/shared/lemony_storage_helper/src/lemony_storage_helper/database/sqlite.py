@@ -39,6 +39,14 @@ def set_relative_path_base(base: str | Path | None) -> None:
         _upper_layer_managed_relative_path_base.set(None)
 
 
+def get_relative_path_base() -> Path | None:
+    """上层统一设置的数据根目录, 未设置时为 None。
+
+    数据库之外的数据文件 (字体、存档等) 暂时也以它为根, 直到 storage helper
+    的文件管理落地。"""
+    return _upper_layer_managed_relative_path_base.get()
+
+
 class _Sentinel(Enum):
     NOT_RESOLVED = auto()
 
