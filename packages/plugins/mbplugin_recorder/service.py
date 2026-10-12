@@ -1,5 +1,7 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
+from types import MappingProxyType
 from uuid import UUID
 
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
@@ -9,14 +11,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col
 
+from .db.enums import MediaDownloadStatus
 from .db.models import (
     Account,
     Conversation,
     ExternalIdentity,
+    MediaAttachment,
     MediaObject,
     MediaSource,
     Message,
+    MessageSegment,
 )
+from .db.views import MessageView, MessageWindowQuery, SegmentView
 
 
 @dataclass(slots=True)
@@ -120,6 +126,161 @@ class RecorderService:
                 )
 
             return earlier_messages[::-1] + [base_message] + later_messages
+
+    async def get_message_window(
+        self, query: MessageWindowQuery
+    ) -> list[MessageView] | None:
+        """取以基准消息为 0 的相对闭区间 [start, end] 内的消息, 按时间升序。
+
+        基准消息不在记录里时返回 None (与 "区间内没有消息" 的空列表区分开)。
+        """
+        lo, hi = sorted((query.start, query.end))
+        async with self.get_session() as session:
+            conversation = await self._get_conversation(
+                session,
+                protocol=query.account_protocol,
+                self_id=query.account_self_id,
+                conversation_type=query.conversation_type,
+                external_id=query.conversation_external_id,
+            )
+            if conversation is None:
+                return None
+            base = await self._get_base_message(
+                session,
+                conversation_id=conversation.id,
+                external_message_id=query.base_external_message_id,
+                sender_external_id=None,
+            )
+            if base is None:
+                return None
+
+            filters = [queryable(Message.conversation_id) == conversation.id]
+            if query.sender_only:
+                filters.append(
+                    queryable(Message.sender_identity_id) == base.sender_identity_id
+                )
+
+            earlier: list[Message] = []
+            if lo < 0:
+                stmt = (
+                    select(Message)
+                    .options(selectinload(queryable(Message.sender)))
+                    .where(
+                        *filters,
+                        or_(
+                            queryable(Message.sent_at) < base.sent_at,
+                            and_(
+                                queryable(Message.sent_at) == base.sent_at,
+                                queryable(Message.id) < base.id,
+                            ),
+                        ),
+                    )
+                    .order_by(col(Message.sent_at).desc(), col(Message.id).desc())
+                    .limit(-lo)
+                )
+                earlier = list((await session.execute(stmt)).scalars().all())
+
+            later: list[Message] = []
+            if hi > 0:
+                stmt = (
+                    select(Message)
+                    .options(selectinload(queryable(Message.sender)))
+                    .where(
+                        *filters,
+                        or_(
+                            queryable(Message.sent_at) > base.sent_at,
+                            and_(
+                                queryable(Message.sent_at) == base.sent_at,
+                                queryable(Message.id) > base.id,
+                            ),
+                        ),
+                    )
+                    .order_by(col(Message.sent_at).asc(), col(Message.id).asc())
+                    .limit(hi)
+                )
+                later = list((await session.execute(stmt)).scalars().all())
+
+            # earlier 是按时间倒序取的, 第 i 个 (从 0 起) 的偏移是 -(i + 1)
+            indexed: list[tuple[int, Message]] = [
+                (-(i + 1), m) for i, m in enumerate(earlier)
+            ]
+            indexed.reverse()
+            indexed.append((0, base))
+            indexed.extend((i + 1, m) for i, m in enumerate(later))
+            selected = [(off, m) for off, m in indexed if lo <= off <= hi]
+            return await self._to_views(session, selected)
+
+    async def _to_views(
+        self, session: AsyncSession, selected: list[tuple[int, Message]]
+    ) -> list[MessageView]:
+        if not selected:
+            return []
+        message_ids = [m.id for _, m in selected]
+        seg_rows = (
+            (
+                await session.execute(
+                    select(MessageSegment)
+                    .where(queryable(MessageSegment.message_id).in_(message_ids))
+                    .order_by(
+                        col(MessageSegment.message_id), col(MessageSegment.order)
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        segment_ids = [s.id for s in seg_rows]
+        media_rows = (
+            await session.execute(
+                select(
+                    queryable(MediaAttachment.segment_id),
+                    queryable(MediaObject.cache_path),
+                )
+                .join(
+                    MediaSource,
+                    queryable(MediaAttachment.media_source_id)
+                    == queryable(MediaSource.id),
+                )
+                .join(
+                    MediaObject,
+                    queryable(MediaSource.media_object_id) == queryable(MediaObject.id),
+                )
+                .where(
+                    queryable(MediaAttachment.segment_id).in_(segment_ids),
+                    queryable(MediaSource.download_status)
+                    == MediaDownloadStatus.DOWNLOADED,
+                    queryable(MediaObject.cache_path).is_not(None),
+                )
+                .order_by(col(MediaAttachment.id))
+            )
+        ).all()
+        paths: dict[UUID, list[str]] = defaultdict(list)
+        for segment_id, cache_path in media_rows:
+            # 查询条件已排除 NULL, 这里只是让类型收窄
+            if segment_id is not None and cache_path is not None:
+                paths[segment_id].append(cache_path)
+        segments: dict[UUID, list[SegmentView]] = defaultdict(list)
+        for s in seg_rows:
+            segments[s.message_id].append(
+                SegmentView(
+                    order=s.order,
+                    type=s.type,
+                    data=MappingProxyType(dict(s.data)),
+                    media_paths=tuple(paths.get(s.id, ())),
+                )
+            )
+        return [
+            MessageView(
+                external_message_id=m.external_message_id,
+                sender_external_id=m.sender.external_id,
+                sender_display_name=m.sender_display_name,
+                sender_conversation_name=m.sender_conversation_name,
+                sent_at=m.sent_at,
+                offset=offset,
+                segments=tuple(segments.get(m.id, ())),
+            )
+            for offset, m in selected
+        ]
 
     async def count_messages_by_sender(
         self,
