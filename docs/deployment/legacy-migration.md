@@ -21,7 +21,7 @@
 | Deeeer | `mbplugin_deeeer` | 已迁移, 启动时自动转换旧库 (见下) |
 | MoeAttriLottery | `mbplugin_moelottery` | 已迁移 |
 | Recorder | `mbplugin_recorder` | 已重写, schema 完全不同, 旧库归档 |
-| JustQuote, MomoQuote | 计划合并为 `mbplugin_quote` | 重构中, 切换前置条件 |
+| JustQuote, MomoQuote | `mbplugin_quote` | 已重写并合并, 命令 `.q` / `.mq` 保留, `.mq` 参数改为 `x..y` / `-s` / `Nx` |
 | Helper, EmergencyStop, Pooooke, VVTTS, LemonyUtils | `_to_be_migrated/` | 推迟 |
 | OneBotInfoProvider, Executor, DailyWaifu, ArknightsUtils, BiliLinkPurify, RecorderTest | 无 | 推迟或放弃 |
 | 无 | `mbplugin_checker_manager` `mbplugin_rebootable` `mbplugin_emergency_alerts` | 新增 |
@@ -62,4 +62,8 @@
 ## 待决事项
 
 - 服务器上的 `main` 分支 HEAD 不在远端 `main` 上, 切换前先把它推到一个归档分支或打 bundle 备份。
-- 旧实例的插件配置 (`plugin_config/`) 中仍然需要的项转写到新的 `configs/`。
+- 旧实例的插件配置 (`plugin_config/`) 中仍然需要的项转写到新的 `configs/`。引用图对应关系:
+  `quoter_conf.emoji_cdn` / `momoquote_conf.emoji_cdn` -> `configs/quote/default.json` 的 `emoji_cdn`;
+  `banned_stickersets` -> `chat.banned_sticker_sets`; `same_msg_min_dist` -> `limits.same_target_cooldown`;
+  `font` 改为相对 data 根的路径; `mask` `saveto` `uploader` 不再使用。
+- 切换前用 `tools/fake_onebot_server.py` 在隔离目录里把计划启用的插件组合跑一遍 (见 `docs/development/testing.md`)。

@@ -22,7 +22,23 @@ uv run pytest
 (如 `mbplugin_deeeer.migration`), 并且只能导入不依赖 bot 上下文的模块: `__plugin__.py` 在模块级
 调用了 `get_bot()`, 不能在测试里导入。
 
+一个插件有多个测试文件时放进子目录 (如 `tests/plugins/quote/`), 用该目录的 `conftest.py` 统一设置 `sys.path`。
+
 ## 数据
 
 测试不得读写 `data/` 下的真实数据。用 `tmp_path` 并通过
 `lemony_storage_helper.database.sqlite.set_relative_path_base(tmp_path)` 重定向存储根目录。
+
+## 端到端冒烟
+
+`tools/fake_onebot_server.py` 是一个最小的 OneBot v11 正向 ws 服务端: 按 JSON 场景推送事件、
+为 `get_msg` 返回预置消息, 并把 bot 发出的全部 action 记录为 JSON Lines。配合环境变量
+`MIRAICHAN_PROJECT_ROOT` 把 bot 的项目根 (`config.json`、`configs/`、`data/`) 指到一个临时目录,
+即可在不碰真实数据与真实账号的前提下跑完整的 bot:
+
+1. 在临时目录放 `miracle_entrance.py`、`config.json` (websocket 指向假服务端, `plugins` 写插件目录的绝对路径)、
+   需要的 `configs/` (例如 `lemony_checkers/global.json` 里的 owner) 与 `data/fonts/`;
+2. 先启动假服务端, 再以 `MIRAICHAN_PROJECT_ROOT=<临时目录>` 启动 bot;
+3. 假服务端在 bot 空闲一段时间后退出, 之后检查记录的 action 与临时目录下产生的数据。
+
+场景里的 QQ 号、群号、消息内容一律用构造值。
