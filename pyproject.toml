@@ -19,6 +19,7 @@ dependencies = [
     "lemony_network",
     "lemony_media",
     "lemony_onebot_utils",
+    "lemony_mface",
     # plugins
     "mbplugin_checker_manager",
     "mbplugin_deeeer",
@@ -60,6 +61,7 @@ lemony_images = { workspace = true }
 lemony_network = { workspace = true }
 lemony_media = { workspace = true }
 lemony_onebot_utils = { workspace = true }
+lemony_mface = { workspace = true }
 # plugins
 mbplugin_checker_manager = { workspace = true }
 mbplugin_deeeer = { workspace = true }

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.12.*"
 
 [manifest]
@@ -8,6 +8,7 @@ members = [
     "lemony-images",
     "lemony-llm-provider",
     "lemony-media",
+    "lemony-mface",
     "lemony-network",
     "lemony-onebot-utils",
     "lemony-settings",
@@ -658,6 +659,11 @@ version = "0.1.0"
 source = { editable = "packages/shared/lemony_media" }
 
 [[package]]
+name = "lemony-mface"
+version = "0.1.0"
+source = { editable = "packages/shared/lemony_mface" }
+
+[[package]]
 name = "lemony-network"
 version = "0.1.0"
 source = { editable = "packages/shared/lemony_network" }
@@ -1085,6 +1091,7 @@ dependencies = [
     { name = "lemony-images" },
     { name = "lemony-llm-provider" },
     { name = "lemony-media" },
+    { name = "lemony-mface" },
     { name = "lemony-network" },
     { name = "lemony-onebot-utils" },
     { name = "lemony-settings" },
@@ -1123,6 +1130,7 @@ requires-dist = [
     { name = "lemony-images", editable = "packages/shared/lemony_images" },
     { name = "lemony-llm-provider", editable = "packages/shared/lemony_llm_provider" },
     { name = "lemony-media", editable = "packages/shared/lemony_media" },
+    { name = "lemony-mface", editable = "packages/shared/lemony_mface" },
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
     { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
