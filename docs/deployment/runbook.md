@@ -45,6 +45,26 @@
 8. 验证: `journalctl -u <name> -f` 看到各插件 `成功加载插件` 与 ws 连接成功;
    在群里试 `.q` / `.mq` / `鹿`。
 
+## 日志与日常操作
+
+bot 由 systemd 管理, 输出进 journald (不再有单独的日志文件)。`<name>` 是 unit 名:
+
+| 想做的事 | 命令 |
+| --- | --- |
+| 实时跟日志 (相当于 `pm2 logs`) | `journalctl -u <name> -f` |
+| 最近 200 行 | `journalctl -u <name> -n 200 --no-pager` |
+| 某个时间段 | `journalctl -u <name> --since "2026-10-13 00:00" --until "1 hour ago"` |
+| 本次启动以来 | `journalctl -u <name> -b` |
+| 只看警告和错误 | `journalctl -u <name> -p warning` 无效 (bot 日志都以 info 级别写入 journald), 用 `journalctl -u <name> --no-pager \| grep -E ' (WARNING\|ERROR) '` |
+| 状态 (相当于 `pm2 status`) | `systemctl status <name>` |
+| 重启 / 停止 / 启动 | `systemctl restart <name>` / `stop` / `start` |
+| 开机自启开关 | `systemctl enable <name>` / `disable` |
+
+日志里带 ANSI 颜色码, 用 `less -R` 查看, 或 `journalctl ... -o cat | sed 's/\x1b\[[0-9;]*m//g'` 去掉。
+非 root 用户读 journal 需要在 `systemd-journal` 组里。
+
+群里 owner 发 `.重启` / `.关机` 也可以, 前者由 `mb run` 拉起新进程, 后者正常退出 (unit 不会自动拉起)。
+
 ## 上线插件
 
 ```json
