@@ -97,6 +97,7 @@ testpaths = [
     "packages/shared/lemony_onebot_utils/tests",
     "packages/shared/lemony_settings/tests",
     "packages/shared/lemony_storage_helper/tests",
+    "packages/shared/lemony_utils/tests",
 ]
 norecursedirs = ["references", "tmp", "data", ".venv", "_to_be_migrated"]
 asyncio_default_fixture_loop_scope = "function"
