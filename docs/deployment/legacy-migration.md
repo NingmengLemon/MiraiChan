@@ -49,7 +49,7 @@
 ### 其他
 
 - `group_waifus.db` 两张表均为空, 与 messages.db 一并归档。
-- `record/quotes/` 是旧引用图产物, 只读归档, 新的引用图插件不导入。
+- `record/quotes/` 是旧引用图产物, 已打包归档 (tar 加逐文件 sha256 清单) 并从线上删除, 新的引用图插件不导入。
 - `record/images/` 是旧 Recorder 媒体, 随 messages.db 归档。
 
 ## 切换步骤 (草案)
