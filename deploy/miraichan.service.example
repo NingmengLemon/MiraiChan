@@ -1,0 +1,33 @@
+# systemd unit 模板。复制为 /etc/systemd/system/<name>.service 后按实际情况替换尖括号里的值。
+#
+# 用 `mb run` 以子进程方式运行, `.重启` 指令 (mbplugin_rebootable) 依赖这种方式;
+# `.关机` 会让进程正常退出, 所以 Restart 用 on-failure 而不是 always。
+
+[Unit]
+Description=MiraiChan QQ bot (melobot)
+After=network-online.target
+Wants=network-online.target
+# 若 OneBot 实现端也由 systemd 管理, 可以加上:
+# After=<onebot-impl>.service
+
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=<user>
+WorkingDirectory=<deploy-dir>
+Environment=HOME=<home-of-user>
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+ExecStart=<path-to-uv> run --frozen --no-sync mb run miracle_entrance.py
+Restart=on-failure
+RestartSec=10
+# 不写 core dump: 实现端或依赖崩溃时动辄几个 GB
+LimitCORE=0
+# 日志交给 journald; 需要文件时改成 append:<log-file>
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

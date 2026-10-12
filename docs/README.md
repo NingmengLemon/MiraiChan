@@ -7,5 +7,7 @@
   - `testing.md`: 测试的放置与运行
   - `logging.md`: 日志约定与 debug 开关
 - `deployment/`: 部署与运维
+  - `runbook.md`: 部署步骤、上线插件与替换旧实例
   - `legacy-migration.md`: 从旧实例迁移的对照与步骤
+  - systemd unit 模板在仓库根的 `deploy/` 下
 - `discussions/`: 设计讨论、评审与现场记录, gitignored, 不随仓库分发

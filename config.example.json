@@ -9,9 +9,13 @@
     "load_depth": 3,
     "plugins": [
         "mbplugin_checker_manager",
+        "mbplugin_recorder",
         "mbplugin_deeeer",
-        "mbplugin_moelottery"
+        "mbplugin_moelottery",
+        "mbplugin_rebootable",
+        "mbplugin_quote"
     ],
+    "log_levels": {},
     "settings_format": "json",
     "config_root": "configs",
     "default_font_path": "data/fonts/sarasa-mono-sc-semibold.ttf"
