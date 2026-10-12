@@ -209,10 +209,18 @@ async def upsert_conversation_member(
     identity: ExternalIdentity,
     nickname: str | None = None,
     role: str | None = None,
-    is_active: bool = True,
+    is_active: bool | None = None,
     active_since: datetime | None = None,
     inactive_since: datetime | None = None,
 ) -> ConversationMember:
+    """建立或更新会话成员记录.
+
+    Args:
+        is_active: None 表示该事件与"成员是否在会话中"无关 (禁言、角色变更), 不改动状态
+        active_since: 重新活跃或首次建立记录时的活跃起点。已经是活跃状态时只在原有起点为空时
+            补写, 不覆盖: 消息时间不是入群时间, 每条消息都覆盖会把入群时间冲掉
+        inactive_since: 转为不活跃的时间
+    """
     stmt = select(ConversationMember).where(
         queryable(ConversationMember.conversation_id) == conversation.id,
         queryable(ConversationMember.identity_id) == identity.id,
@@ -225,7 +233,7 @@ async def upsert_conversation_member(
             identity_id=identity.id,
             nickname=nickname,
             role=role,
-            is_active=is_active,
+            is_active=True if is_active is None else is_active,
             active_since=active_since,
             inactive_since=inactive_since,
         )
@@ -234,14 +242,18 @@ async def upsert_conversation_member(
         return member
 
     changed = _merge_attrs(member, nickname=nickname, role=role)
-    if member.is_active != is_active:
+    if is_active is not None and member.is_active != is_active:
         member.is_active = is_active
         changed = True
-    if active_since is not None and member.active_since != active_since:
+        if is_active:
+            # 重新活跃: 这一次的起点从当前事件算起, 并清掉上次离开留下的时间
+            member.active_since = active_since or now
+            member.inactive_since = None
+        else:
+            # active_since 保留: 它记录的是上一次活跃从何时开始
+            member.inactive_since = inactive_since or now
+    elif is_active and member.active_since is None and active_since is not None:
         member.active_since = active_since
-        changed = True
-    if inactive_since is not None and member.inactive_since != inactive_since:
-        member.inactive_since = inactive_since
         changed = True
     if changed:
         member.updated_at = now
@@ -277,6 +289,13 @@ async def _record_raw_event(
     return log
 
 
+#: 表明成员在会话中活跃的成员事件 (被拉入 / 主动加入 / 邀请通过)
+_MEMBER_ACTIVE_EVENTS = frozenset({"join", "invite", "approve", "increase"})
+
+#: 表明成员离开会话的成员事件 (主动退群 / 被踢 / 机器人自己被踢 / 群解散)
+_MEMBER_INACTIVE_EVENTS = frozenset({"leave", "kick", "kick_me", "disband"})
+
+
 async def record_member_event(
     session: AsyncSession,
     payload: MemberEventInput,
@@ -307,14 +326,16 @@ async def record_member_event(
         )
 
         event_type = payload.event_type.lower()
-        is_active = event_type in {
-            "join",
-            "invite",
-            "approve",
-            "increase",
-            "admin_set",
-            "lift_ban",
-        }
+        # 只有进出会话的事件才改变活跃状态: 禁言 (ban/lift_ban, OneBot 的 group_ban 是禁言
+        # 而不是踢出) 与角色变更 (admin_set/admin_unset) 都不改变成员是否还在会话里。
+        # 以前用"活跃事件白名单"的补集判离开, 于是禁言和被撤管理员都会把成员标成不活跃,
+        # 之后 admin_set / lift_ban 又把活跃起点改写成当天时间。
+        if event_type in _MEMBER_ACTIVE_EVENTS:
+            is_active: bool | None = True
+        elif event_type in _MEMBER_INACTIVE_EVENTS:
+            is_active = False
+        else:
+            is_active = None
         await upsert_conversation_member(
             session,
             conversation=conversation,
@@ -323,7 +344,7 @@ async def record_member_event(
             role=payload.role,
             is_active=is_active,
             active_since=payload.happened_at if is_active else None,
-            inactive_since=None if is_active else payload.happened_at,
+            inactive_since=payload.happened_at if is_active is False else None,
         )
         event = ConversationMemberEvent(
             conversation_id=conversation.id,
