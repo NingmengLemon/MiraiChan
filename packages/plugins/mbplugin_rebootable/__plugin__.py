@@ -48,12 +48,19 @@ checker_factory = get_checker_factory_wrapper(
 )
 
 
+def _privileged_checker():
+    """重启/关机这类操作默认只有 owner 能触发, allow_admins 打开后管理员也可以."""
+    if cfgloader.value.allow_admins:
+        return checker_factory.get_admin_checker()
+    return checker_factory.get_owner_checker()
+
+
 @plugin.use
 @on_command(
     ".",
     " ",
     [cfgloader.value.poweroff_command],
-    checker=checker_factory.get_owner_checker(),
+    checker=_privileged_checker(),
 )
 async def stop_bot(adapter: Adapter, bot: Bot) -> None:
     await (await adapter.send(random.choice(cfgloader.value.sayings_on_poweroff)))[0]
@@ -71,7 +78,7 @@ class RebootInfo(TypedDict):
     ".",
     " ",
     [cfgloader.value.reboot_command],
-    checker=checker_factory.get_owner_checker(),
+    checker=_privileged_checker(),
 )
 async def restart_bot(event: MessageEvent, adapter: Adapter, bot: Bot):
     if not bot.is_restartable():
