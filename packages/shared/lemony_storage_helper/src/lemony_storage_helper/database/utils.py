@@ -118,6 +118,17 @@ async def auto_begin(
     如果会话已在事务中, 则使用嵌套事务 (savepoint);
     否则开始新事务.
 
+    两种情况的提交点不同, 这个区别很隐蔽:
+
+    - 会话原本没有事务时, 这里由 ``session.begin()`` 开启根事务, 退出上下文即提交;
+    - 会话已经在事务中时 (注意: 任何一次 SELECT 都会让 SQLAlchemy 自动开启事务),
+      这里只是 savepoint, 退出时仅释放 savepoint, 外层事务仍未提交。此后若没人提交
+      就 :meth:`AsyncSession.close`, 这段写入会随外层事务一起回滚, 而且不报错。
+
+    需要"这段写入一定落库"时, 用
+    :meth:`lemony_storage_helper.database.generic.GenericDatabaseHelper.session_scope`,
+    而不是本函数。
+
     用法示例:
         async with auto_begin(session) as transaction:
             session.add(user)
