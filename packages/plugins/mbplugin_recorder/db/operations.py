@@ -533,6 +533,7 @@ async def _upsert_media_source(
         await session.flush()
         return source
 
+    url_changed = payload.url is not None and payload.url != source.url
     changed = _merge_attrs(
         source,
         url=payload.url,
@@ -544,9 +545,20 @@ async def _upsert_media_source(
     if source.media_type != payload.media_type:
         source.media_type = payload.media_type
         changed = True
-    if source.download_status != payload.download_status:
-        source.download_status = payload.download_status
+    if payload.download_status is not MediaDownloadStatus.PENDING:
+        # 调用方显式指定了状态, 以它为准
+        if source.download_status != payload.download_status:
+            source.download_status = payload.download_status
+            changed = True
+    elif source.download_status is MediaDownloadStatus.ABANDONED and url_changed:
+        # 已放弃的来源遇到同一文件的新链接 (多半是旧链接过期了): 复活, 并且只再试一次,
+        # 免得在同一个死文件上反复耗流量
+        source.download_status = MediaDownloadStatus.PENDING
+        source.attempt_count = 0
+        source.next_attempt_at = None
         changed = True
+    # 其余情况保持原状态: 适配器重报时固定给 PENDING, 那只是默认值而不是意图,
+    # 把已下载 / 正在下载 / 已失败 (退避中) 的记录退回待下载只会白下一遍
     if changed:
         source.updated_at = now
     return source

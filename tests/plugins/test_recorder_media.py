@@ -28,6 +28,7 @@ from mbplugin_recorder.db.enums import MediaDownloadStatus
 from mbplugin_recorder.db.models import MediaSource, recorder_metadata
 from mbplugin_recorder.db.operations import (
     list_pending_media_sources,
+    mark_media_source_downloaded,
     mark_media_source_downloading,
     mark_media_source_failed,
     reclaim_stale_downloading,
@@ -265,6 +266,110 @@ async def test_run_once_keeps_fresh_downloading(
 
     assert downloaded == []
     assert (await _get(db, "busy")).download_status is MediaDownloadStatus.DOWNLOADING
+
+
+def _downloaded(file_id: str, url: str) -> MediaSourceInput:
+    """构造一个"已下载"来源的输入 (用于直接标记下载完成)."""
+    return MediaSourceInput(
+        source_file_id=file_id,
+        media_type="image",
+        url=url,
+        download_status=MediaDownloadStatus.DOWNLOADED,
+        sha256="f" * 64,
+        size=7,
+        cache_path=f"record/media/image/{file_id}.png",
+    )
+
+
+def _payload_urls(mid: str, pairs: list[tuple[str, str]]) -> RecordedMessageInput:
+    """会话/发送者固定、但每条媒体来源的链接可控的消息输入."""
+    account = AccountInput(protocol="p", self_id="1")
+    return RecordedMessageInput(
+        account=account,
+        conversation=ConversationInput(type="group", external_id="2"),
+        sender=IdentityInput(
+            protocol="p", namespace="user", external_id="3", account=account
+        ),
+        external_message_id=mid,
+        sent_at=T0,
+        segments=[
+            MessageSegmentInput(
+                type="image",
+                data={"file": file_id},
+                media_sources=(
+                    MediaSourceInput(
+                        source_file_id=file_id, media_type="image", url=url
+                    ),
+                ),
+            )
+            for file_id, url in pairs
+        ],
+    )
+
+
+@pytest.mark.asyncio
+async def test_rereport_does_not_reset_downloaded_status(
+    db: SqliteDatabaseHelper,
+) -> None:
+    """回归: 同一个 file_id 出现在新消息里时, 已下载的记录不得退回待下载."""
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["img"]))
+    img = await _get(db, "img")
+    async with db.get_session(style="sqlalchemy") as s:
+        await mark_media_source_downloading(s, img.id)
+        await mark_media_source_downloaded(
+            s, img.id, _downloaded("img", "https://x/img")
+        )
+
+    # 另一条消息引用了同一个 file_id (转发、重发)
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m2", ["img"]))
+
+    assert (await _get(db, "img")).download_status is MediaDownloadStatus.DOWNLOADED
+    assert await _pending_ids(db) == []
+
+
+@pytest.mark.asyncio
+async def test_rereport_keeps_downloading_status(db: SqliteDatabaseHelper) -> None:
+    """正在下载的记录也不能被重报退回待下载 (会重复下载)."""
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["busy"]))
+    busy = await _get(db, "busy")
+    async with db.get_session(style="sqlalchemy") as s:
+        await mark_media_source_downloading(s, busy.id)
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m2", ["busy"]))
+
+    assert (await _get(db, "busy")).download_status is MediaDownloadStatus.DOWNLOADING
+
+
+@pytest.mark.asyncio
+async def test_abandoned_source_revives_only_with_new_url(
+    db: SqliteDatabaseHelper,
+) -> None:
+    """已放弃的来源: 同一个死链接重报不复活, 换上新链接才重新排队."""
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["dead"]))
+    dead = await _get(db, "dead")
+    async with db.get_session(style="sqlalchemy") as s:
+        await mark_media_source_downloading(s, dead.id)
+        await mark_media_source_failed(s, dead.id, "403", permanent=True)
+    assert (await _get(db, "dead")).download_status is MediaDownloadStatus.ABANDONED
+
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m2", ["dead"]))
+    assert (await _get(db, "dead")).download_status is MediaDownloadStatus.ABANDONED
+    assert await _pending_ids(db) == []
+
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(
+            s, _payload_urls("m3", [("dead", "https://x/dead?token=new")])
+        )
+    revived = await _get(db, "dead")
+    assert revived.download_status is MediaDownloadStatus.PENDING
+    assert revived.attempt_count == 0
+    assert revived.next_attempt_at is None
+    assert await _pending_ids(db) == ["dead"]
 
 
 LEGACY_SCHEMA = """
