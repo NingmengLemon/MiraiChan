@@ -472,3 +472,36 @@ async def quote_chat(event: GroupMessageEvent, adapter: Adapter, args: CmdArgs) 
         await adapter.send_reply("生成失败了")
     finally:
         state.inflight.discard(target_key)
+
+
+@plugin.use
+@on_command(".", " ", ["qdel"])
+async def delete_archive(event: GroupMessageEvent, adapter: Adapter) -> None:
+    """bot 管理员回复 bot 发出的引用图, 删除对应的存档"""
+    if not isinstance(event, GroupMessageEvent):
+        return
+    await _init_done.wait()
+    if not state.ready or not _is_bot_admin(event):
+        return
+    target = _reply_target(event)
+    if target is None:
+        await adapter.send_reply("回复一张 bot 发出的引用图来删除它的存档")
+        return
+    try:
+        artifact = await state.archive.find_by_sent_message(target)
+        # 只能删本群的存档
+        if artifact is None or artifact.group_id != event.group_id:
+            await adapter.send_reply("这条消息没有对应的存档")
+            return
+        await state.archive.delete(artifact.id)
+    except Exception:
+        logger.exception("删除引用图存档失败: group=%s msg=%s", event.group_id, target)
+        await adapter.send_reply("删除失败了")
+        return
+    logger.info(
+        "已删除引用图存档 %s (group=%s, by=%s)",
+        artifact.id,
+        event.group_id,
+        event.user_id,
+    )
+    await adapter.send_reply("已删除存档")

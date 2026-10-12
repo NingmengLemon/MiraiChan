@@ -31,3 +31,11 @@ emoji 图片来自配置的 `emoji_cdn` (EmojiServer)。未配置或取不到时
 每张发出的图都存到 `data/quote/artifacts/{年}/{月}/`, 索引在 `data/quote/quote.db`
 (表 `quote_artifact`, 含请求者、被引用者、区间、文件哈希, 以及 bot 发出的那条消息 id)。
 `QuoteArchive.add_hook` 可以注册存档完成后的回调。
+
+bot 管理员 (owner / admin) 回复 bot 发出的引用图并发送 `.qdel`, 删除该图的存档 (索引与文件)。
+只能删本群的存档; 非管理员发送时静默。
+
+## 引用 bot 自己
+
+默认 (`allow_quote_self = false`) bot 自己的消息当作不存在: 不进区间、不计偏移;
+目标消息就是 bot 的消息时不回复, 也不消耗冷却。
