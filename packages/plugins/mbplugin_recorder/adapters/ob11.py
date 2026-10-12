@@ -1,5 +1,6 @@
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from lemony_utils.time import tzaware_datetime_from_timestamp
 from melobot.protocols.onebot.v11.adapter.event import (
@@ -220,10 +221,25 @@ def _segment_to_input(
 ) -> MessageSegmentInput:
     return MessageSegmentInput(
         type=segment.type,
-        data=segment.to_dict()["data"],
+        data=_segment_raw_data(segment),
         text=_segment_text(segment),
         media_sources=_segment_media(event, segment),
     )
+
+
+def _segment_raw_data(segment: Segment) -> dict[str, Any]:
+    """段的原始 data。
+
+    melobot 的已知段类型按模型字段解析, to_dict() 只保留声明过的字段; 实现端的扩展字段
+    (例如 SnowLuma 在 image 段上挂的商城表情 emoji_id / summary) 会丢失。raw 保留上报原样,
+    只去掉值为 None 的键, 与 to_dict() 的行为一致。
+    """
+    raw = getattr(segment, "raw", None)
+    if isinstance(raw, Mapping):
+        data = raw.get("data")
+        if isinstance(data, Mapping):
+            return {k: v for k, v in data.items() if v is not None}
+    return segment.to_dict()["data"]
 
 
 def _segment_text(segment: Segment) -> str | None:
