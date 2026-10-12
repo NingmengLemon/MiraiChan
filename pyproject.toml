@@ -27,6 +27,7 @@ dependencies = [
     "mbplugin_recorder",
     "mbplugin_emergency_alerts",
     "mbplugin_rebootable",
+    "mbplugin_quote",
     # workspace members above
     "melobot[onebot]>=3.5.0",
 ]
@@ -44,6 +45,7 @@ members = [
     "packages/plugins/mbplugin_recorder",
     "packages/plugins/mbplugin_emergency_alerts",
     "packages/plugins/mbplugin_rebootable",
+    "packages/plugins/mbplugin_quote",
     # "packages/plugins/*",
 ]
 
@@ -69,6 +71,7 @@ mbplugin_moelottery = { workspace = true }
 mbplugin_recorder = { workspace = true }
 mbplugin_emergency_alerts = { workspace = true }
 mbplugin_rebootable = { workspace = true }
+mbplugin_quote = { workspace = true }
 
 [dependency-groups]
 dev = [

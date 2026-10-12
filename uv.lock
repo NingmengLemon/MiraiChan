@@ -18,6 +18,7 @@ members = [
     "mbplugin-deeeer",
     "mbplugin-emergency-alerts",
     "mbplugin-moelottery",
+    "mbplugin-quote",
     "mbplugin-rebootable",
     "mbplugin-recorder",
     "melobot-telegram-protocol",
@@ -933,6 +934,39 @@ requires-dist = [
 ]
 
 [[package]]
+name = "mbplugin-quote"
+version = "2.0.0"
+source = { editable = "packages/plugins/mbplugin_quote" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "emoji" },
+    { name = "lemony-checkers" },
+    { name = "lemony-images" },
+    { name = "lemony-mface" },
+    { name = "lemony-network" },
+    { name = "lemony-onebot-utils" },
+    { name = "lemony-settings" },
+    { name = "lemony-storage-helper", extra = ["sqlite"] },
+    { name = "pillow" },
+    { name = "uuid-utils" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiohttp" },
+    { name = "emoji" },
+    { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
+    { name = "lemony-images", editable = "packages/shared/lemony_images" },
+    { name = "lemony-mface", editable = "packages/shared/lemony_mface" },
+    { name = "lemony-network", editable = "packages/shared/lemony_network" },
+    { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
+    { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
+    { name = "lemony-storage-helper", extras = ["sqlite"], editable = "packages/shared/lemony_storage_helper" },
+    { name = "pillow" },
+    { name = "uuid-utils", specifier = ">=0.14.1" },
+]
+
+[[package]]
 name = "mbplugin-rebootable"
 version = "1.0.0"
 source = { editable = "packages/plugins/mbplugin_rebootable" }
@@ -1101,6 +1135,7 @@ dependencies = [
     { name = "mbplugin-deeeer" },
     { name = "mbplugin-emergency-alerts" },
     { name = "mbplugin-moelottery" },
+    { name = "mbplugin-quote" },
     { name = "mbplugin-rebootable" },
     { name = "mbplugin-recorder" },
     { name = "melobot", extra = ["onebot"] },
@@ -1140,6 +1175,7 @@ requires-dist = [
     { name = "mbplugin-deeeer", editable = "packages/plugins/mbplugin_deeeer" },
     { name = "mbplugin-emergency-alerts", editable = "packages/plugins/mbplugin_emergency_alerts" },
     { name = "mbplugin-moelottery", editable = "packages/plugins/mbplugin_moelottery" },
+    { name = "mbplugin-quote", editable = "packages/plugins/mbplugin_quote" },
     { name = "mbplugin-rebootable", editable = "packages/plugins/mbplugin_rebootable" },
     { name = "mbplugin-recorder", editable = "packages/plugins/mbplugin_recorder" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
