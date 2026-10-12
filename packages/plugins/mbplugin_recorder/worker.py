@@ -1,19 +1,29 @@
 import asyncio
+import logging
 from contextlib import suppress
+from datetime import timedelta
+from pathlib import Path
 
-from aiohttp import ClientSession
+from aiohttp import ClientResponseError, ClientSession, ClientTimeout
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
-from melobot import get_logger
 
 from .db.operations import (
     list_pending_media_sources,
     mark_media_source_downloaded,
     mark_media_source_downloading,
     mark_media_source_failed,
+    reclaim_stale_downloading,
 )
 from .media import DEFAULT_MAX_MEDIA_BYTES, download_media_source
 
-logger = get_logger()
+logger = logging.getLogger(__name__)
+
+# 这些状态码重试也不会好 (QQ 图床链接过期后返回 4xx)
+_PERMANENT_STATUS = frozenset({400, 401, 403, 404, 410})
+
+
+def is_permanent_failure(exc: BaseException) -> bool:
+    return isinstance(exc, ClientResponseError) and exc.status in _PERMANENT_STATUS
 
 
 class MediaDownloadWorker:
@@ -22,15 +32,26 @@ class MediaDownloadWorker:
         db: SqliteDatabaseHelper,
         *,
         cache_root: str = "record/media",
+        data_root: Path | None = None,
         interval: float = 10.0,
         batch_size: int = 10,
         max_bytes: int = DEFAULT_MAX_MEDIA_BYTES,
+        request_timeout: float = 120.0,
+        max_attempts: int = 5,
+        retry_base: float = 60.0,
+        retry_cap: float = 6 * 3600.0,
     ) -> None:
+        """cache_root 相对 data_root; data_root 为 None 时相对当前目录"""
         self.db = db
         self.cache_root = cache_root
+        self.data_root = data_root
         self.interval = interval
         self.batch_size = batch_size
         self.max_bytes = max_bytes
+        self.request_timeout = request_timeout
+        self.max_attempts = max_attempts
+        self.retry_base = retry_base
+        self.retry_cap = retry_cap
         self._task: asyncio.Task[None] | None = None
         self._stop_event = asyncio.Event()
 
@@ -41,7 +62,7 @@ class MediaDownloadWorker:
             logger.info(
                 f"媒体下载 worker 已启动: root={self.cache_root}, "
                 f"interval={self.interval}, batch_size={self.batch_size}, "
-                f"max_bytes={self.max_bytes}"
+                f"max_bytes={self.max_bytes}, max_attempts={self.max_attempts}"
             )
         else:
             logger.debug("媒体下载 worker 已在运行，跳过重复启动")
@@ -56,12 +77,24 @@ class MediaDownloadWorker:
             logger.info("媒体下载 worker 已停止")
 
     async def _run(self) -> None:
-        async with ClientSession() as http_session:
+        try:
+            await self.db.wait_until_initialized()
+            async with self.db.get_session(style="sqlalchemy") as session:
+                # 上次进程中途退出时留下的 DOWNLOADING
+                if n := await reclaim_stale_downloading(
+                    session, older_than=timedelta(seconds=self.request_timeout)
+                ):
+                    logger.info("回收了 %d 个中断的媒体下载", n)
+        except Exception:
+            logger.exception("媒体下载 worker 启动失败, 不再下载媒体")
+            return
+        timeout = ClientTimeout(total=self.request_timeout)
+        async with ClientSession(timeout=timeout) as http_session:
             while not self._stop_event.is_set():
                 try:
                     await self.run_once(http_session)
                 except Exception:
-                    logger.generic_exc("媒体下载 worker 执行失败")
+                    logger.exception("媒体下载 worker 执行失败")
                 with suppress(asyncio.TimeoutError):
                     await asyncio.wait_for(
                         self._stop_event.wait(), timeout=self.interval
@@ -84,13 +117,25 @@ class MediaDownloadWorker:
                         http_session,
                         source,
                         root=self.cache_root,
+                        data_root=self.data_root,
                         max_bytes=self.max_bytes,
                     )
                 except Exception as exc:
-                    await mark_media_source_failed(session, source.id, repr(exc))
-                    logger.warning(
-                        f"媒体下载失败: source_id={source.id} "
-                        f"type={source.media_type} file_id={source.source_file_id} "
+                    permanent = is_permanent_failure(exc)
+                    await mark_media_source_failed(
+                        session,
+                        source.id,
+                        repr(exc),
+                        max_attempts=self.max_attempts,
+                        retry_base=self.retry_base,
+                        retry_cap=self.retry_cap,
+                        permanent=permanent,
+                    )
+                    # 链接过期是常态, 不刷 warning
+                    log = logger.info if permanent else logger.warning
+                    log(
+                        f"媒体下载失败{'(不再重试)' if permanent else ''}: "
+                        f"source_id={source.id} type={source.media_type} "
                         f"error={exc!r}"
                     )
                     continue

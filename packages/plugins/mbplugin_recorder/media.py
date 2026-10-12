@@ -91,12 +91,18 @@ async def download_media_source(
     source: MediaSource,
     *,
     root: str | Path,
+    data_root: str | Path | None = None,
     max_bytes: int = DEFAULT_MAX_MEDIA_BYTES,
 ) -> MediaSourceInput:
+    """下载到 ``data_root / root`` 下; 记录的 cache_path 是相对 data_root 的 ``root/...``。
+
+    data_root 为 None 时 root 相对当前目录, cache_path 也原样记录。
+    """
     if not source.url:
         raise ValueError("media source has no url")
 
-    media_root = Path(root) / source.media_type
+    base = Path(data_root) if data_root is not None else Path()
+    media_root = base / root / source.media_type
     media_root.mkdir(parents=True, exist_ok=True)
     tmp_path = media_root / f"{uuid4().hex}.download"
     digest = sha256()
@@ -127,9 +133,10 @@ async def download_media_source(
         sha256_hex = digest.hexdigest()
         suffix = _suffix_from_content(bytes(magic_data)) or _safe_suffix(source.url)
         mime_type = _mime_from_content(bytes(magic_data))
-        target_path = media_cache_path(
+        relative_path = media_cache_path(
             root, source, sha256_hex=sha256_hex, suffix=suffix
         )
+        target_path = base / relative_path
         target_path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path.replace(target_path)
     except Exception:
@@ -144,5 +151,5 @@ async def download_media_source(
         size=size,
         mime_type=mime_type,
         sha256=sha256_hex,
-        cache_path=target_path.as_posix(),
+        cache_path=relative_path.as_posix(),
     )

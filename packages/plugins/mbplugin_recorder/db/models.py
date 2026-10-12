@@ -8,7 +8,7 @@ from lemony_storage_helper.database.utils import (
     GenericAsyncAttrs,
     datetime_column_tzaware,
 )
-from sqlalchemy import Enum, Index, UniqueConstraint
+from sqlalchemy import DateTime, Enum, Index, UniqueConstraint
 from sqlmodel import JSON, Column, Field, Relationship
 from uuid_utils.compat import uuid7
 
@@ -541,6 +541,12 @@ class MediaSource(Base, GenericAsyncAttrs[_MediaSourceAwaitableAttrs], table=Tru
         ),
     )
     download_error: str | None = Field(default=None)
+    attempt_count: int = Field(default=0, description="已尝试下载的次数")
+    next_attempt_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True, index=True),
+        description="最早的下次重试时刻, 为空表示随时可以",
+    )
     created_at: datetime = Field(
         default_factory=now_datetime,
         sa_column=datetime_column_tzaware(default=now_datetime),

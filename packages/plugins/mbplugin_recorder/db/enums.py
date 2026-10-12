@@ -8,3 +8,6 @@ class MediaDownloadStatus(StrEnum):
     DOWNLOADING = "downloading"
     DOWNLOADED = "downloaded"
     FAILED = "failed"
+    """失败但还会重试"""
+    ABANDONED = "abandoned"
+    """重试次数用尽, 不再尝试"""

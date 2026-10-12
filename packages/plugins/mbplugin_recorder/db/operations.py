@@ -1,8 +1,8 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from lemony_storage_helper.database.utils import auto_begin, queryable
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -45,6 +45,8 @@ __all__ = [
     "mark_media_source_downloading",
     "mark_media_source_failed",
     "mark_media_source_downloaded",
+    "reclaim_stale_downloading",
+    "retry_delay",
 ]
 
 
@@ -658,7 +660,10 @@ async def list_pending_media_sources(
     session: AsyncSession,
     *,
     limit: int = 20,
+    now: datetime | None = None,
 ) -> list[MediaSource]:
+    """取到期可下载的来源: 从未尝试的 PENDING 优先, 其次是退避已过的 FAILED"""
+    now = now or now_datetime()
     stmt = (
         select(MediaSource)
         .where(
@@ -666,8 +671,16 @@ async def list_pending_media_sources(
                 [MediaDownloadStatus.PENDING, MediaDownloadStatus.FAILED]
             ),
             queryable(MediaSource.url).is_not(None),
+            or_(
+                queryable(MediaSource.next_attempt_at).is_(None),
+                queryable(MediaSource.next_attempt_at) <= now,
+            ),
         )
-        .order_by(col(MediaSource.created_at))
+        .order_by(
+            # PENDING 排在 FAILED 前面, 失败的旧记录不会挡住新任务
+            queryable(MediaSource.download_status) == MediaDownloadStatus.FAILED,
+            col(MediaSource.created_at),
+        )
         .limit(limit)
     )
     return list((await session.execute(stmt)).scalars().all())
@@ -683,21 +696,60 @@ async def mark_media_source_downloading(
             return
         source.download_status = MediaDownloadStatus.DOWNLOADING
         source.download_error = None
+        source.attempt_count += 1
         source.updated_at = now_datetime()
+
+
+def retry_delay(attempt: int, *, base: float, cap: float) -> timedelta:
+    """第 attempt 次 (从 1 起) 失败后的等待时长: base * 4^(attempt-1), 不超过 cap"""
+    return timedelta(seconds=min(cap, base * 4 ** max(0, attempt - 1)))
 
 
 async def mark_media_source_failed(
     session: AsyncSession,
     source_id: Any,
     error: str,
+    *,
+    max_attempts: int = 5,
+    retry_base: float = 60.0,
+    retry_cap: float = 6 * 3600.0,
+    permanent: bool = False,
 ) -> None:
+    """记一次失败; 次数用尽或 permanent 时转为 ABANDONED, 否则按指数退避排下次"""
     async with auto_begin(session):
         source = await session.get(MediaSource, source_id)
         if source is None:
             return
-        source.download_status = MediaDownloadStatus.FAILED
+        now = now_datetime()
         source.download_error = error[:1000]
-        source.updated_at = now_datetime()
+        source.updated_at = now
+        if permanent or source.attempt_count >= max_attempts:
+            source.download_status = MediaDownloadStatus.ABANDONED
+            source.next_attempt_at = None
+        else:
+            source.download_status = MediaDownloadStatus.FAILED
+            source.next_attempt_at = now + retry_delay(
+                source.attempt_count, base=retry_base, cap=retry_cap
+            )
+
+
+async def reclaim_stale_downloading(
+    session: AsyncSession, *, older_than: timedelta
+) -> int:
+    """进程中途退出会留下 DOWNLOADING; 超过 older_than 的放回 FAILED 等重试"""
+    async with auto_begin(session):
+        cutoff = now_datetime() - older_than
+        stmt = select(MediaSource).where(
+            queryable(MediaSource.download_status) == MediaDownloadStatus.DOWNLOADING,
+            queryable(MediaSource.updated_at) < cutoff,
+        )
+        stale = list((await session.execute(stmt)).scalars().all())
+        for source in stale:
+            source.download_status = MediaDownloadStatus.FAILED
+            source.download_error = "interrupted while downloading"
+            source.next_attempt_at = None
+            source.updated_at = now_datetime()
+        return len(stale)
 
 
 async def mark_media_source_downloaded(
@@ -714,4 +766,5 @@ async def mark_media_source_downloaded(
         source.url = payload.url or source.url
         source.download_status = MediaDownloadStatus.DOWNLOADED
         source.download_error = None
+        source.next_attempt_at = None
         source.updated_at = now_datetime()

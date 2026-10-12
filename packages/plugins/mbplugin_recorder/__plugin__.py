@@ -1,7 +1,10 @@
 from logging import getLogger
 
 from lemony_storage_helper.database import StorageStartupError
-from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
+from lemony_storage_helper.database.sqlite import (
+    SqliteDatabaseHelper,
+    get_relative_path_base,
+)
 from melobot import PluginPlanner, get_bot
 from melobot.plugin import SyncShare
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent, NoticeEvent
@@ -12,12 +15,14 @@ from .adapters.ob11 import OneBot11MessageRecorderAdapter
 from .db import models as recorder_models
 from .db.models import recorder_metadata
 from .db.operations import record_member_event, record_message, record_notice
+from .migration import migrate
 from .service import RecorderService
 from .worker import MediaDownloadWorker
 
 PLUGIN_IDENTIFIER = "recorder"
 DATABASE_PATH = "record/recorder.db"
-MEDIA_CACHE_ROOT = "data/record/media"
+# 相对 data 根目录, 与数据库路径的约定一致
+MEDIA_CACHE_ROOT = "record/media"
 
 bot = get_bot()
 logger = getLogger(__name__)
@@ -57,7 +62,8 @@ async def _() -> None:
         f"Recorder 插件启动中: db={DATABASE_PATH}, media_cache={MEDIA_CACHE_ROOT}"
     )
     # 异常会被 melobot 的 hook 吞掉, 失败状态由 helper 记住, handler 据此放弃
-    await recorder_db.startup()
+    await recorder_db.startup(prepare=migrate)
+    media_worker.data_root = get_relative_path_base()
     media_worker.start()
     logger.info("Recorder 插件已启动")
 
