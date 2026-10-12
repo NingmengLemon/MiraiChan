@@ -76,6 +76,22 @@ def is_admin(
     return any(matches_unique_user(admin, user) for admin in global_settings.admins)
 
 
+def _value_in(incoming: Any, values: list[Any]) -> bool:
+    """Return whether ``incoming`` equals any configured value.
+
+    Comparison is tolerant about numeric ids written as strings: a hand-edited
+    config can easily hold ``{"user_id": ["1001"]}`` while the runtime identity
+    carries the int ``1001``, and strict equality would make the rule silently
+    never match. ``ANY_VALUE`` is not resolved here, see ``constraint_matches``.
+    """
+    if incoming in values:
+        return True
+    if incoming is None:
+        # None 只与 None 相等, 避免 "None" 之类的字符串把私聊/无群身份匹配上
+        return False
+    return any(str(incoming) == str(value) for value in values)
+
+
 def constraint_matches(constraint: Constraint, user_dict: dict[str, Any]) -> bool:
     """Return whether one constraint matches a runtime identity.
 
@@ -83,12 +99,16 @@ def constraint_matches(constraint: Constraint, user_dict: dict[str, Any]) -> boo
     contains ``ANY_VALUE``, the field only has to be present (not None) instead of
     equal to one of the listed values; every other value is compared for equality.
     """
-    for field, values in constraint.items():
+    for field, raw_values in constraint.items():
+        # 配置里把值列表写成裸值时也不要崩: 当成单元素列表
+        values = (
+            list(raw_values) if isinstance(raw_values, (list, tuple)) else [raw_values]
+        )
         incoming = user_dict.get(field)
         if ANY_VALUE in values:
             if incoming is None:
                 return False
-        elif incoming not in values:
+        elif not _value_in(incoming, values):
             return False
     return True
 

@@ -35,9 +35,7 @@ from mbplugin_checker_manager.parsing import (  # noqa: E402
 class TestMatchAll:
     """省略参数与别名表示匹配所有."""
 
-    @pytest.mark.parametrize(
-        "ids_str", [None, "all", "ALL", "none", "*", " * "]
-    )
+    @pytest.mark.parametrize("ids_str", [None, "all", "ALL", "none", "*", " * "])
     def test_returns_none(self, ids_str: str | None):
         assert parse_constrains(ids_str) is None
 

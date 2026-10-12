@@ -258,6 +258,39 @@ class TestConstraintMatches:
         """空 constraint 无字段约束, 与 constrains=None 行为一致."""
         assert constraint_matches({}, {"user_id": 1002, "group_id": None})
 
+    def test_quoted_id_matches_int_identity(self):
+        """配置里把数字 ID 写成字符串时规则仍然生效 (改配置时最容易踩的坑)."""
+        assert constraint_matches({"user_id": ["1001"]}, {"user_id": 1001})
+        assert not constraint_matches({"user_id": ["1001"]}, {"user_id": 1002})
+
+    def test_int_config_matches_str_identity(self):
+        """反向也不应失效: 运行时身份是字符串时与数字配置比较."""
+        assert constraint_matches({"user_id": [1001]}, {"user_id": "1001"})
+
+    def test_quoted_any_value_still_needs_field(self):
+        assert constraint_matches({"group_id": ["*"]}, {"group_id": 5000})
+        assert not constraint_matches({"group_id": ["*"]}, {"group_id": None})
+
+    def test_null_identity_does_not_match_string_none(self):
+        """私聊/无群身份的 None 不得被 "None" 之类的字符串匹配上."""
+        assert not constraint_matches({"group_id": ["None"]}, {"group_id": None})
+
+    def test_malformed_bare_value_treated_as_single_item(self):
+        """值列表被写成裸值时不崩溃, 按单元素列表处理."""
+        assert constraint_matches({"user_id": 1001}, {"user_id": 1001})
+        assert not constraint_matches({"user_id": 1001}, {"user_id": 1002})
+
+    def test_hand_edited_rule_matches(self, ob11_user_alice):
+        """整条规则走一遍 Rule.model_validate, 手改配置里带引号的 ID 依然生效."""
+        rule = Rule.model_validate(
+            {
+                "action": "allow",
+                "protocol": "OneBot-v11@Meloland",
+                "constrains": [{"user_id": ["1001"]}],
+            }
+        )
+        assert match_rules([rule], ob11_user_alice) is CheckResult.ALLOW
+
 
 # ============================================================
 # check_rules
