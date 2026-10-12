@@ -435,13 +435,18 @@ async def _handle_reload(adapter: Adapter, args: list[str]):
         await adapter.send_reply("已重新加载全局配置")
         return
 
-    target = args[0].lower()
-    if target == "global":
+    target = args[0]
+    if target.lower() == "global":
         factory.reload_global_settings()
         await adapter.send_reply("已重新加载全局配置")
-    else:
+    elif factory.is_plugin_settings_loaded(target):
         factory.reload_plugin_settings(target)
         await adapter.send_reply(f"已重新加载插件 {target} 配置")
+    else:
+        # 没加载过的插件配置无从重载, 不能报成功
+        await adapter.send_reply(
+            f"插件 {target} 的检查器配置尚未加载, 没有可重新加载的内容"
+        )
 
 
 async def _handle_save(adapter: Adapter, args: list[str]):
@@ -452,10 +457,14 @@ async def _handle_save(adapter: Adapter, args: list[str]):
         await adapter.send_reply("已保存全局配置")
         return
 
-    target = args[0].lower()
-    if target == "global":
+    target = args[0]
+    if target.lower() == "global":
         factory.save_global_settings()
         await adapter.send_reply("已保存全局配置")
-    else:
+    elif factory.is_plugin_settings_loaded(target):
         factory.save_plugin_settings(target)
         await adapter.send_reply(f"已保存插件 {target} 配置")
+    else:
+        await adapter.send_reply(
+            f"插件 {target} 的检查器配置尚未加载, 没有可保存的内容"
+        )

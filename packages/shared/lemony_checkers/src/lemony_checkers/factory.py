@@ -205,6 +205,14 @@ class LemonyCheckerFactory:
         else:
             logger.warning("Global checker settings not initialized, nothing to save")
 
+    def is_plugin_settings_loaded(self, plugin_name: str) -> bool:
+        """该插件的检查器配置是否已经加载.
+
+        没有加载过时 reload / save 都是空操作, 调用方需要据此给出诚实的回复,
+        而不是一律报"已保存"。
+        """
+        return plugin_name in self._plugin_settings_cache
+
     def save_plugin_settings(self, plugin_name: str) -> None:
         """
         保存指定插件的配置到文件.
