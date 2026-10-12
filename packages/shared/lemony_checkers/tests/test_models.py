@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 from lemony_checkers.adapters.ob11 import (
     OB11_PROTOCOL_ID,
     Ob11UniqueUser,
     Ob11UniqueUserDataclass,
 )
+from lemony_checkers.core import CheckResult, match_rules
 from lemony_checkers.models import (
+    ANY_VALUE,
     CheckerGlobalSettings,
     CheckerPluginSettings,
     Rule,
@@ -20,6 +24,8 @@ from lemony_checkers.migration import (
     migrate_legacy_rules,
     migrate_legacy_unique_user_list,
     migrate_plugin_config_data,
+    normalize_rule_priority,
+    read_legacy_rule_priority,
 )
 from pydantic import ValidationError
 
@@ -217,16 +223,15 @@ class TestLegacyMigrationFunctions:
         assert result["constrains"] == {"user_id": [1001, 1002]}
 
     def test_migrate_legacy_rules_group_first(self):
-        """rule_priority=group_first 时 group_rules 在前, ids=None 时 constrains=None."""
+        """rule_priority=group_first 时 group_rules 在前."""
         legacy = {
             "user_rules": [{"action": "allow", "ids": [1001]}],
             "group_rules": [{"action": "deny", "ids": None}],
         }
         result = migrate_legacy_rules(legacy, rule_priority="group_first")
         assert len(result) == 2
-        assert (
-            result[0]["constrains"] is None
-        )  # group_rules[0]: ids=None → constrains=None
+        # group_rules[0]: ids=None 是"所有群聊", 不是"所有人"
+        assert result[0]["constrains"] == {"group_id": [ANY_VALUE]}
         assert result[1]["constrains"] == {"user_id": [1001]}  # user_rules[0]
 
     def test_migrate_legacy_rules_user_first(self):
@@ -238,9 +243,8 @@ class TestLegacyMigrationFunctions:
         result = migrate_legacy_rules(legacy, rule_priority="user_first")
         assert len(result) == 2
         assert result[0]["constrains"] == {"user_id": [1001]}  # user_rules[0]
-        assert (
-            result[1]["constrains"] is None
-        )  # group_rules[0]: ids=None → constrains=None
+        # group_rules[0]: ids=None 是"所有群聊", 不是"所有人"
+        assert result[1]["constrains"] == {"group_id": [ANY_VALUE]}
 
     def test_migrate_legacy_rules_no_rules_key(self):
         """无 user_rules/group_rules 时原样返回."""
@@ -394,3 +398,148 @@ class TestCheckerPluginSettingsMigration:
         assert settings.mode is None
         assert settings.rules == []
         assert settings.commands == {}
+
+
+# ============================================================
+# 旧 group_rules 的"所有群聊"语义
+# ============================================================
+
+
+class TestLegacyGroupRuleSemantics:
+    """旧 group_rules 只在群聊中参与判断: ids=None 不得扩大到私聊."""
+
+    @staticmethod
+    def _rules(legacy: dict[str, object]) -> list[Rule]:
+        migrated, _ = migrate_plugin_config_data({"rules": legacy})
+        return [Rule.model_validate(item) for item in migrated["rules"]]
+
+    def test_all_groups_rule_matches_group_chat(self, ob11_user_alice):
+        rules = self._rules(
+            {"user_rules": [], "group_rules": [{"action": "deny", "ids": None}]}
+        )
+        assert match_rules(rules, ob11_user_alice) is CheckResult.DENY
+
+    def test_all_groups_rule_skips_private_chat(self, ob11_user_alice_private):
+        """旧实现里私聊只查 user_rules, group_rules 完全不参与."""
+        rules = self._rules(
+            {"user_rules": [], "group_rules": [{"action": "deny", "ids": None}]}
+        )
+        assert match_rules(rules, ob11_user_alice_private) is CheckResult.DEFAULT
+
+    def test_specific_group_rule_only_matches_that_group(self, ob11_user_alice):
+        rules = self._rules(
+            {"user_rules": [], "group_rules": [{"action": "deny", "ids": [5000]}]}
+        )
+        assert match_rules(rules, ob11_user_alice) is CheckResult.DENY
+        other_group = Ob11UniqueUserDataclass.from_kwargs(
+            user_id=1001, group_id=6000, protocol=OB11_PROTOCOL_ID
+        )
+        assert match_rules(rules, other_group) is CheckResult.DEFAULT
+
+    def test_legacy_user_rule_still_covers_private_chat(self, ob11_user_alice_private):
+        """user_rules 的 ids=None 在旧实现里也覆盖私聊, 迁移后保持无条件匹配."""
+        rules = self._rules(
+            {"user_rules": [{"action": "allow", "ids": None}], "group_rules": []}
+        )
+        assert rules[0].constrains is None
+        assert match_rules(rules, ob11_user_alice_private) is CheckResult.ALLOW
+
+
+# ============================================================
+# 旧 rule_priority 迁移
+# ============================================================
+
+
+class TestLegacyRulePriority:
+    """rule_priority 缺失 / 为 null / 非预期取值时的收敛."""
+
+    @pytest.mark.parametrize(
+        "value", [None, "None", "", "USER_FIRST", "unknown", 0, [], "group_firs"]
+    )
+    def test_unrecognized_values_fall_back_to_default(self, value):
+        assert normalize_rule_priority(value) == "group_first"
+
+    def test_known_values_kept(self):
+        assert normalize_rule_priority("user_first") == "user_first"
+        assert normalize_rule_priority("group_first") == "group_first"
+
+    def test_default_can_be_overridden(self):
+        assert normalize_rule_priority(None, default="user_first") == "user_first"
+
+    def test_invalid_default_falls_back_to_group_first(self):
+        assert normalize_rule_priority(None, default="bogus") == "group_first"
+
+    def test_plugin_null_priority_inherits_global_user_first(self):
+        """插件 rule_priority=null 表示继承全局, 迁移时按全局优先级排序."""
+        migrated, _ = migrate_plugin_config_data(
+            {
+                "rule_priority": None,
+                "rules": {
+                    "user_rules": [{"action": "allow", "ids": [1001]}],
+                    "group_rules": [{"action": "deny", "ids": [5000]}],
+                },
+            },
+            default_rule_priority="user_first",
+        )
+        assert migrated["rules"][0]["constrains"] == {"user_id": [1001]}
+        assert migrated["rules"][1]["constrains"] == {"group_id": [5000]}
+
+    def test_plugin_own_priority_wins_over_global(self):
+        migrated, _ = migrate_plugin_config_data(
+            {
+                "rule_priority": "group_first",
+                "rules": {
+                    "user_rules": [{"action": "allow", "ids": [1001]}],
+                    "group_rules": [{"action": "deny", "ids": [5000]}],
+                },
+            },
+            default_rule_priority="user_first",
+        )
+        assert migrated["rules"][0]["constrains"] == {"group_id": [5000]}
+
+    def test_rule_priority_removed_after_migration(self):
+        migrated, _ = migrate_plugin_config_data({"rule_priority": "user_first"})
+        assert "rule_priority" not in migrated
+
+
+class TestReadLegacyRulePriority:
+    """迁移前需要从旧全局配置里读出优先级 (迁移会删掉该字段)."""
+
+    def test_reads_value_from_file(self, tmp_path):
+        path = tmp_path / "global.json"
+        path.write_text('{"rule_priority": "user_first"}', encoding="utf-8")
+        assert read_legacy_rule_priority(path, "json") == "user_first"
+
+    def test_missing_file_uses_default(self, tmp_path):
+        missing = tmp_path / "nope.json"
+        assert read_legacy_rule_priority(missing, "json") == "group_first"
+        assert (
+            read_legacy_rule_priority(missing, "json", default="user_first")
+            == "user_first"
+        )
+
+    def test_file_without_field_uses_default(self, tmp_path):
+        path = tmp_path / "global.json"
+        path.write_text('{"mode": "whitelist"}', encoding="utf-8")
+        assert read_legacy_rule_priority(path, "json") == "group_first"
+
+    def test_null_field_uses_default(self, tmp_path):
+        path = tmp_path / "global.json"
+        path.write_text('{"rule_priority": null}', encoding="utf-8")
+        assert read_legacy_rule_priority(path, "json", default="user_first") == (
+            "user_first"
+        )
+
+    def test_unparsable_file_uses_default_and_warns(self, tmp_path, caplog):
+        path = tmp_path / "global.json"
+        path.write_text("{ not json", encoding="utf-8")
+        with caplog.at_level(logging.WARNING):
+            assert read_legacy_rule_priority(path, "json") == "group_first"
+        assert "Failed to read legacy rule priority" in caplog.text
+
+    def test_unsupported_format_uses_default_and_warns(self, tmp_path, caplog):
+        path = tmp_path / "global.conf"
+        path.write_text("mode=whitelist", encoding="utf-8")
+        with caplog.at_level(logging.WARNING):
+            assert read_legacy_rule_priority(path, "ini") == "group_first"
+        assert "Failed to read legacy rule priority" in caplog.text

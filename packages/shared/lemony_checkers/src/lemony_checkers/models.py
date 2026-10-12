@@ -25,6 +25,11 @@ from .exceptions import LemonyInternalImplError, LemonyProgrammingError
 PCT = TypeVar("PCT", bound=str)
 type Constraint = dict[str, list[Any]]
 
+#: Constraint 值列表中的通配符, 表示"该字段存在且不为 None".
+#: 例如 {"group_id": [ANY_VALUE]} 匹配任意群聊中的用户, 但不匹配私聊 (私聊的 group_id 为 None).
+#: 旧配置的 group_rules 用 ids=None 表示"所有群聊", 迁移时需要它来保持"不涉及私聊"的语义.
+ANY_VALUE = "*"
+
 _UNIQUE_USER_MODEL_REGISTRY: list[
     tuple[type["UniqueUserDataclassBase"], type["UniqueUserBase"]]
 ] = []
@@ -168,6 +173,7 @@ class Rule(BaseModel):
     )
     # None -> 无条件匹配
     # 不为 None 时, 外层列表中任意一个 constraint 匹配即可；单个 constraint 内各字段为 AND 关系。
+    # 值列表里可以写 ANY_VALUE, 表示该字段任意非 None 取值 (见 ANY_VALUE 的定义)。
     constrains: list[Constraint] | None = None
     protocol: str = Field(
         description="适用此规则的协议. 需要先在 adapter 中注册 extractor. "

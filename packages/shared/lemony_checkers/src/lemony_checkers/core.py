@@ -9,11 +9,13 @@ own event object and then calling these helpers.
 
 import logging
 from enum import Enum, auto
-from typing import Literal
+from typing import Any, Literal
 
 from .models import (
+    ANY_VALUE,
     CheckerGlobalSettings,
     CheckerPluginSettings,
+    Constraint,
     Rule,
     UniqueUserBase,
     UniqueUserDataclassBase,
@@ -74,6 +76,23 @@ def is_admin(
     return any(matches_unique_user(admin, user) for admin in global_settings.admins)
 
 
+def constraint_matches(constraint: Constraint, user_dict: dict[str, Any]) -> bool:
+    """Return whether one constraint matches a runtime identity.
+
+    Fields inside a constraint are combined with AND. When a field's value list
+    contains ``ANY_VALUE``, the field only has to be present (not None) instead of
+    equal to one of the listed values; every other value is compared for equality.
+    """
+    for field, values in constraint.items():
+        incoming = user_dict.get(field)
+        if ANY_VALUE in values:
+            if incoming is None:
+                return False
+        elif incoming not in values:
+            return False
+    return True
+
+
 def match_rules(rules: list[Rule], user: UniqueUserDataclassBase) -> CheckResult:
     """Match a runtime identity against ordered permission rules."""
     user_dict = user.to_dict()
@@ -86,9 +105,7 @@ def match_rules(rules: list[Rule], user: UniqueUserDataclassBase) -> CheckResult
 
         # Multiple constraints are OR; fields inside one constraint are AND.
         for constraint in rule.constrains:
-            if all(
-                user_dict.get(field) in values for field, values in constraint.items()
-            ):
+            if constraint_matches(constraint, user_dict):
                 return CheckResult.ALLOW if rule.action == "allow" else CheckResult.DENY
 
     return CheckResult.DEFAULT

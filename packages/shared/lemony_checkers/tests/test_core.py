@@ -10,6 +10,7 @@ from lemony_checkers.core import (
     check_command_permission,
     check_permission,
     check_rules,
+    constraint_matches,
     get_effective_mode,
     is_admin,
     is_owner,
@@ -17,6 +18,7 @@ from lemony_checkers.core import (
     matches_unique_user,
 )
 from lemony_checkers.models import (
+    ANY_VALUE,
     CheckerGlobalSettings,
     CheckerPluginSettings,
     Rule,
@@ -210,6 +212,51 @@ class TestMatchRules:
             constrains=[{"user_id": [1001], "group_id": [9999]}],
         )
         assert match_rules([rule], ob11_user_alice) is CheckResult.DEFAULT
+
+    def test_any_value_matches_any_group_chat(self, ob11_user_alice):
+        """ANY_VALUE 表示"该字段存在", 因此匹配任意群聊."""
+        rule = Rule(
+            action="deny",
+            protocol="OneBot-v11@Meloland",
+            constrains=[{"group_id": [ANY_VALUE]}],
+        )
+        assert match_rules([rule], ob11_user_alice) is CheckResult.DENY
+
+    def test_any_value_skips_private_chat(self, ob11_user_alice_private):
+        """私聊的 group_id 为 None, 不满足"该字段存在"."""
+        rule = Rule(
+            action="deny",
+            protocol="OneBot-v11@Meloland",
+            constrains=[{"group_id": [ANY_VALUE]}],
+        )
+        assert match_rules([rule], ob11_user_alice_private) is CheckResult.DEFAULT
+
+
+# ============================================================
+# constraint_matches
+# ============================================================
+
+
+class TestConstraintMatches:
+    """单个 constraint 的匹配语义."""
+
+    def test_equality_by_default(self):
+        assert constraint_matches({"user_id": [1001]}, {"user_id": 1001})
+        assert not constraint_matches({"user_id": [1001]}, {"user_id": 1002})
+
+    def test_any_value_requires_field_present(self):
+        assert constraint_matches({"group_id": [ANY_VALUE]}, {"group_id": 5000})
+        assert not constraint_matches({"group_id": [ANY_VALUE]}, {"group_id": None})
+
+    def test_any_value_combines_with_equality(self):
+        constraint = {"group_id": [ANY_VALUE], "user_id": [1001]}
+        assert constraint_matches(constraint, {"group_id": 5000, "user_id": 1001})
+        assert not constraint_matches(constraint, {"group_id": 5000, "user_id": 1002})
+        assert not constraint_matches(constraint, {"group_id": None, "user_id": 1001})
+
+    def test_empty_constraint_matches_everything(self):
+        """空 constraint 无字段约束, 与 constrains=None 行为一致."""
+        assert constraint_matches({}, {"user_id": 1002, "group_id": None})
 
 
 # ============================================================
