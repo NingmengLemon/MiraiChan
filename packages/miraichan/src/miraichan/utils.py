@@ -48,7 +48,8 @@ def customize_melobot_logo(new_logo: str) -> None:
         from melobot._meta import MetaInfoMeta
         # 咳咳私有成员注意, 后续随时可能被改掉
 
-        MetaInfoMeta.logo = new_logo.strip()
+        # logo 在类型上是 ReadOnlyAttr, 运行时可写; 用 setattr 绕开只读声明
+        setattr(MetaInfoMeta, "logo", new_logo.strip())  # noqa: B010
     except Exception as e:
         logger.warning(
             f"Failed to patch MetaInfoMeta: {e}, logo will not be customized."
