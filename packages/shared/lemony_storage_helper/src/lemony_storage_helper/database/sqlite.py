@@ -112,11 +112,10 @@ class SqliteDatabaseHelper(GenericDatabaseHelper):
         if db_path is not None:
             db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db_path = db_path
-        dburl = URL.create(
+        return URL.create(
             drivername="sqlite+aiosqlite",
             database=db_path.as_posix() if db_path is not None else None,
         )
-        return dburl
 
     @override
     async def startup(

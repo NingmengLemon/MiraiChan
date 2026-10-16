@@ -426,7 +426,7 @@ class _CheckerFactoryWrapper:
         *,
         plugin_name: str | Literal[_Sentinel.NOT_MODIFIED] = _Sentinel.NOT_MODIFIED,
         command_name: str | Literal[_Sentinel.NOT_MODIFIED] = _Sentinel.NOT_MODIFIED,
-        fail_cb: "FailCallback | None | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
+        fail_cb: "FailCallback | Literal[_Sentinel.NOT_MODIFIED] | None" = _Sentinel.NOT_MODIFIED,
         allow_admin: "bool | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
     ) -> "LemonyChecker":
 
@@ -463,7 +463,7 @@ class _CheckerFactoryWrapper:
 
     def get_owner_checker(
         self,
-        fail_cb: "FailCallback | None | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
+        fail_cb: "FailCallback | Literal[_Sentinel.NOT_MODIFIED] | None" = _Sentinel.NOT_MODIFIED,
     ) -> "OwnerChecker":
         """获取一个只允许 Owner 的检查器."""
         return self._factory.new_owner_checker(
@@ -472,7 +472,7 @@ class _CheckerFactoryWrapper:
 
     def get_admin_checker(
         self,
-        fail_cb: "FailCallback | None | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
+        fail_cb: "FailCallback | Literal[_Sentinel.NOT_MODIFIED] | None" = _Sentinel.NOT_MODIFIED,
     ) -> "AdminChecker":
         """获取一个允许 Owner 和 Admin 的检查器."""
         return self._factory.new_admin_checker(

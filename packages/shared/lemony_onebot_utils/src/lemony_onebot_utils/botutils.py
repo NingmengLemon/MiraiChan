@@ -36,7 +36,7 @@ async def text_to_image_segment(text: str, /, **kwargs):
     )
 
 
-async def get_reply(adapter: Adapter, event: MessageEvent) -> None | GetMsgEcho:
+async def get_reply(adapter: Adapter, event: MessageEvent) -> GetMsgEcho | None:
     if _ := event.get_segments(ReplySegment):
         msg_id = _[0].data["id"]
     else:

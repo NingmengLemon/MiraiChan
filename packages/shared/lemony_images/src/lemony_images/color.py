@@ -74,7 +74,7 @@ def contrast_ratio(color1: _ColorTupleT, color2: _ColorTupleT):
     return (l1 + 0.05) / (l2 + 0.05)
 
 
-def get_main_color(image: Image.Image, radius: None | float = None, resize: int = 10):
+def get_main_color(image: Image.Image, radius: float | None = None, resize: int = 10):
     """通过 缩小图像 + 高斯模糊 + 取中心点颜色 取得主要颜色
 
     Inspired by Moncak

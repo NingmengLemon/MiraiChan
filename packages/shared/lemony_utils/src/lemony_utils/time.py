@@ -16,23 +16,23 @@ class Timer:
         self._end = time.perf_counter_ns()
 
     @property
-    def result_ns(self) -> None | int:
+    def result_ns(self) -> int | None:
         if self._start is None or self._end is None:
             return None
         return self._end - self._start
 
     @property
-    def result_us(self) -> None | float:
+    def result_us(self) -> float | None:
         r = self.result_ns
         return None if r is None else r / 10**3
 
     @property
-    def result_ms(self) -> None | float:
+    def result_ms(self) -> float | None:
         r = self.result_ns
         return None if r is None else r / 10**6
 
     @property
-    def result_s(self) -> None | float:
+    def result_s(self) -> float | None:
         r = self.result_ns
         return None if r is None else r / 10**9
 

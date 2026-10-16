@@ -121,19 +121,19 @@ def test_source_from_onebot_drops_card_equal_to_nickname() -> None:
 
 
 def _record(**kw) -> ArchiveRecord:
-    base = dict(
-        style="chat",
-        group_id=1,
-        requester_id=2,
-        base_message_id="m",
-        range_start=-1,
-        range_end=0,
-        sender_only=False,
-        scale=1.0,
-        sender_ids=[3, 4],
-        width=10,
-        height=20,
-    )
+    base = {
+        "style": "chat",
+        "group_id": 1,
+        "requester_id": 2,
+        "base_message_id": "m",
+        "range_start": -1,
+        "range_end": 0,
+        "sender_only": False,
+        "scale": 1.0,
+        "sender_ids": [3, 4],
+        "width": 10,
+        "height": 20,
+    }
     base.update(kw)
     return ArchiveRecord(**base)
 

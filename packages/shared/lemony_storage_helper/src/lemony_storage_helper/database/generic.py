@@ -60,13 +60,12 @@ class GenericDatabaseHelper:
     def _resolve_dburl(self, raw_dburl: Any) -> URL:
         if not isinstance(raw_dburl, (str, URL)):
             raise TypeError("dburl must be a string or URL")
-        dburl = make_url(raw_dburl)
-        return dburl
+        return make_url(raw_dburl)
 
     @staticmethod
     def new_metadata(
         naming_convention: (
-            dict[str, str] | None | Literal[_Sentinel.USE_DEFAULT]
+            dict[str, str] | Literal[_Sentinel.USE_DEFAULT] | None
         ) = _Sentinel.USE_DEFAULT,
         schema: str | None = None,
     ) -> MetaData:
@@ -77,8 +76,7 @@ class GenericDatabaseHelper:
             metadata_kwargs["naming_convention"] = naming_convention
         if schema is not None:
             metadata_kwargs["schema"] = schema
-        metadata = MetaData(**metadata_kwargs) if metadata_kwargs else MetaData()
-        return metadata
+        return MetaData(**metadata_kwargs) if metadata_kwargs else MetaData()
 
     @classmethod
     def new_base(
@@ -86,7 +84,7 @@ class GenericDatabaseHelper:
         name: str,
         *,
         naming_convention: (
-            dict[str, str] | None | Literal[_Sentinel.USE_DEFAULT]
+            dict[str, str] | Literal[_Sentinel.USE_DEFAULT] | None
         ) = _Sentinel.USE_DEFAULT,
         schema: str | None = None,
     ) -> tuple[type[SQLModel], registry, MetaData]:
@@ -111,7 +109,7 @@ class GenericDatabaseHelper:
         name: str,
         *,
         naming_convention: (
-            dict[str, str] | None | Literal[_Sentinel.USE_DEFAULT]
+            dict[str, str] | Literal[_Sentinel.USE_DEFAULT] | None
         ) = _Sentinel.USE_DEFAULT,
         schema: str | None = None,
     ) -> tuple[type[DeclarativeBase], registry, MetaData]:

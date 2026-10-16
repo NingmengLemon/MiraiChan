@@ -29,8 +29,7 @@ def resolve_config_path(
     if id_ns is None:
         return config_root / f"global.{preference}"
     identifier, namespace = id_ns
-    file = config_root / identifier / f"{namespace}.{preference}"
-    return file
+    return config_root / identifier / f"{namespace}.{preference}"
 
 
 def ensure_config_path(path: Path) -> Path:

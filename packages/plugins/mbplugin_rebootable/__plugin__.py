@@ -1,3 +1,4 @@
+import contextlib
 import json
 import os
 import random
@@ -110,7 +111,5 @@ async def startup_check(adapter: Adapter):
             group_id=info["gid"],
         )
     finally:
-        try:
+        with contextlib.suppress(OSError):
             os.remove(cfgloader.value.reboot_info_path)
-        except OSError:
-            pass

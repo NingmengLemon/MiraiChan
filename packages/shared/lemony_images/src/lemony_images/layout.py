@@ -212,7 +212,7 @@ def crop_to_circle(img: Image.Image):
 
 def text_to_image(
     text: str,
-    font: ImageFont.FreeTypeFont | None | int = None,
+    font: ImageFont.FreeTypeFont | int | None = None,
     color: _ColorT = (255, 255, 255, 255),
     bg_color: _ColorT = (32, 32, 32, 255),
     margin: int = 10,

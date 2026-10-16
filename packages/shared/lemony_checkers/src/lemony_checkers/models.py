@@ -9,7 +9,7 @@ import textwrap
 from collections.abc import Callable
 from dataclasses import dataclass, make_dataclass
 from functools import lru_cache
-from typing import Annotated, Any, Generic, Literal, Self, cast, get_args, get_origin
+from typing import Annotated, Any, Literal, Self, cast, get_args, get_origin
 
 from lemony_settings import BaseSettings
 from pydantic import (
@@ -21,11 +21,9 @@ from pydantic import (
     field_validator,
 )
 from pydantic.fields import FieldInfo
-from typing_extensions import TypeVar
 
 from .exceptions import LemonyInternalImplError, LemonyProgrammingError
 
-PCT = TypeVar("PCT", bound=str)
 type Constraint = dict[str, list[Any]]
 
 #: Constraint 值列表中的通配符, 表示"该字段存在且不为 None".
@@ -87,7 +85,7 @@ UniqueUserConfig = Annotated[
 
 
 @dataclass(slots=True, weakref_slot=True, frozen=True)
-class UniqueUserDataclassBase(Generic[PCT]):
+class UniqueUserDataclassBase[PCT: str]:
     @classmethod
     @lru_cache(1)
     def get_pydantic_model(cls) -> type["UniqueUserBase[PCT]"]:
@@ -107,7 +105,7 @@ class UniqueUserDataclassBase(Generic[PCT]):
         return tuple(getattr(self, field) for field in self.__dataclass_fields__)
 
 
-class UniqueUserBase(BaseModel, Generic[PCT]):
+class UniqueUserBase[PCT: str](BaseModel):
     model_config = ConfigDict(frozen=True)
     protocol: PCT
 
