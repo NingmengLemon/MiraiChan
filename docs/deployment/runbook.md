@@ -75,7 +75,8 @@ bot 由 systemd 管理, 输出进 journald (不再有单独的日志文件)。`<
     "mbplugin_moelottery",
     "mbplugin_rebootable",
     "mbplugin_quote",
-    "mbplugin_helper"
+    "mbplugin_helper",
+    "mbplugin_toolbox"
 ]
 ```
 
