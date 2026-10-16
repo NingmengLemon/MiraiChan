@@ -75,7 +75,6 @@ mbplugin_quote = { workspace = true }
 
 [dependency-groups]
 dev = [
-    "ipykernel>=6.29.5",
     "watchfiles>=0.24.0",
     "types-qrcode>=8.0.0.20241004",
     "types-lxml>=2024.11.8",
