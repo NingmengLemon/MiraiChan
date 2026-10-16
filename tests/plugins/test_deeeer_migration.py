@@ -21,19 +21,19 @@ PLUGINS_ROOT = REPO_ROOT / "packages" / "plugins"
 if str(PLUGINS_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGINS_ROOT))
 
-from lemony_storage_helper.database import StorageStartupError  # noqa: E402
-from lemony_storage_helper.database.sqlite import (  # noqa: E402
+from lemony_storage_helper.database import StorageStartupError
+from lemony_storage_helper.database.sqlite import (
     SqliteDatabaseHelper,
     set_relative_path_base,
 )
-from mbplugin_deeeer.core import (  # noqa: E402
+from mbplugin_deeeer.core import (
     DBPPATH,
     deer_metadata,
     deerdbcore,
     query,
     record,
 )
-from mbplugin_deeeer.migration import (  # noqa: E402
+from mbplugin_deeeer.migration import (
     REQUIRED_INDEXES,
     MigrationError,
     MigrationResult,
