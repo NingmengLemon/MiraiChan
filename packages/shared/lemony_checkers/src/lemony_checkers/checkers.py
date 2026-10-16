@@ -48,8 +48,9 @@ class FailCallbackMixin:
         if self.fail_cb is not None:
             try:
                 await self.fail_cb()
-            except Exception as e:
-                logger.error(f"Error in fail callback: {e}")
+            except Exception:
+                # 失败回调是插件代码, 不能让它打断权限检查
+                logger.exception("Error in fail callback")
 
     def _fire_fail_cb(self) -> None:
         """fire-and-forget 调用失败回调, 避免阻塞检查流程.

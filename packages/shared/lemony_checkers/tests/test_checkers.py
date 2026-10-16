@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import sys
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -20,13 +21,17 @@ from lemony_checkers.checkers import AdminChecker, FailCallbackMixin, OwnerCheck
 
 
 class _RecordingLogger:
-    """记录 error 调用的假日志器."""
+    """记录 error / exception 调用的假日志器."""
 
     def __init__(self) -> None:
         self.errors: list[str] = []
 
     def error(self, msg: str) -> None:
         self.errors.append(msg)
+
+    def exception(self, msg: str) -> None:
+        # 与真实 logger.exception 一样, 异常信息取自当前正在处理的异常
+        self.errors.append(f"{msg}: {sys.exc_info()[1]!r}")
 
     def debug(self, *args: Any, **kwargs: Any) -> None:
         pass

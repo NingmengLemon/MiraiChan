@@ -111,8 +111,9 @@ class EditContext:
                 ps = self._factory.get_plugin_settings(plugin_name)
                 self._restore_model_fields(ps, snapshot)
                 logger.debug(f"Rolled back plugin '{plugin_name}' settings to snapshot")
-            except Exception as e:
-                logger.error(f"Failed to rollback plugin '{plugin_name}' settings: {e}")
+            except Exception:
+                # 尽力回滚, 一个插件失败不影响其余插件
+                logger.exception(f"Failed to rollback plugin '{plugin_name}' settings")
 
     def _ensure_plugin_snapshot(self, plugin_name: str) -> None:
         """确保指定插件的配置快照已创建 (仅在首次修改该插件时创建)."""

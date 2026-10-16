@@ -145,8 +145,8 @@ async def record_onebot11_notice(event: NoticeEvent) -> None:
                     f"已记录 OneBot11 成员事件: type={member_payload.event_type} "
                     f"event_id={member_event.id} raw_id={member_payload.raw_event_id}"
                 )
-    except (IntegrityError, OperationalError) as e:
-        logger.exception("数据库错误，成员事件记录终止: %s", e)
+    except (IntegrityError, OperationalError):
+        logger.exception("数据库错误，成员事件记录终止")
         raise
     except Exception:
         logger.exception(
