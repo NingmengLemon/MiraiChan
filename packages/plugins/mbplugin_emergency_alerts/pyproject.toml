@@ -5,6 +5,7 @@ description = "Push earthquake early warnings and reports to subscribed groups a
 readme = "readme.md"
 requires-python = ">=3.12"
 dependencies = [
+    "lemony_utils",
     "aiohttp>=3.14.1",
     "json5>=0.15.0",
     "lemony_checkers",
@@ -28,6 +29,7 @@ packages = [
 mbplugin_emergency_alerts = "."
 
 [tool.uv.sources]
+lemony_utils = { workspace = true }
 lemony_checkers = { workspace = true }
 lemony_network = { workspace = true }
 lemony_onebot_utils = { workspace = true }

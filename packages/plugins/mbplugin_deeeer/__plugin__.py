@@ -12,6 +12,7 @@ from lemony_checkers import get_checker_factory_wrapper
 from lemony_images import bytes_to_b64_url
 from lemony_onebot_utils.botutils import cached_avatar_source
 from lemony_settings import BaseSettings, require
+from lemony_utils.help import Command, register_help
 from melobot.bot import get_bot
 from melobot.plugin.base import PluginInfo, PluginPlanner
 from melobot.protocols.onebot.v11.adapter.base import Adapter
@@ -55,6 +56,20 @@ class CfgModel(BaseSettings):
 
 
 cfgloader = require(model=CfgModel, identifier=PLUGIN_IDENTIFIER)
+
+_limit = cfgloader.value.daily_limit
+register_help(
+    PLUGIN_IDENTIFIER,
+    title="签到",
+    summary="群签到, 生成本月签到日历, 仅群聊",
+    commands=[
+        Command(
+            "、".join(cfgloader.value.trigger_chars),
+            "发送只由这些字组成的消息即可签到, 一条消息里有几个字算几次"
+            + (f"\n每天最多 {_limit} 次" if _limit >= 1 else ""),
+        )
+    ],
+)
 
 RESOURCE_PATH = Path(__file__).parent / "resources"
 

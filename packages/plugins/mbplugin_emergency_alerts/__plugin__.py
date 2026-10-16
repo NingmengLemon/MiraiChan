@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from lemony_checkers import get_checker_factory
 from lemony_settings import require
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
+from lemony_utils.help import Command, register_help
 from melobot import PluginInfo, PluginPlanner, get_bot
 from melobot.handle import on_command
 from melobot.protocols.onebot.v11 import Adapter, GroupMessageEvent, MessageEvent
@@ -18,7 +19,7 @@ from melobot.utils.parse import CmdArgs
 
 from .archive import AlertArchive, DeliveryResult, alerts_metadata
 from .client import WolfxClient
-from .commands import CommandError, execute
+from .commands import HELP_COMMANDS, CommandError, execute
 from .dispatch import RETENTION, Dispatcher
 from .quake import Quake
 from .render import render_quake, render_test
@@ -43,6 +44,14 @@ storeloader = require(
 )
 alerts_db = SqliteDatabaseHelper(DATABASE_PATH, metadata=alerts_metadata)
 archive = AlertArchive(alerts_db)
+
+register_help(
+    PLUGIN_IDENTIFIER,
+    title="地震预警",
+    summary="按会话订阅地震预警与速报 (数据来自 Wolfx), 群里修改订阅需要群管理员或 bot 管理员",
+    aliases=["预警", "eew"],
+    commands=[Command(usage, desc) for usage, desc in HELP_COMMANDS],
+)
 
 
 class _State:

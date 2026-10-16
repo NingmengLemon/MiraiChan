@@ -17,6 +17,7 @@ members = [
     "mbplugin-checker-manager",
     "mbplugin-deeeer",
     "mbplugin-emergency-alerts",
+    "mbplugin-helper",
     "mbplugin-moelottery",
     "mbplugin-quote",
     "mbplugin-rebootable",
@@ -679,12 +680,14 @@ version = "1.0.1"
 source = { editable = "packages/plugins/mbplugin_checker_manager" }
 dependencies = [
     { name = "lemony-checkers" },
+    { name = "lemony-utils" },
     { name = "melobot", extra = ["onebot"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
 ]
 
@@ -719,6 +722,7 @@ dependencies = [
     { name = "lemony-onebot-utils" },
     { name = "lemony-settings" },
     { name = "lemony-storage-helper", extra = ["sqlite"] },
+    { name = "lemony-utils" },
     { name = "melobot", extra = ["onebot"] },
     { name = "pydantic" },
     { name = "uuid-utils" },
@@ -733,9 +737,27 @@ requires-dist = [
     { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", extras = ["sqlite"], editable = "packages/shared/lemony_storage_helper" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
+]
+
+[[package]]
+name = "mbplugin-helper"
+version = "1.0.0"
+source = { editable = "packages/plugins/mbplugin_helper" }
+dependencies = [
+    { name = "lemony-onebot-utils" },
+    { name = "lemony-utils" },
+    { name = "melobot", extra = ["onebot"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
 ]
 
 [[package]]
@@ -744,12 +766,16 @@ version = "1.0.0"
 source = { editable = "packages/plugins/mbplugin_moelottery" }
 dependencies = [
     { name = "lemony-checkers" },
+    { name = "lemony-settings" },
+    { name = "lemony-utils" },
     { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
+    { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "pydantic", specifier = ">=2.12.5" },
 ]
 
@@ -767,6 +793,7 @@ dependencies = [
     { name = "lemony-onebot-utils" },
     { name = "lemony-settings" },
     { name = "lemony-storage-helper", extra = ["sqlite"] },
+    { name = "lemony-utils" },
     { name = "pillow" },
     { name = "uuid-utils" },
 ]
@@ -782,6 +809,7 @@ requires-dist = [
     { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", extras = ["sqlite"], editable = "packages/shared/lemony_storage_helper" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "pillow" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
 ]
@@ -793,6 +821,7 @@ source = { editable = "packages/plugins/mbplugin_rebootable" }
 dependencies = [
     { name = "lemony-checkers" },
     { name = "lemony-settings" },
+    { name = "lemony-utils" },
     { name = "melobot", extra = ["onebot"] },
 ]
 
@@ -800,6 +829,7 @@ dependencies = [
 requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
 ]
 
@@ -954,6 +984,7 @@ dependencies = [
     { name = "mbplugin-checker-manager" },
     { name = "mbplugin-deeeer" },
     { name = "mbplugin-emergency-alerts" },
+    { name = "mbplugin-helper" },
     { name = "mbplugin-moelottery" },
     { name = "mbplugin-quote" },
     { name = "mbplugin-rebootable" },
@@ -993,6 +1024,7 @@ requires-dist = [
     { name = "mbplugin-checker-manager", editable = "packages/plugins/mbplugin_checker_manager" },
     { name = "mbplugin-deeeer", editable = "packages/plugins/mbplugin_deeeer" },
     { name = "mbplugin-emergency-alerts", editable = "packages/plugins/mbplugin_emergency_alerts" },
+    { name = "mbplugin-helper", editable = "packages/plugins/mbplugin_helper" },
     { name = "mbplugin-moelottery", editable = "packages/plugins/mbplugin_moelottery" },
     { name = "mbplugin-quote", editable = "packages/plugins/mbplugin_quote" },
     { name = "mbplugin-rebootable", editable = "packages/plugins/mbplugin_rebootable" },
