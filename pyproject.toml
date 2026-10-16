@@ -104,8 +104,15 @@ asyncio_default_fixture_loop_scope = "function"
 [tool.ruff]
 target-version = "py312"
 line-length = 88
-# references/ 是外部仓库, _to_be_migrated 是 gitignored 的待迁移旧插件
-extend-exclude = ["references", "packages/plugins/_to_be_migrated", "data", "tmp"]
+# references/ 是外部仓库, _to_be_migrated 是 gitignored 的待迁移旧插件,
+# 插件的 __init__.pyi 由 melobot cli 生成, 不手改
+extend-exclude = [
+    "references",
+    "packages/plugins/_to_be_migrated",
+    "data",
+    "tmp",
+    "packages/plugins/*/__init__.pyi",
+]
 
 [tool.ruff.lint]
 select = [
