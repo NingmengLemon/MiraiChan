@@ -115,7 +115,7 @@ class AvatarCache:
         path = os.path.join(self.CACHE_DIR, filename)
 
         if (
-            os.path.exists(path)
+            await asyncio.to_thread(os.path.exists, path)
             and time.time() - self._update_times.get(uid, 0) <= self.EXPIRES
         ):
             async with aiofiles.open(path, "rb") as fp:
