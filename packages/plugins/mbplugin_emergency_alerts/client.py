@@ -20,7 +20,8 @@ __all__ = ["WolfxClient"]
 
 logger = logging.getLogger(__name__)
 
-type QuakeHandler = Callable[[Quake], Awaitable[None]]
+#: 回调收到解析后的报文与原文 (原文用于留档)
+type QuakeHandler = Callable[[Quake, str], Awaitable[None]]
 
 
 class WolfxClient:
@@ -135,6 +136,6 @@ class WolfxClient:
             return
         # 推送失败不能拖垮连接; 取消 (stop) 照常向上传播
         try:
-            await self._on_quake(quake)
+            await self._on_quake(quake, raw)
         except Exception:
             logger.exception(f"处理 {quake.source} {quake.event_id} 失败")

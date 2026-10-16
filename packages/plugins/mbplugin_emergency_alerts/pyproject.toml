@@ -11,8 +11,10 @@ dependencies = [
     "lemony_network",
     "lemony_onebot_utils",
     "lemony_settings",
+    "lemony_storage_helper[sqlite]",
     "melobot[onebot]>=3.5.0",
     "pydantic>=2.13.4",
+    "uuid-utils>=0.14.1",
 ]
 
 [tool.setuptools]
@@ -30,3 +32,4 @@ lemony_checkers = { workspace = true }
 lemony_network = { workspace = true }
 lemony_onebot_utils = { workspace = true }
 lemony_settings = { workspace = true }
+lemony_storage_helper = { workspace = true }

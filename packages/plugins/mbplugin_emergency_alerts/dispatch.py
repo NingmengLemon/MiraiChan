@@ -17,14 +17,14 @@ from datetime import UTC, datetime, timedelta
 from .quake import Quake, QuakeKind
 from .subscription import Subscription, TargetKey
 
-__all__ = ["Dispatcher"]
+__all__ = ["RETENTION", "Dispatcher"]
 
 _DEFAULT_MAX_AGE: dict[QuakeKind, timedelta] = {
     "eew": timedelta(minutes=10),
     "report": timedelta(hours=1),
 }
-#: 去重状态保留多久
-_RETENTION = timedelta(days=1)
+#: 去重状态保留多久; 启动时也只从留档恢复这段时间内的记录
+RETENTION = timedelta(days=1)
 
 
 @dataclass(slots=True)
@@ -45,6 +45,25 @@ class Dispatcher:
         self._now = now
         self._seen: dict[tuple[str, str, int], datetime] = {}
         self._pushed: dict[tuple[TargetKey, tuple[str, str]], _Pushed] = {}
+
+    def restore_seen(self, report_key: tuple[str, str, int], at: datetime) -> None:
+        """启动时从留档恢复: 这一报已经处理过"""
+        self._seen[report_key] = at
+
+    def restore_pushed(
+        self,
+        target: TargetKey,
+        event_key: tuple[str, str],
+        *,
+        seq: int,
+        final: bool,
+        at: datetime,
+    ) -> None:
+        """启动时从留档恢复: 这个会话已收到过该事件的某一报"""
+        rec = self._pushed.setdefault((target, event_key), _Pushed(at=at))
+        rec.at = max(rec.at, at)
+        rec.final = rec.final or final
+        rec.seqs.add(seq)
 
     def select(self, quake: Quake, subs: Iterable[Subscription]) -> list[Subscription]:
         """返回需要推送这条报文的订阅, 并记下已推送"""
@@ -89,6 +108,6 @@ class Dispatcher:
                 return False
 
     def _prune(self, now: datetime) -> None:
-        cutoff = now - _RETENTION
+        cutoff = now - RETENTION
         self._seen = {k: t for k, t in self._seen.items() if t >= cutoff}
         self._pushed = {k: v for k, v in self._pushed.items() if v.at >= cutoff}

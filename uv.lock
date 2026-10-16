@@ -718,8 +718,10 @@ dependencies = [
     { name = "lemony-network" },
     { name = "lemony-onebot-utils" },
     { name = "lemony-settings" },
+    { name = "lemony-storage-helper", extra = ["sqlite"] },
     { name = "melobot", extra = ["onebot"] },
     { name = "pydantic" },
+    { name = "uuid-utils" },
 ]
 
 [package.metadata]
@@ -730,8 +732,10 @@ requires-dist = [
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
     { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
+    { name = "lemony-storage-helper", extras = ["sqlite"], editable = "packages/shared/lemony_storage_helper" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
     { name = "pydantic", specifier = ">=2.13.4" },
+    { name = "uuid-utils", specifier = ">=0.14.1" },
 ]
 
 [[package]]

@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -120,6 +121,22 @@ def push(wolfx_port: int, payload: dict) -> int:
     )
     with urllib.request.urlopen(req, timeout=10) as resp:
         return int(json.loads(resp.read())["sent_to"])
+
+
+def query(db: Path, sql: str) -> list[tuple]:
+    """只读查询; bot 结束后 Windows 上文件句柄可能还要片刻才释放, 短暂重试"""
+    last: Exception | None = None
+    for _ in range(20):
+        try:
+            conn = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
+            try:
+                return conn.execute(sql).fetchall()
+            finally:
+                conn.close()
+        except sqlite3.OperationalError as e:
+            last = e
+            time.sleep(0.5)
+    raise RuntimeError(f"cannot read {db}: {last!r}")
 
 
 def wait_http(port: int, timeout: float = 20) -> None:
@@ -323,6 +340,24 @@ def main() -> int:
         check(
             "no push for the low-magnitude EEW",
             not any("宝兴" in plain(a) for a in pushes),
+        )
+        db = root / "data" / "emergency_alerts" / "alerts.db"
+        reports = query(db, "select source, event_id, seq from alert_report")
+        deliveries = query(
+            db,
+            "select target_type, target_id, ok from alert_delivery order by sent_at",
+        )
+        # sc_eew 重复推了一次但只留一份; 低震级那报不推送但也要留档
+        check(
+            "every distinct report archived once",
+            sorted(r[0] for r in reports) == ["cenc_eqlist", "sc_eew", "sc_eew"]
+            and len(set(reports)) == len(reports),
+            str(reports),
+        )
+        check(
+            "deliveries archived",
+            sorted(deliveries) == [("group", GROUP, 1), ("private", OWNER, 1)],
+            str(deliveries),
         )
         subs_file = root / "configs" / "emergency_alerts" / "subscriptions.json"
         subs = json.loads(subs_file.read_text(encoding="utf-8"))["subscriptions"]

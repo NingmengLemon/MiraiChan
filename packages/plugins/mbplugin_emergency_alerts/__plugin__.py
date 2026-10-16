@@ -5,24 +5,28 @@
 
 import asyncio
 import logging
-from datetime import timedelta
+import uuid
+from datetime import UTC, datetime, timedelta
 
 from lemony_checkers import get_checker_factory
 from lemony_settings import require
+from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
 from melobot import PluginInfo, PluginPlanner, get_bot
 from melobot.handle import on_command
 from melobot.protocols.onebot.v11 import Adapter, GroupMessageEvent, MessageEvent
 from melobot.utils.parse import CmdArgs
 
+from .archive import AlertArchive, DeliveryResult, alerts_metadata
 from .client import WolfxClient
 from .commands import CommandError, execute
-from .dispatch import Dispatcher
+from .dispatch import RETENTION, Dispatcher
 from .quake import Quake
 from .render import render_quake, render_test
 from .settings import AlertSettings
 from .subscription import Subscription, SubscriptionStore, TargetKey
 
 PLUGIN_IDENTIFIER = "emergency_alerts"
+DATABASE_PATH = "emergency_alerts/alerts.db"
 
 logger = logging.getLogger(__name__)
 bot = get_bot()
@@ -37,6 +41,8 @@ storeloader = require(
     namespace="subscriptions",
     auto_load=False,
 )
+alerts_db = SqliteDatabaseHelper(DATABASE_PATH, metadata=alerts_metadata)
+archive = AlertArchive(alerts_db)
 
 
 class _State:
@@ -47,6 +53,8 @@ class _State:
     dispatcher: Dispatcher
     #: 订阅的读改写与推送时的读取互斥, 保证保存到文件的是完整状态
     lock: asyncio.Lock
+    #: 留档库是否可用; 不可用时照常推送, 只是不留档, 重启后去重状态丢失
+    archive_ok = False
 
 
 state = _State()
@@ -67,6 +75,7 @@ async def _() -> None:
                 "report": timedelta(minutes=cfg.report_max_age_minutes),
             }
         )
+        await _start_archive()
         state.client = WolfxClient(
             cfg.ws_base_url, cfg.endpoints, _on_quake, idle_timeout=cfg.idle_timeout
         )
@@ -82,13 +91,33 @@ async def _() -> None:
         _init_done.set()
 
 
+async def _start_archive() -> None:
+    """启动留档库并恢复去重状态; 失败只降级为不留档, 不阻止推送"""
+    try:
+        await alerts_db.startup()
+        since = datetime.now(UTC) - RETENTION
+        for key, at in await archive.recent_report_keys(since):
+            state.dispatcher.restore_seen(key, at)
+        restored = await archive.recent_deliveries(since)
+        for d in restored:
+            state.dispatcher.restore_pushed(
+                d.target, d.event_key, seq=d.seq, final=d.final, at=d.at
+            )
+        state.archive_ok = True
+        logger.info(f"预警留档已启动, 恢复了 {len(restored)} 条推送记录")
+    except Exception:
+        logger.exception("预警留档库启动失败, 将不留档, 重启后可能重复推送")
+
+
 @bot.on_stopped
 async def _() -> None:
     if state.ready:
         await state.client.stop()
+    if alerts_db.is_initialized():
+        await alerts_db.close()
 
 
-async def _send(adapter: Adapter, target: TargetKey, text: str) -> bool:
+async def _send(adapter: Adapter, target: TargetKey, text: str) -> DeliveryResult:
     kind, tid = target
     try:
         if kind == "group":
@@ -96,16 +125,29 @@ async def _send(adapter: Adapter, target: TargetKey, text: str) -> bool:
         else:
             handles = await adapter.send_custom(text, user_id=tid)
         echo = await handles[0]
-    except Exception:
+    except Exception as e:
         logger.exception(f"推送到 {kind}:{tid} 失败")
-        return False
+        return DeliveryResult(target, ok=False, error=repr(e))
     if echo is None or not echo.is_ok():
         logger.warning(f"推送到 {kind}:{tid} 失败: {echo!r}")
-        return False
-    return True
+        return DeliveryResult(target, ok=False, error=repr(echo))
+    return DeliveryResult(target, ok=True)
 
 
-async def _on_quake(quake: Quake) -> None:
+async def _archive_report(quake: Quake, raw: str) -> uuid.UUID | None:
+    """留档一报; 留档不可用或失败时返回 None, 不影响推送"""
+    if not state.archive_ok:
+        return None
+    try:
+        return await archive.record_report(quake, raw)
+    except Exception:
+        logger.exception(f"留档 {quake.source} {quake.event_id}#{quake.seq} 失败")
+        return None
+
+
+async def _on_quake(quake: Quake, raw: str) -> None:
+    # 每一报都留档 (含不推送的、训练报、过期报), 重复报文由唯一约束挡掉
+    report_id = await _archive_report(quake, raw)
     async with state.lock:
         subs: list[Subscription] = state.dispatcher.select(
             quake, list(storeloader.value.subscriptions)
@@ -119,15 +161,21 @@ async def _on_quake(quake: Quake) -> None:
         return
     text = render_quake(quake)
     interval = cfgloader.value.send_interval
-    ok = 0
+    results: list[DeliveryResult] = []
     for i, sub in enumerate(subs):
         if i and interval:
             await asyncio.sleep(interval)
-        ok += await _send(adapter, sub.target, text)
+        results.append(await _send(adapter, sub.target, text))
+    ok = sum(r.ok for r in results)
     logger.info(
         f"已推送 {quake.source} {quake.event_id}#{quake.seq} "
         f"{quake.hypocenter} M{quake.magnitude}: {ok}/{len(subs)} 个会话"
     )
+    if report_id is not None:
+        try:
+            await archive.record_deliveries(report_id, results)
+        except Exception:
+            logger.exception("留档推送结果失败")
 
 
 def _target_of(event: MessageEvent) -> TargetKey:
