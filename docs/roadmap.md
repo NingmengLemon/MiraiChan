@@ -16,14 +16,20 @@
 - 群聊管理: 入群审核等, 设想见 `packages/plugins/mbplugin_group_manager/planning.md`。
 - 能不能好好说话 (缩写翻译): 见 `packages/plugins/mbplugin_nbnhhsh/planning.md`。
 - LLM 接入: 纯异步 OpenAI 兼容层的可行性分析见 `packages/shared/lemony_llm_provider/planning.md`。
-- 待迁移的旧插件: 在 gitignored 的 `packages/plugins/_to_be_migrated/` 下, 逐个评估迁移或放弃。
+- B 站内容自动解析: 群里出现 B 站链接 / 小程序卡片 / BV 号时自动解析出标题、UP 主、简介等,
+  并去掉分享链接里的跟踪参数 (旧实例的 BiliLinkPurify 插件做的就是后者)。
+- "手性碳验证码": 新成员入群时出题验证 (给出分子结构, 找出手性碳), 可以和群聊管理的入群审核放在一起。
+- 待定的旧插件: gitignored 的 `packages/plugins/_to_be_migrated/` 下还有 VVTTS (语音合成) 与
+  WhatToListenToday, 以及 VVTTS 依赖的 `lemony_utils_legacy` (拼音转片假名)。
 
 ## 基础设施
 
 - 本地文件管理的后续 (data root 与 `data_path` 已有, 见 `lemony_storage_helper.files`):
   原子写入、内容寻址命名等通用文件操作下沉到 `files`, recorder 的媒体缓存是第一个使用方;
   可覆盖资源 (用户目录优先, 包内资源兜底) 的解析。设想见 `packages/shared/lemony_storage_helper/ideas.md`。
-- `data/no_data.png` 已没有代码引用 (deeeer 改用包内 `resources/no_avatar.png`), 确认线上不再需要后删除。
+- 凭据与配置分离: 凭据 (根 `config.json` 里 OneBot 11 的 `access_token`, 以后的 API key 等)
+  单独存放, 普通配置可以放心分享 / 进备份 / 给人看; 凭据文件权限收紧, 也可以从环境变量读。
+  `lemony_settings` 生成的插件配置同理。
 - QQInfoCache 的事件联动: 用消息事件的 sender 调 `remember_member` 预热,
   在群名片变更 / 退群通知里调 `invalidate_member`。目前只靠 TTL 过期。
 - 远程插件加载 (`packages/miraichan/src/miraichan/loader.py`): 按 url 加载插件, 未实现。
