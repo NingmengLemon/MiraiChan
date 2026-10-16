@@ -26,6 +26,7 @@ PLUGINS = [
     "mbplugin_moelottery",
     "mbplugin_rebootable",
     "mbplugin_quote",
+    "mbplugin_toolbox",
 ]
 TOKEN = "rehearsal-token"
 SELF, OWNER, ALICE, BOB, GROUP = 10000, 39999, 30001, 30002, 20000
@@ -79,6 +80,9 @@ def scenario() -> dict:
         group_msg(3005, OWNER, "主人", reply(3001, ".mq 0..1")),
         group_msg(3006, OWNER, "主人", reply(3001, ".q")),
         group_msg(3007, OWNER, "主人", text(".checker status")),
+        group_msg(3008, OWNER, "主人", text(".ping")),
+        group_msg(3009, BOB, "乙", text(".ping")),
+        group_msg(3010, OWNER, "主人", reply(3001, ".getmsg")),
     ]
     stored = {
         "3001": {
@@ -295,6 +299,25 @@ def main() -> int:
             str(kinds(by_reply.get("3006", []))),
         )
         check("checker status replied", bool(by_reply.get("3007")))
+        ping = by_reply.get("3008", [])
+        check(
+            ".ping by owner replied pong",
+            [s.get("data", {}).get("text") for s in ping] == ["pong"],
+            str(ping),
+        )
+        check(".ping by non-admin is silent", "3009" not in by_reply)
+        # .getmsg 以合并转发发出 JSON; 转发 action 不带 reply 段, 直接按内容找
+        forwards = [
+            a
+            for a in actions
+            if "forward" in str(a.get("action"))
+            and "今天天气不错" in json.dumps(a.get("params"), ensure_ascii=False)
+        ]
+        check(
+            ".getmsg sent a forward with the message json",
+            len(forwards) == 1 and "3010" not in by_reply,
+            f"forwards={len(forwards)} reply={kinds(by_reply.get('3010', []))}",
+        )
 
         deers_db = root / "data" / "record" / "deers.db"
         tables = {
