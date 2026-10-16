@@ -14,7 +14,8 @@
         "mbplugin_moelottery",
         "mbplugin_rebootable",
         "mbplugin_quote",
-        "mbplugin_helper"
+        "mbplugin_helper",
+        "mbplugin_toolbox"
     ],
     "log_levels": {},
     "settings_format": "json",

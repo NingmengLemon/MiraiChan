@@ -22,6 +22,7 @@ members = [
     "mbplugin-quote",
     "mbplugin-rebootable",
     "mbplugin-recorder",
+    "mbplugin-toolbox",
     "melobot-telegram-protocol",
     "miraichan",
     "miraichan-workspace",
@@ -865,6 +866,25 @@ requires-dist = [
 ]
 
 [[package]]
+name = "mbplugin-toolbox"
+version = "1.0.0"
+source = { editable = "packages/plugins/mbplugin_toolbox" }
+dependencies = [
+    { name = "lemony-checkers" },
+    { name = "lemony-onebot-utils" },
+    { name = "lemony-utils" },
+    { name = "melobot", extra = ["onebot"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
+    { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
+]
+
+[[package]]
 name = "mdurl"
 version = "0.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -995,6 +1015,7 @@ dependencies = [
     { name = "mbplugin-quote" },
     { name = "mbplugin-rebootable" },
     { name = "mbplugin-recorder" },
+    { name = "mbplugin-toolbox" },
     { name = "melobot", extra = ["onebot"] },
     { name = "melobot-telegram-protocol" },
     { name = "miraichan" },
@@ -1035,6 +1056,7 @@ requires-dist = [
     { name = "mbplugin-quote", editable = "packages/plugins/mbplugin_quote" },
     { name = "mbplugin-rebootable", editable = "packages/plugins/mbplugin_rebootable" },
     { name = "mbplugin-recorder", editable = "packages/plugins/mbplugin_recorder" },
+    { name = "mbplugin-toolbox", editable = "packages/plugins/mbplugin_toolbox" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
     { name = "melobot-telegram-protocol", editable = "packages/shared/melobot_telegram_protocol" },
     { name = "miraichan", editable = "packages/miraichan" },
