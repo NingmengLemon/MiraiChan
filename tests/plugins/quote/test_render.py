@@ -150,6 +150,18 @@ def test_card_text_color_is_readable(avatar_color: tuple[int, int, int]) -> None
     assert color == text_color_for(avatar, style.panel, style.min_contrast)
 
 
+def test_card_text_color_follows_avatar_hue() -> None:
+    style = CardStyle()
+    # 灰底上一小块红色: 源色取红色, 而不是画面中心的灰
+    avatar = Image.new("RGB", (64, 64), (128, 128, 128))
+    avatar.paste((200, 50, 50), (0, 0, 16, 16))
+    r, g, b, _ = text_color_for(avatar, style.panel, style.min_contrast)
+    assert r > g and r > b
+    # 无彩色头像用白色
+    grey = Image.new("RGB", (64, 64), (128, 128, 128))
+    assert text_color_for(grey, style.panel, style.min_contrast) == (255, 255, 255, 255)
+
+
 def test_render_card_smoke() -> None:
     mask = Image.new("RGBA", (1920, 1080), (19, 19, 21, 255))
     out = render_card(
