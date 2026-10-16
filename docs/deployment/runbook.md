@@ -76,12 +76,13 @@ bot 由 systemd 管理, 输出进 journald (不再有单独的日志文件)。`<
     "mbplugin_rebootable",
     "mbplugin_quote",
     "mbplugin_helper",
+    "mbplugin_emergency_alerts",
     "mbplugin_toolbox"
 ]
 ```
 
-`mbplugin_emergency_alerts` 功能已完成但还没上线, 启用前先在开发机上跑
-`uv run python tools/rehearse_alerts.py`。
+`mbplugin_emergency_alerts` 的推送行为改动后, 升级前先在开发机上跑
+`uv run python tools/rehearse_alerts.py`。它的留档数据库在 `data/emergency_alerts/`。
 
 ## 升级已有实例
 
