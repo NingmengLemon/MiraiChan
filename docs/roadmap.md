@@ -20,12 +20,12 @@
 
 ## 基础设施
 
-- 统一资源管理: 多处直接读 `data/...` 相对路径, 依赖 cwd 是项目根。
-  - `packages/shared/lemony_onebot_utils/src/lemony_onebot_utils/botutils.py` (头像缓存目录)
-  - `packages/plugins/mbplugin_deeeer/core.py` (`no_data.png`)
-  - 设想见 `packages/shared/lemony_storage_helper/ideas.md`。
-- QQ 信息缓存 (`lemony_onebot_utils/qq.py` 的 `QQInfoCache`): 头像、昵称、群名的缓存, 目前是空壳。
-  引用图的 At 名字补全每次现查 `get_group_member_info`, 有了缓存后可以改用它。
+- 本地文件管理的后续 (data root 与 `data_path` 已有, 见 `lemony_storage_helper.files`):
+  原子写入、内容寻址命名等通用文件操作下沉到 `files`, recorder 的媒体缓存是第一个使用方;
+  可覆盖资源 (用户目录优先, 包内资源兜底) 的解析。设想见 `packages/shared/lemony_storage_helper/ideas.md`。
+- `data/no_data.png` 已没有代码引用 (deeeer 改用包内 `resources/no_avatar.png`), 确认线上不再需要后删除。
+- QQInfoCache 的事件联动: 用消息事件的 sender 调 `remember_member` 预热,
+  在群名片变更 / 退群通知里调 `invalidate_member`。目前只靠 TTL 过期。
 - 远程插件加载 (`packages/miraichan/src/miraichan/loader.py`): 按 url 加载插件, 未实现。
 - emoji 绘制: 替换 pilmoji, 原因是它不支持自定义源, 且整行只有 emoji 时 y 轴错位
   (`packages/shared/lemony_images/src/lemony_images/emoji.py`)。

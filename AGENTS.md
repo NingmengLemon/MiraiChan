@@ -18,6 +18,9 @@
 - 代码注释与文档用中文, commit message 用英文 Conventional Commits。
 - 日志一律用 `logging.getLogger(__name__)`, 不要按"当前是否 debug"分支, 级别由全局配置控制, 见 `docs/development/logging.md`。
 - 插件的 `on_ready` 里的异常会被 melobot 吞掉; 初始化失败要自己记状态, 让 handler 放弃而不是挂起。
+- 数据文件路径用 `lemony_storage_helper.files.data_path(...)` (配置项里的路径用 `configured_data_path`),
+  不要写 `"data/..."` 这种依赖 cwd 的相对路径; 插件自带的静态资源用 `Path(__file__).parent / "resources"`。
+- 要群成员 / 陌生人 / 群的名字时用 `lemony_onebot_utils.qq.qq_info_cache`, 不要各自直接调 `get_group_member_info`。
 
 ## 不要动的东西
 
