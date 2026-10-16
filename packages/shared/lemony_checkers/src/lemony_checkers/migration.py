@@ -91,7 +91,7 @@ def migrate_legacy_rules(value: Any, *, rule_priority: str = "group_first") -> A
         ids = raw_rule.get("ids")
         if ids is None:
             # 旧语义: group_rules 按群号匹配, 且只在群聊中参与判断, ids=None 表示"所有群聊".
-            # 写成 constrains=None 会让规则连私聊一起匹配 — 白名单模式下等于放宽了权限.
+            # 写成 constrains=None 会让规则连私聊一起匹配, 白名单模式下等于放宽了权限.
             constrains: dict[str, list[Any]] | None = {"group_id": [ANY_VALUE]}
         else:
             constrains = {"group_id": ids}

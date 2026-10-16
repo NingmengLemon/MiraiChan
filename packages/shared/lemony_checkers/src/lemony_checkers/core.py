@@ -77,12 +77,11 @@ def is_admin(
 
 
 def _value_in(incoming: Any, values: list[Any]) -> bool:
-    """Return whether ``incoming`` equals any configured value.
+    """``incoming`` 是否等于配置中的某个值.
 
-    Comparison is tolerant about numeric ids written as strings: a hand-edited
-    config can easily hold ``{"user_id": ["1001"]}`` while the runtime identity
-    carries the int ``1001``, and strict equality would make the rule silently
-    never match. ``ANY_VALUE`` is not resolved here, see ``constraint_matches``.
+    比较时容忍写成字符串的数字 id: 手改的配置很容易写成 ``{"user_id": ["1001"]}``,
+    而运行时身份里是 int ``1001``, 严格相等会让规则静默地永不匹配。
+    这里不处理 ``ANY_VALUE``, 见 ``constraint_matches``。
     """
     if incoming in values:
         return True
@@ -93,11 +92,10 @@ def _value_in(incoming: Any, values: list[Any]) -> bool:
 
 
 def constraint_matches(constraint: Constraint, user_dict: dict[str, Any]) -> bool:
-    """Return whether one constraint matches a runtime identity.
+    """单条约束是否匹配运行时身份.
 
-    Fields inside a constraint are combined with AND. When a field's value list
-    contains ``ANY_VALUE``, the field only has to be present (not None) instead of
-    equal to one of the listed values; every other value is compared for equality.
+    约束内各字段按 AND 组合。某字段的值列表含 ``ANY_VALUE`` 时, 只要求该字段存在
+    (不为 None), 不再要求等于列出的某个值; 其余值按相等比较。
     """
     for field, raw_values in constraint.items():
         # 配置里把值列表写成裸值时也不要崩: 当成单元素列表

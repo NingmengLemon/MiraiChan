@@ -22,8 +22,7 @@ def join_id_tokens(tokens: list[str]) -> str:
     """把被空白拆散的 ids 参数拼回一个字符串.
 
     melobot 的命令解析按空白分词, 因此 ``.checker global add deny 123, 456`` 传进来的是
-    ``["123,", "456"]``. 旧实现只取 ``tokens[0]``, ``456`` 会被静默丢弃, 落库的规则与
-    用户预期不符.
+    ``["123,", "456"]``. 只取 ``tokens[0]`` 会静默丢掉 ``456``, 落库的规则与用户预期不符.
 
     Args:
         tokens: ids 参数位置之后的全部命令分词
@@ -87,7 +86,7 @@ def parse_constrains(
                 raise ConstraintParseError(f"无法解析 ID: {part!r}") from None
 
     if not result:
-        # 解析不出任何 ID 时必须报错: 旧实现此处返回 None, 于是一个笔误 (如 ",") 会变成
+        # 解析不出任何 ID 时必须报错: 返回 None 会让一个笔误 (如 ",") 变成
         # "匹配所有" 的无条件规则, 权限范围被悄悄放大
         raise ConstraintParseError(
             f"未解析出任何有效 ID: {ids_str!r}; 省略该参数才表示匹配所有"

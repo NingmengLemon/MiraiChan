@@ -328,8 +328,8 @@ async def record_member_event(
         event_type = payload.event_type.lower()
         # 只有进出会话的事件才改变活跃状态: 禁言 (ban/lift_ban, OneBot 的 group_ban 是禁言
         # 而不是踢出) 与角色变更 (admin_set/admin_unset) 都不改变成员是否还在会话里。
-        # 以前用"活跃事件白名单"的补集判离开, 于是禁言和被撤管理员都会把成员标成不活跃,
-        # 之后 admin_set / lift_ban 又把活跃起点改写成当天时间。
+        # 因此离开必须显式列举, 不能取"活跃事件"的补集, 否则禁言与撤管理员会把成员标成
+        # 不活跃, 随后的 admin_set / lift_ban 又会改写活跃起点。
         if event_type in _MEMBER_ACTIVE_EVENTS:
             is_active: bool | None = True
         elif event_type in _MEMBER_INACTIVE_EVENTS:
