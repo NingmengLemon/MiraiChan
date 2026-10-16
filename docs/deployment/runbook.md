@@ -74,11 +74,27 @@ bot 由 systemd 管理, 输出进 journald (不再有单独的日志文件)。`<
     "mbplugin_deeeer",
     "mbplugin_moelottery",
     "mbplugin_rebootable",
-    "mbplugin_quote"
+    "mbplugin_quote",
+    "mbplugin_helper"
 ]
 ```
 
-`mbplugin_emergency_alerts` 尚未实现功能, 不启用。
+`mbplugin_emergency_alerts` 功能已完成但还没上线, 启用前先在开发机上跑
+`uv run python tools/rehearse_alerts.py`。
+
+## 升级已有实例
+
+停服升级, 不做热更新:
+
+1. 在实例目录确认工作区干净, `git fetch` 后确认当前提交是 `origin/dev` 的祖先 (可以快进)。
+2. 看一眼两个提交之间的改动: 表结构 (`db/models.py`) 有变化时先在数据副本上演练迁移;
+   `config.example.json` 的插件列表有变化时同步到 `config.json`。
+3. `systemctl stop <name>`。
+4. 备份 `data/` (可排除 `data/fonts`)、`configs/` 与 `config.json`, 记下旧提交号, 校验备份包的 SHA256。
+5. 以部署用户 `git merge --ff-only origin/dev`, 再 `uv sync --all-packages --frozen`。
+6. 按需改 `config.json`, 然后 `systemctl start <name>`, 按上面"验证"一步看日志。
+
+回退: 停服, `git reset --hard <旧提交>`, `uv sync --all-packages --frozen`, 把备份解回实例目录, 再启动。
 
 ## 替换旧实例
 
