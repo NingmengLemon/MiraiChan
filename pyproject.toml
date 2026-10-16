@@ -101,13 +101,50 @@ testpaths = [
 norecursedirs = ["references", "tmp", "data", ".venv", "_to_be_migrated"]
 asyncio_default_fixture_loop_scope = "function"
 
-[tool.mypy]
-follow_imports = "normal"
-ignore_missing_imports = true
-show_column_numbers = true
-check_untyped_defs = true
-disallow_untyped_defs = true
-warn_return_any = true
-warn_redundant_casts = true
-disallow_untyped_calls = true
-strict_equality = true
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+# references/ 是外部仓库, _to_be_migrated 是 gitignored 的待迁移旧插件
+extend-exclude = ["references", "packages/plugins/_to_be_migrated", "data", "tmp"]
+
+[tool.ruff.lint]
+select = [
+    "E4", "E7", "E9", "F", "W", # pycodestyle / pyflakes 的非格式类规则
+    "I",                        # import 排序
+    "UP",                       # pyupgrade
+    "B",                        # bugbear
+    "ASYNC",                    # asyncio 阻塞调用等
+    "BLE",                      # 裸 except Exception
+    "C4",                       # 推导式
+    "SIM",
+    "PIE",
+    "RET",
+    "PERF",
+    "LOG",
+    "TRY",
+    "PYI",
+    "DTZ",                      # 无时区 datetime
+    "RUF",
+]
+ignore = [
+    # 注释与文档用中文, 全角标点是正常的
+    "RUF001", "RUF002", "RUF003",
+    # 异常消息直接写在 raise 处是本仓库的习惯
+    "TRY003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 插件测试需要先把 packages/plugins 插进 sys.path 再导入, 原因见 docs/development/testing.md
+"tests/plugins/**" = ["E402"]
+
+[tool.ty.environment]
+python-version = "3.12"
+# 与 tests/plugins 里的 sys.path 插入保持一致, 让插件测试的导入能被解析
+extra-paths = ["packages/plugins"]
+
+[tool.ty.src]
+exclude = ["references", "packages/plugins/_to_be_migrated", "data", "tmp"]
+
+[tool.ty.rules]
+# SQLModel 的元类 ty 尚不支持, 每个表模型都会报一条, 不是代码问题
+unsupported-base = "ignore"
