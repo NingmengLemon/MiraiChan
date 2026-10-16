@@ -180,6 +180,33 @@ def test_card_colors_static_without_hue(avatar: Image.Image | None) -> None:
     )
 
 
+def test_card_signature_lines_are_right_aligned() -> None:
+    style = CardStyle()
+    mask = Image.new("RGBA", style.size, (19, 19, 21, 255))
+    out = render_card(
+        "正文",
+        card_signature("很长很长的群名片", "短", "1"),
+        avatar=None,
+        mask=mask,
+        emojis={},
+        fonts=fonts,
+    )
+    region = out.crop(style.signature_box).convert("L")
+    bg = region.getpixel((0, 0))
+    assert isinstance(bg, int)
+    ink = region.point(lambda v: 255 if abs(v - bg) > 40 else 0)
+    rows = [
+        y for y in range(ink.height) if ink.crop((0, y, ink.width, y + 1)).getbbox()
+    ]
+    # 两行之间有空白行, 按它把墨迹切成上下两行, 比较各自的右端
+    gap = next(rows[i] for i in range(1, len(rows)) if rows[i] - rows[i - 1] > 1)
+    top = ink.crop((0, rows[0], ink.width, gap)).getbbox()
+    bottom = ink.crop((0, gap, ink.width, rows[-1] + 1)).getbbox()
+    assert top and bottom
+    assert abs(top[2] - bottom[2]) <= 6  # 右端对齐 (允许字形边距差)
+    assert bottom[0] > top[0] + 50  # 短的第二行靠右
+
+
 def test_render_card_smoke() -> None:
     mask = Image.new("RGBA", (1920, 1080), (19, 19, 21, 255))
     out = render_card(

@@ -119,13 +119,15 @@ def render_card(
     colors = card_colors(avatar, style)
     canvas.alpha_composite(_tint(mask.convert("RGBA"), colors.panel))
 
-    for content, box, max_size, min_size, color in (
+    # 署名首行带破折号, 第二行的 (昵称) 右对齐到名片末尾, 读起来像落款
+    for content, box, max_size, min_size, color, align in (
         (
             text,
             style.text_box,
             style.text_max_size,
             style.text_min_size,
             colors.text,
+            "left",
         ),
         (
             signature,
@@ -133,6 +135,7 @@ def render_card(
             style.signature_max_size,
             style.signature_min_size,
             colors.signature,
+            "right",
         ),
     ):
         font, block = fit_text(
@@ -150,5 +153,6 @@ def render_card(
             font,
             fill=color,
             emojis=emojis,
+            align=align,
         )
     return canvas
