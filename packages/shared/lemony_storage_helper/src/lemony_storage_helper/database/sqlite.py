@@ -10,6 +10,7 @@ from typing import Any, Literal, cast, override
 from sqlalchemy import URL, Connection, MetaData, event
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from ..files import get_data_root, is_data_root_set
 from .generic import GenericDatabaseHelper
 
 logger = logging.getLogger(__name__)
@@ -42,11 +43,15 @@ def set_relative_path_base(base: str | Path | None) -> None:
 
 
 def get_relative_path_base() -> Path | None:
-    """上层统一设置的数据根目录, 未设置时为 None。
+    """数据库相对路径的上层基准, 未设置时为 None。
 
-    数据库之外的数据文件 (字体、存档等) 暂时也以它为根, 直到 storage helper
-    的文件管理落地。"""
-    return _upper_layer_managed_relative_path_base.get()
+    优先用 ``set_relative_path_base`` 设的值; 没设时退回到
+    ``lemony_storage_helper.files`` 的 data root。数据库之外的数据文件请直接用
+    ``lemony_storage_helper.files.data_path``。"""
+    base = _upper_layer_managed_relative_path_base.get()
+    if base is not None:
+        return base
+    return get_data_root() if is_data_root_set() else None
 
 
 class _Sentinel(Enum):
@@ -87,7 +92,7 @@ class SqliteDatabaseHelper(GenericDatabaseHelper):
             raise ValueError(
                 "database path cannot be empty string, use None for in-memory"
             )
-        upper_base = _upper_layer_managed_relative_path_base.get()
+        upper_base = get_relative_path_base()
         if upper_base is not None:
             if self._relative_path_base is not None:
                 logger.warning(
