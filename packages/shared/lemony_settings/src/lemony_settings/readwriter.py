@@ -1,5 +1,7 @@
 import json
 import os
+import shutil
+import tempfile
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -19,19 +21,23 @@ def _atomic_write(file: Path, content: str | bytes) -> None:
     直接截断写目标文件时, 写到一半崩溃 / 断电 / 磁盘写满都会留下半个配置文件: 下次加载
     解析失败, 而文件"存在"又不会重新生成默认配置。临时文件与目标同目录, 保证 replace 是
     同文件系统内的原子重命名。
+
+    临时文件名由 mkstemp 生成, 同一目标的并发写入不会共用同一个临时文件。mkstemp 建出的
+    文件权限是 0600, 目标已存在时沿用目标的权限位, 新建的配置则保持 0600 (配置里可能有凭据)。
     """
-    tmp = file.with_name(f".{file.name}.tmp")
+    fd, tmp_name = tempfile.mkstemp(
+        dir=file.parent, prefix=f".{file.name}.", suffix=".tmp"
+    )
+    tmp = Path(tmp_name)
     try:
-        if isinstance(content, bytes):
-            with open(tmp, "wb") as fp:
-                fp.write(content)
-                fp.flush()
-                os.fsync(fp.fileno())
-        else:
-            with open(tmp, "w", encoding="utf-8") as fp:
-                fp.write(content)
-                fp.flush()
-                os.fsync(fp.fileno())
+        # str 走文本模式, 与直接写文件时的换行处理保持一致
+        mode, encoding = ("wb", None) if isinstance(content, bytes) else ("w", "utf-8")
+        with os.fdopen(fd, mode, encoding=encoding) as fp:
+            fp.write(content)
+            fp.flush()
+            os.fsync(fp.fileno())
+        if file.exists():
+            shutil.copymode(file, tmp)
         os.replace(tmp, file)
     except BaseException:
         # 取消 (CancelledError) 不是 Exception, 同样要清掉半成品

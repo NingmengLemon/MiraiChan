@@ -64,3 +64,34 @@ def test_failed_replace_keeps_the_old_file(
 
     assert path.read_bytes() == before
     assert list(tmp_path.glob(".*.tmp")) == []
+
+
+def test_each_write_uses_its_own_temp_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """固定的临时文件名会让同一目标的并发写入互相覆盖半成品."""
+    path = tmp_path / "cfg.json"
+    sources: list[str] = []
+    real_replace = os.replace
+
+    def spy(src: Any, dst: Any, **kwargs: Any) -> None:
+        sources.append(str(src))
+        real_replace(src, dst, **kwargs)
+
+    monkeypatch.setattr(os, "replace", spy)
+    writer = get_readwriter("json")
+    writer.write(path, _Model(mode="whitelist"))
+    writer.write(path, _Model(mode="blacklist"))
+
+    assert len(set(sources)) == 2
+    assert writer.read(path, _Model) == _Model(mode="blacklist")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX 权限位")
+def test_existing_file_mode_is_preserved(tmp_path: Path) -> None:
+    path = tmp_path / "cfg.json"
+    writer = get_readwriter("json")
+    writer.write(path, _Model())
+    path.chmod(0o640)
+    writer.write(path, _Model(mode="whitelist"))
+    assert path.stat().st_mode & 0o777 == 0o640
