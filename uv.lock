@@ -709,18 +709,17 @@ requires-dist = [
 
 [[package]]
 name = "mbplugin-emergency-alerts"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/plugins/mbplugin_emergency_alerts" }
 dependencies = [
     { name = "aiohttp" },
     { name = "json5" },
     { name = "lemony-checkers" },
     { name = "lemony-network" },
-    { name = "lemony-storage-helper" },
-    { name = "lemony-utils" },
+    { name = "lemony-onebot-utils" },
+    { name = "lemony-settings" },
+    { name = "melobot", extra = ["onebot"] },
     { name = "pydantic" },
-    { name = "uuid-utils" },
-    { name = "websockets" },
 ]
 
 [package.metadata]
@@ -729,11 +728,10 @@ requires-dist = [
     { name = "json5", specifier = ">=0.15.0" },
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
-    { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
-    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
+    { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
     { name = "pydantic", specifier = ">=2.13.4" },
-    { name = "uuid-utils", specifier = ">=0.14.1" },
-    { name = "websockets", specifier = ">=14.2" },
 ]
 
 [[package]]
