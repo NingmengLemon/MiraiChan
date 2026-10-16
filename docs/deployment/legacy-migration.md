@@ -22,9 +22,14 @@
 | MoeAttriLottery | `mbplugin_moelottery` | 已迁移 |
 | Recorder | `mbplugin_recorder` | 已重写, schema 完全不同, 旧库归档 |
 | JustQuote, MomoQuote | `mbplugin_quote` | 已重写并合并, 命令 `.q` / `.mq` 保留, `.mq` 参数改为 `x..y` / `-s` / `Nx` |
-| Helper, EmergencyStop, Pooooke, VVTTS, LemonyUtils | `_to_be_migrated/` | 推迟 |
-| OneBotInfoProvider, Executor, DailyWaifu, ArknightsUtils, BiliLinkPurify, RecorderTest | 无 | 推迟或放弃 |
-| 无 | `mbplugin_checker_manager` `mbplugin_rebootable` `mbplugin_emergency_alerts` | 新增 |
+| Helper | `mbplugin_helper` | 已重写, 帮助由各插件注册, 以合并转发发送 |
+| LemonyUtils | `mbplugin_toolbox` (复读、撤回、查看消息数据) 与 `mbplugin_rebootable` (重启、关机) | 已迁移 |
+| Pooooke | `mbplugin_toolbox` 的 `.ping` | 只保留 ping, 戳一戳回戳不迁移 |
+| EmergencyStop | `mbplugin_rebootable` 的关机指令 | 不单独迁移 |
+| VVTTS, WhatToListenToday | `_to_be_migrated/` | 待定 |
+| OneBotInfoProvider, Executor, DailyWaifu, ArknightsUtils, RecorderTest | 无 | 放弃 |
+| BiliLinkPurify | 无 | 计划以 B 站内容自动解析重做, 见 `docs/roadmap.md` |
+| 无 | `mbplugin_checker_manager` `mbplugin_emergency_alerts` | 新增 |
 
 旧实例的权限名单 (`checkers_conf` 的 owner / super_users / white_users / black_users) 需要转写到 `configs/lemony_checkers/global.json`。
 

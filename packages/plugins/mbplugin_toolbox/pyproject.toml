@@ -1,0 +1,23 @@
+[project]
+name = "mbplugin_toolbox"
+version = "1.0.0"
+description = "Admin tools: ping, echo, withdraw and raw message inspection."
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = [
+    "lemony_checkers",
+    "lemony_onebot_utils",
+    "lemony_utils",
+    "melobot[onebot]>=3.5.0",
+]
+
+[tool.setuptools]
+packages = ["mbplugin_toolbox"]
+
+[tool.setuptools.package-dir]
+mbplugin_toolbox = "."
+
+[tool.uv.sources]
+lemony_checkers = { workspace = true }
+lemony_onebot_utils = { workspace = true }
+lemony_utils = { workspace = true }
