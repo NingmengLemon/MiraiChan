@@ -13,7 +13,8 @@
         "mbplugin_deeeer",
         "mbplugin_moelottery",
         "mbplugin_rebootable",
-        "mbplugin_quote"
+        "mbplugin_quote",
+        "mbplugin_helper"
     ],
     "log_levels": {},
     "settings_format": "json",
