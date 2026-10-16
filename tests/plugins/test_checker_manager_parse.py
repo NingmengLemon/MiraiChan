@@ -24,7 +24,7 @@ PLUGINS_ROOT = REPO_ROOT / "packages" / "plugins"
 if str(PLUGINS_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGINS_ROOT))
 
-from mbplugin_checker_manager.parsing import (  # noqa: E402
+from mbplugin_checker_manager.parsing import (
     ConstraintParseError,
     ThisInPrivateChatError,
     join_id_tokens,

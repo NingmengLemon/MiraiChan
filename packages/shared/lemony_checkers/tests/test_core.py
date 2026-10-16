@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from lemony_checkers.adapters.ob11 import Ob11UniqueUser
 from lemony_checkers.core import (
     CheckResult,
@@ -24,7 +22,6 @@ from lemony_checkers.models import (
     Rule,
     UniqueUserDataclassBase,
 )
-
 
 # ============================================================
 # matches_unique_user

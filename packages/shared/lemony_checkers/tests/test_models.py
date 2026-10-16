@@ -11,12 +11,6 @@ from lemony_checkers.adapters.ob11 import (
     Ob11UniqueUserDataclass,
 )
 from lemony_checkers.core import CheckResult, match_rules
-from lemony_checkers.models import (
-    ANY_VALUE,
-    CheckerGlobalSettings,
-    CheckerPluginSettings,
-    Rule,
-)
 from lemony_checkers.migration import (
     legacy_ob11_rule,
     legacy_ob11_user_config,
@@ -26,6 +20,12 @@ from lemony_checkers.migration import (
     migrate_plugin_config_data,
     normalize_rule_priority,
     read_legacy_rule_priority,
+)
+from lemony_checkers.models import (
+    ANY_VALUE,
+    CheckerGlobalSettings,
+    CheckerPluginSettings,
+    Rule,
 )
 from pydantic import ValidationError
 
@@ -108,7 +108,8 @@ class TestOb11UniqueUserDataclass:
         u = Ob11UniqueUserDataclass.from_kwargs(
             user_id=1001, group_id=None, protocol=OB11_PROTOCOL_ID
         )
-        with pytest.raises(Exception):  # FrozenInstanceError 或 AttributeError
+        # dataclasses.FrozenInstanceError 是 AttributeError 的子类
+        with pytest.raises(AttributeError):
             u.user_id = 9999  # type: ignore[misc]
 
     def test_to_dict(self):
