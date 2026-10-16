@@ -9,6 +9,17 @@ from .color import (
     rel_lumin,
 )
 
+# --- MD3 动态取色 ---
+from .dynamic_color import (
+    ColorScheme,
+    SchemeVariant,
+    readable_tone,
+    scheme_from_color,
+    source_color,
+    source_colors,
+    tone_of,
+)
+
 # --- emoji 源 ---
 from .emoji import SelfHostSource
 
@@ -39,7 +50,9 @@ from .misc import (
 )
 
 __all__ = [
+    "ColorScheme",
     "FontCache",
+    "SchemeVariant",
     "SelfHostSource",
     "bytes_to_b64_url",
     "calc_bbox",
@@ -54,9 +67,14 @@ __all__ = [
     "get_default_font_cache",
     "get_main_color",
     "init_default_font_cache",
+    "readable_tone",
     "rel_lumin",
+    "scheme_from_color",
+    "source_color",
+    "source_colors",
     "text_to_image",
     "to_full_width",
+    "tone_of",
     "wrap_text_by_length",
     "wrap_text_by_width",
 ]

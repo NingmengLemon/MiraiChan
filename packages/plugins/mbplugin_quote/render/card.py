@@ -6,7 +6,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from lemony_images import contrast_ratio, get_main_color
+from lemony_images import readable_tone, source_color
 from PIL import Image, ImageOps
 
 from .text import FontProvider, draw_text_block, fit_text
@@ -41,31 +41,20 @@ def card_signature(card: str | None, nickname: str | None, fallback: str) -> str
     return f"—— {card or nickname or fallback}"
 
 
-def _mix(a: Color, b: Color, t: float) -> Color:
-    return (
-        round(a[0] + (b[0] - a[0]) * t),
-        round(a[1] + (b[1] - a[1]) * t),
-        round(a[2] + (b[2] - a[2]) * t),
-        255,
-    )
-
-
 def text_color_for(
     avatar: Image.Image | None, panel: Color, min_contrast: float
 ) -> Color:
-    """取头像主色; 与底色对比度不足时逐步向白色混合, 结果确定且保证可读"""
+    """按 MD3 动态取色取头像源色, 保持色相与色度, 在 HCT 明度上找与底色对比度达标的颜色。
+
+    头像缺失或无彩色 (灰度 / 全透明) 时用白色。结果确定且保证可读。
+    """
     white: Color = (255, 255, 255, 255)
     if avatar is None:
         return white
-    px = get_main_color(avatar.convert("RGB"))
-    if not isinstance(px, tuple):
+    source = source_color(avatar)
+    if source is None:
         return white
-    base: Color = (int(px[0]), int(px[1]), int(px[2]), 255)
-    for step in range(11):
-        color = _mix(base, white, step / 10)
-        if contrast_ratio(color, panel) >= min_contrast:
-            return color
-    return white
+    return readable_tone(source, background=panel, min_contrast=min_contrast, prefer=80)
 
 
 def _center_in(box: Box, w: int, h: int) -> tuple[int, int]:
