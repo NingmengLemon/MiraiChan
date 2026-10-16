@@ -22,6 +22,7 @@ from lemony_storage_helper.database.sqlite import (
     get_relative_path_base,
 )
 from melobot import PluginPlanner, get_bot
+from melobot.exceptions import PluginIpcError
 from melobot.handle import on_command
 from melobot.protocols.onebot.v11 import Adapter, GroupMessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, ReplySegment
@@ -194,7 +195,8 @@ async def _get_msg(adapter: Adapter, message_id: str) -> SourceMessage | None:
 def _recorder():
     try:
         share = bot.get_share("mbplugin_recorder", "recorder_service")
-    except Exception:
+    except PluginIpcError:
+        # recorder 没加载时引用图照常工作, 只是不能按回复取上下文
         return None
     return share.get()
 

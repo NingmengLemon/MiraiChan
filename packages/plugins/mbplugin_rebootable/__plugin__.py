@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import json
 import os
 import random
@@ -17,12 +19,13 @@ class RebootablePluginConfig(BaseSettings):
     allow_admins: bool = False
     reboot_command: str = "重启"
     poweroff_command: str = "关机"
-    sayings_on_poweroff: list[str] = [
+    # pydantic 会为每个实例复制默认值, 可变默认值在这里是安全的
+    sayings_on_poweroff: list[str] = [  # noqa: RUF012
         "下班啦~",
         "拜拜~",
         "再见~",
     ]
-    sayings_on_reboot: list[str] = [
+    sayings_on_reboot: list[str] = [  # noqa: RUF012
         "待会儿见w",
         "正在重启, 请坐和放宽...",
     ]
@@ -90,18 +93,30 @@ async def restart_bot(event: MessageEvent, adapter: Adapter, bot: Bot):
         "uid": event.user_id,
         "time": time.time(),
     }
-    with open(cfgloader.value.reboot_info_path, "w+", encoding="utf-8") as fp:
-        json.dump(reboot_info, fp)
+    await asyncio.to_thread(_write_reboot_info, reboot_info)
     await bot.restart()
+
+
+def _write_reboot_info(info: RebootInfo) -> None:
+    with open(cfgloader.value.reboot_info_path, "w+", encoding="utf-8") as fp:
+        json.dump(info, fp)
+
+
+def _read_reboot_info() -> RebootInfo | None:
+    if not os.path.isfile(cfgloader.value.reboot_info_path):
+        return None
+    with open(cfgloader.value.reboot_info_path, encoding="utf-8") as fp:
+        return json.load(fp)
 
 
 @bot.on_started
 async def startup_check(adapter: Adapter):
-    if not os.path.isfile(cfgloader.value.reboot_info_path):
+    if not await asyncio.to_thread(os.path.isfile, cfgloader.value.reboot_info_path):
         return
     try:
-        with open(cfgloader.value.reboot_info_path, "r", encoding="utf-8") as fp:
-            info: RebootInfo = json.load(fp)
+        info = await asyncio.to_thread(_read_reboot_info)
+        if info is None:
+            return
         start_time = bot.get_hook_evoke_time(BotLifeSpan.STARTED)
         interval = (start_time if start_time > 0 else time.time()) - info["time"]
         await adapter.send_custom(
@@ -110,7 +125,5 @@ async def startup_check(adapter: Adapter):
             group_id=info["gid"],
         )
     finally:
-        try:
+        with contextlib.suppress(OSError):
             os.remove(cfgloader.value.reboot_info_path)
-        except OSError:
-            pass

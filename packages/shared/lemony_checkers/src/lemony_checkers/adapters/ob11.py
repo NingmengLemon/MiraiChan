@@ -42,7 +42,7 @@ def builtin_ob11_uniid_extractor(
             group_id=event.group_id,
             protocol=OB11_PROTOCOL_ID,
         )
-    elif isinstance(event, PrivateMessageEvent):
+    if isinstance(event, PrivateMessageEvent):
         return Ob11UniqueUserDataclass.from_kwargs(
             user_id=event.user_id,
             group_id=None,

@@ -5,7 +5,7 @@ import threading
 from collections.abc import Awaitable, Callable, Generator
 from contextlib import contextmanager
 
-__all__ = ["SyncRWContext", "to_async", "gather_with_concurrency"]
+__all__ = ["SyncRWContext", "gather_with_concurrency", "to_async"]
 
 
 class SyncRWContext:

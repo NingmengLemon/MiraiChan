@@ -19,7 +19,10 @@ from mbplugin_quote.request import (
         (["-5"], ChatRequest(start=-5, end=0)),
         (["3"], ChatRequest(start=0, end=3)),
         (["-s"], ChatRequest(sender_only=True)),
-        (["2x", "-2..0", "-s"], ChatRequest(start=-2, end=0, sender_only=True, scale=2)),
+        (
+            ["2x", "-2..0", "-s"],
+            ChatRequest(start=-2, end=0, sender_only=True, scale=2),
+        ),
         (["1.5X"], ChatRequest(scale=1.5)),
         (["", "  "], ChatRequest()),
     ],

@@ -126,9 +126,9 @@ class LemonySettings[SettingModelT: BaseSettings]:
                 ensure_config_path(config_file)
                 readwriter = get_readwriter(global_settings.preference)
                 readwriter.write(config_file, self._value)
-        except Exception as e:
-            logger.error(
-                f"Failed to save settings '{self._identifier}:{self._namespace}': {e}"
+        except Exception:
+            logger.exception(
+                f"Failed to save settings '{self._identifier}:{self._namespace}'"
             )
             raise
 

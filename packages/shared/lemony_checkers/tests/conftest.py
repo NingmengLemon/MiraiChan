@@ -12,7 +12,6 @@ from lemony_checkers.adapters.ob11 import (
     Ob11UniqueUser,
     Ob11UniqueUserDataclass,
 )
-from lemony_checkers.core import CheckResult
 from lemony_checkers.models import (
     CheckerGlobalSettings,
     CheckerPluginSettings,

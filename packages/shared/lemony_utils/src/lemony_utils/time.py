@@ -16,23 +16,23 @@ class Timer:
         self._end = time.perf_counter_ns()
 
     @property
-    def result_ns(self) -> None | int:
+    def result_ns(self) -> int | None:
         if self._start is None or self._end is None:
             return None
         return self._end - self._start
 
     @property
-    def result_us(self) -> None | float:
+    def result_us(self) -> float | None:
         r = self.result_ns
         return None if r is None else r / 10**3
 
     @property
-    def result_ms(self) -> None | float:
+    def result_ms(self) -> float | None:
         r = self.result_ns
         return None if r is None else r / 10**6
 
     @property
-    def result_s(self) -> None | float:
+    def result_s(self) -> float | None:
         r = self.result_ns
         return None if r is None else r / 10**9
 
@@ -41,9 +41,9 @@ def get_time_period_start(
     period: Literal["day", "month", "year"], time_input: float | datetime | None = None
 ) -> datetime:
     if time_input is None:
-        dt = datetime.now()
+        dt = datetime.now().astimezone()
     elif isinstance(time_input, (float, int)):
-        dt = datetime.fromtimestamp(time_input)
+        dt = datetime.fromtimestamp(time_input).astimezone()
     elif isinstance(time_input, datetime):
         dt = time_input
     else:
@@ -64,6 +64,6 @@ def get_time_period_start(
 
 
 def tzaware_datetime_from_timestamp(
-    timestamp: int | float, tz: timezone | None = None
+    timestamp: float, tz: timezone | None = None
 ) -> datetime:
     return datetime.fromtimestamp(timestamp, tz or UTC)

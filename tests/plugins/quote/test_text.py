@@ -53,7 +53,12 @@ def test_fit_text_shrinks_then_truncates() -> None:
     )
     assert f.size == 72
     f, block = fit_text(
-        "很长的文字" * 200, font, box_width=400, box_height=100, max_size=72, min_size=20
+        "很长的文字" * 200,
+        font,
+        box_width=400,
+        box_height=100,
+        max_size=72,
+        min_size=20,
     )
     assert f.size == 20
     assert block.height <= 100

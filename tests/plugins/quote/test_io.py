@@ -59,11 +59,19 @@ def make_query(req, mid):
 async def test_recorder_hit() -> None:
     rec = FakeRecorder([View("b", "2", segments=[Seg("image", {"url": "u"}, ("p",))])])
     r = await fetch_messages(
-        ChatRequest(start=-1), "b", recorder=rec, make_query=make_query, fetch_one=fetch_one
+        ChatRequest(start=-1),
+        "b",
+        recorder=rec,
+        make_query=make_query,
+        fetch_one=fetch_one,
     )
     assert r is not None and r.from_recorder
     (m,) = r.messages
-    assert (m.sender_id, m.sender_card, m.segments[0].local_paths) == (2, "card", ("p",))
+    assert (m.sender_id, m.sender_card, m.segments[0].local_paths) == (
+        2,
+        "card",
+        ("p",),
+    )
     assert rec.queries == [(-1, 0, False, "b")]
 
 
@@ -76,9 +84,15 @@ async def test_recorder_hit() -> None:
         (ChatRequest(start=-3, end=-1), 0, True),
     ],
 )
-async def test_fallback_to_get_msg(req: ChatRequest, count: int, degraded: bool) -> None:
+async def test_fallback_to_get_msg(
+    req: ChatRequest, count: int, degraded: bool
+) -> None:
     r = await fetch_messages(
-        req, "b", recorder=FakeRecorder(None), make_query=make_query, fetch_one=fetch_one
+        req,
+        "b",
+        recorder=FakeRecorder(None),
+        make_query=make_query,
+        fetch_one=fetch_one,
     )
     assert r is not None and not r.from_recorder
     assert (len(r.messages), r.degraded_to_single) == (count, degraded)
@@ -93,27 +107,33 @@ async def test_nothing_found() -> None:
 
 
 def test_source_from_onebot_drops_card_equal_to_nickname() -> None:
-    m = source_from_onebot("1", 5, "同", "同", [{"type": "text", "data": {"text": "x"}}])
-    assert (m.sender_card, m.sender_nickname, m.segments[0].type) == (None, "同", "text")
+    m = source_from_onebot(
+        "1", 5, "同", "同", [{"type": "text", "data": {"text": "x"}}]
+    )
+    assert (m.sender_card, m.sender_nickname, m.segments[0].type) == (
+        None,
+        "同",
+        "text",
+    )
 
 
 # ---------- archive ----------
 
 
 def _record(**kw) -> ArchiveRecord:
-    base = dict(
-        style="chat",
-        group_id=1,
-        requester_id=2,
-        base_message_id="m",
-        range_start=-1,
-        range_end=0,
-        sender_only=False,
-        scale=1.0,
-        sender_ids=[3, 4],
-        width=10,
-        height=20,
-    )
+    base = {
+        "style": "chat",
+        "group_id": 1,
+        "requester_id": 2,
+        "base_message_id": "m",
+        "range_start": -1,
+        "range_end": 0,
+        "sender_only": False,
+        "scale": 1.0,
+        "sender_ids": [3, 4],
+        "width": 10,
+        "height": 20,
+    }
     base.update(kw)
     return ArchiveRecord(**base)
 

@@ -8,7 +8,7 @@
 - 测试: `uv run pytest` (仓库根)
 - 类型检查 / lint: `uv run ty check <path>`、`uv run ruff check <path>`; 配置在根 `pyproject.toml`
   的 `[tool.ruff]` / `[tool.ty]`。抑制 ty 诊断用 `# ty: ignore[rule]`, mypy 的 `# type: ignore[code]` ty 不认。
-  存量问题尚未清零, 改动的文件不应新增诊断。
+  格式化用 `uv run ruff format .`。已跟踪文件的 ruff check / ruff format --check / ty check 均为 0 诊断, 提交前保持住。
 - 运行: `just dev` / `just run`, 需要根目录 `config.json` (参考 `config.example.json`)
 
 ## 约定

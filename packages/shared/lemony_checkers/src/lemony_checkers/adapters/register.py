@@ -28,7 +28,8 @@ class _IdExtractorRegistry:
                     self._uniid_extractor_registry[protocol_id] = []
                 if extractor_cls in self._uniid_extractor_registry[protocol_id]:
                     warnings.warn(
-                        f"Extractor {extractor_cls} is already registered for protocol {protocol_id}. "
+                        f"Extractor {extractor_cls} is already registered for protocol {protocol_id}. ",
+                        stacklevel=2,
                     )
                 else:
                     self._uniid_extractor_registry[protocol_id].append(extractor_cls)

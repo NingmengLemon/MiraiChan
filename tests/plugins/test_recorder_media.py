@@ -16,6 +16,7 @@ if str(PLUGINS_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGINS_ROOT))
 
 from aiohttp import ClientResponseError, RequestInfo
+from lemony_storage_helper.database import queryable
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
 from mbplugin_recorder.db.dto import (
     AccountInput,
@@ -97,7 +98,11 @@ async def _get(db: SqliteDatabaseHelper, file_id: str) -> MediaSource:
         from sqlalchemy import select
 
         return (
-            await s.execute(select(MediaSource).where(MediaSource.source_file_id == file_id))
+            await s.execute(
+                select(MediaSource).where(
+                    queryable(MediaSource.source_file_id) == file_id
+                )
+            )
         ).scalar_one()
 
 
@@ -135,7 +140,9 @@ async def test_failed_sources_back_off_and_do_not_block_new_ones(
 
 
 @pytest.mark.asyncio
-async def test_abandon_after_max_attempts_or_permanent(db: SqliteDatabaseHelper) -> None:
+async def test_abandon_after_max_attempts_or_permanent(
+    db: SqliteDatabaseHelper,
+) -> None:
     async with db.get_session(style="sqlalchemy") as s:
         await record_message(s, _payload("m1", ["a", "b"]))
     a, b = await _get(db, "a"), await _get(db, "b")
@@ -461,6 +468,7 @@ async def test_successful_download_leaves_no_tmp_file(
     assert payload.download_status is MediaDownloadStatus.DOWNLOADED
     assert payload.size == 6
     assert list((tmp_path / "media").rglob("*.download")) == []
+    assert payload.cache_path is not None
     assert (tmp_path / payload.cache_path).is_file()
 
 

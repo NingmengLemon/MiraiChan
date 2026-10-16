@@ -14,7 +14,9 @@ from melobot.protocols.onebot.v11.adapter.segment import Segment
 # SnowLuma 上报商城表情的 image 段形态, 标识符为构造值
 SNOWLUMA_MFACE = {
     "file": "ab-" + "ab" * 16 + ".gif",
-    "url": "https://gxh.vip.qq.com/club/item/parcel/item/ab/" + "ab" * 16 + "/raw300.gif",
+    "url": "https://gxh.vip.qq.com/club/item/parcel/item/ab/"
+    + "ab" * 16
+    + "/raw300.gif",
     "type": None,
     "summary": "[喵喵消息]",
     "sub_type": 0,

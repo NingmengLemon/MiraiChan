@@ -91,7 +91,12 @@ def scenario() -> dict:
         }
     }
     # .qdel 需要 bot 发出的消息 id; 假服务端按 900000 起递增分配, 前两张图是 .mq 与 .q
-    return {"self_id": SELF, "event_interval": 1.5, "events": events, "messages": stored}
+    return {
+        "self_id": SELF,
+        "event_interval": 1.5,
+        "events": events,
+        "messages": stored,
+    }
 
 
 def qdel_scenario(sent_id: int) -> dict:
@@ -129,7 +134,9 @@ def build_root(root: Path) -> None:
     (root / "config.json").write_text(json.dumps(config), encoding="utf-8")
     owner = {
         "mode": "blacklist",
-        "owner": [{"protocol": "OneBot-v11@Meloland", "user_id": OWNER, "group_id": None}],
+        "owner": [
+            {"protocol": "OneBot-v11@Meloland", "user_id": OWNER, "group_id": None}
+        ],
         "admins": [],
         "rules": [],
     }
@@ -148,7 +155,10 @@ def build_root(root: Path) -> None:
     now = time.time()
     conn.executemany(
         "insert into deerrecord values (?, ?, ?, ?, ?)",
-        [("0" * 31 + "1", now - 86400, ALICE, GROUP, 2), ("0" * 31 + "2", now - 3600, BOB, GROUP, 1)],
+        [
+            ("0" * 31 + "1", now - 86400, ALICE, GROUP, 2),
+            ("0" * 31 + "2", now - 3600, BOB, GROUP, 1),
+        ],
     )
     conn.commit()
     conn.close()
@@ -162,21 +172,42 @@ def run_round(root: Path, scen: dict, port: int, tag: str) -> list[dict]:
     cfg["websocket"]["url"] = f"ws://127.0.0.1:{port}"
     (root / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
-    env = {**os.environ, "MIRAICHAN_PROJECT_ROOT": str(root), "PYTHONIOENCODING": "utf-8"}
+    env = {
+        **os.environ,
+        "MIRAICHAN_PROJECT_ROOT": str(root),
+        "PYTHONIOENCODING": "utf-8",
+    }
     with (
         open(root / f"server_{tag}.log", "wb") as slog,
         open(root / f"bot_{tag}.log", "wb") as blog,
     ):
         server = subprocess.Popen(
-            [sys.executable, str(REPO / "tools" / "fake_onebot_server.py"),
-             "--scenario", str(scen_path), "--record", str(record),
-             "--port", str(port), "--token", TOKEN, "--linger", "12", "--timeout", "150"],
-            stdout=slog, stderr=subprocess.STDOUT,
+            [
+                sys.executable,
+                str(REPO / "tools" / "fake_onebot_server.py"),
+                "--scenario",
+                str(scen_path),
+                "--record",
+                str(record),
+                "--port",
+                str(port),
+                "--token",
+                TOKEN,
+                "--linger",
+                "12",
+                "--timeout",
+                "150",
+            ],
+            stdout=slog,
+            stderr=subprocess.STDOUT,
         )
         time.sleep(1.5)
         bot = subprocess.Popen(
             [sys.executable, str(root / "miracle_entrance.py")],
-            cwd=root, env=env, stdout=blog, stderr=subprocess.STDOUT,
+            cwd=root,
+            env=env,
+            stdout=blog,
+            stderr=subprocess.STDOUT,
         )
         try:
             code = server.wait(timeout=180)
@@ -188,7 +219,9 @@ def run_round(root: Path, scen: dict, port: int, tag: str) -> list[dict]:
                 bot.kill()
     if code != 0:
         raise RuntimeError(f"fake server exited with {code}, see server_{tag}.log")
-    return [json.loads(line) for line in record.read_text(encoding="utf-8").splitlines()]
+    return [
+        json.loads(line) for line in record.read_text(encoding="utf-8").splitlines()
+    ]
 
 
 def query(db: Path, sql: str) -> list[tuple]:
@@ -245,17 +278,42 @@ def main() -> int:
         for plugin in PLUGINS:
             check(f"loaded {plugin}", f"成功加载插件：{plugin}" in bot_log)
         check("no ERROR in bot log", " | ERROR " not in bot_log)
-        check("deer reply has image", "image" in kinds(by_reply.get("3003", [])), str(kinds(by_reply.get("3003", []))))
+        check(
+            "deer reply has image",
+            "image" in kinds(by_reply.get("3003", [])),
+            str(kinds(by_reply.get("3003", []))),
+        )
         check("moelottery replied text", "text" in kinds(by_reply.get("3004", [])))
-        check(".mq produced image", kinds(by_reply.get("3005", [])) == ["image"], str(kinds(by_reply.get("3005", []))))
-        check(".q produced image", kinds(by_reply.get("3006", [])) == ["image"], str(kinds(by_reply.get("3006", []))))
+        check(
+            ".mq produced image",
+            kinds(by_reply.get("3005", [])) == ["image"],
+            str(kinds(by_reply.get("3005", []))),
+        )
+        check(
+            ".q produced image",
+            kinds(by_reply.get("3006", [])) == ["image"],
+            str(kinds(by_reply.get("3006", []))),
+        )
         check("checker status replied", bool(by_reply.get("3007")))
 
         deers_db = root / "data" / "record" / "deers.db"
-        tables = {r[0] for r in query(deers_db, "select name from sqlite_master where type='table'")}
-        rows = query(deers_db, "select count(*) from deer_record")[0][0] if "deer_record" in tables else -1
+        tables = {
+            r[0]
+            for r in query(
+                deers_db, "select name from sqlite_master where type='table'"
+            )
+        }
+        rows = (
+            query(deers_db, "select count(*) from deer_record")[0][0]
+            if "deer_record" in tables
+            else -1
+        )
         # 旧库 2 行 + 本次 "鹿" 1 行
-        check("deers migrated", tables == {"deer_record"} and rows == 3, f"tables={tables} rows={rows}")
+        check(
+            "deers migrated",
+            tables == {"deer_record"} and rows == 3,
+            f"tables={tables} rows={rows}",
+        )
 
         mface_keys = [
             sorted(json.loads(d))
@@ -264,11 +322,22 @@ def main() -> int:
                 "select data from recorder_message_segment where type='image'",
             )
         ]
-        check("recorder kept mface fields", any("emoji_id" in k for k in mface_keys), str(mface_keys))
+        check(
+            "recorder kept mface fields",
+            any("emoji_id" in k for k in mface_keys),
+            str(mface_keys),
+        )
 
         quote_db = root / "data" / "quote" / "quote.db"
-        arts = query(quote_db, "select style, sent_message_id, path from quote_artifact order by created_at")
-        check("two archives with sent ids", len(arts) == 2 and all(a[1] for a in arts), str(arts))
+        arts = query(
+            quote_db,
+            "select style, sent_message_id, path from quote_artifact order by created_at",
+        )
+        check(
+            "two archives with sent ids",
+            len(arts) == 2 and all(a[1] for a in arts),
+            str(arts),
+        )
 
         if arts:
             sent_id = int(arts[0][1])
@@ -279,15 +348,21 @@ def main() -> int:
             check(".qdel by non-admin is silent", "3101" not in by_reply2)
             check(".qdel by owner replied", bool(by_reply2.get("3102")))
             left = query(quote_db, "select count(*) from quote_artifact")[0][0]
-            check(".qdel removed index and file", left == 1 and not path.exists(), f"left={left}")
-    except Exception as e:
+            check(
+                ".qdel removed index and file",
+                left == 1 and not path.exists(),
+                f"left={left}",
+            )
+    except Exception as e:  # noqa: BLE001 - 演练脚本把任何失败都报成退出码 2
         print(f"rehearsal failed to run: {e!r}", file=sys.stderr)
         print(f"root kept at {root}", file=sys.stderr)
         return 2
 
     width = max(len(n) for n, _, _ in checks)
     for name, ok, detail in checks:
-        print(f"[{'ok' if ok else 'FAIL'}] {name.ljust(width)} {detail if not ok else ''}")
+        print(
+            f"[{'ok' if ok else 'FAIL'}] {name.ljust(width)} {detail if not ok else ''}"
+        )
     failed = [c for c in checks if not c[1]]
     print(f"{len(checks) - len(failed)}/{len(checks)} checks passed")
     if args.keep or failed:

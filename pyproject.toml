@@ -104,8 +104,20 @@ asyncio_default_fixture_loop_scope = "function"
 [tool.ruff]
 target-version = "py312"
 line-length = 88
-# references/ 是外部仓库, _to_be_migrated 是 gitignored 的待迁移旧插件
-extend-exclude = ["references", "packages/plugins/_to_be_migrated", "data", "tmp"]
+# references/ 是外部仓库, _to_be_migrated 是 gitignored 的待迁移旧插件,
+# 插件顶层的 __init__.py / __init__.pyi 由 melobot cli 生成, 不手改
+extend-exclude = [
+    "references",
+    "packages/plugins/_to_be_migrated",
+    "data",
+    "tmp",
+    "packages/plugins/*/__init__.pyi",
+    "packages/plugins/*/__init__.py",
+]
+
+[tool.ruff.format]
+# 文档里的代码块常带对齐注释等刻意排版, 不交给格式化器
+exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = [
@@ -122,7 +134,6 @@ select = [
     "PERF",
     "LOG",
     "TRY",
-    "PYI",
     "DTZ",                      # 无时区 datetime
     "RUF",
 ]
@@ -131,11 +142,20 @@ ignore = [
     "RUF001", "RUF002", "RUF003",
     # 异常消息直接写在 raise 处是本仓库的习惯
     "TRY003",
+    # 在 try 里 raise / return 是常见的控制流写法, 拆函数或挪进 else 收益很低
+    "TRY300", "TRY301",
 ]
+
+[tool.ruff.lint.flake8-bugbear]
+# typer 的参数声明必须写在默认值位置
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
 
 [tool.ruff.lint.per-file-ignores]
 # 插件测试需要先把 packages/plugins 插进 sys.path 再导入, 原因见 docs/development/testing.md
 "tests/plugins/**" = ["E402"]
+# 字符画与提示词里的行尾空格是内容的一部分 (对齐 / Markdown 硬换行)
+"packages/miraichan/src/miraichan/utils.py" = ["W291"]
+"packages/shared/lemony_llm_provider/src/lemony_llm_provider/prompts/catgirl_assistant.py" = ["W291"]
 
 [tool.ty.environment]
 python-version = "3.12"

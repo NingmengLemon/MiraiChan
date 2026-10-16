@@ -60,13 +60,12 @@ class GenericDatabaseHelper:
     def _resolve_dburl(self, raw_dburl: Any) -> URL:
         if not isinstance(raw_dburl, (str, URL)):
             raise TypeError("dburl must be a string or URL")
-        dburl = make_url(raw_dburl)
-        return dburl
+        return make_url(raw_dburl)
 
     @staticmethod
     def new_metadata(
         naming_convention: (
-            dict[str, str] | None | Literal[_Sentinel.USE_DEFAULT]
+            dict[str, str] | Literal[_Sentinel.USE_DEFAULT] | None
         ) = _Sentinel.USE_DEFAULT,
         schema: str | None = None,
     ) -> MetaData:
@@ -77,8 +76,7 @@ class GenericDatabaseHelper:
             metadata_kwargs["naming_convention"] = naming_convention
         if schema is not None:
             metadata_kwargs["schema"] = schema
-        metadata = MetaData(**metadata_kwargs) if metadata_kwargs else MetaData()
-        return metadata
+        return MetaData(**metadata_kwargs) if metadata_kwargs else MetaData()
 
     @classmethod
     def new_base(
@@ -86,7 +84,7 @@ class GenericDatabaseHelper:
         name: str,
         *,
         naming_convention: (
-            dict[str, str] | None | Literal[_Sentinel.USE_DEFAULT]
+            dict[str, str] | Literal[_Sentinel.USE_DEFAULT] | None
         ) = _Sentinel.USE_DEFAULT,
         schema: str | None = None,
     ) -> tuple[type[SQLModel], registry, MetaData]:
@@ -111,7 +109,7 @@ class GenericDatabaseHelper:
         name: str,
         *,
         naming_convention: (
-            dict[str, str] | None | Literal[_Sentinel.USE_DEFAULT]
+            dict[str, str] | Literal[_Sentinel.USE_DEFAULT] | None
         ) = _Sentinel.USE_DEFAULT,
         schema: str | None = None,
     ) -> tuple[type[DeclarativeBase], registry, MetaData]:
@@ -155,7 +153,8 @@ class GenericDatabaseHelper:
             if not isinstance(self._dburl, URL):
                 self._dburl = self._resolve_dburl(self._dburl_raw)
             if not isinstance(self._dburl, URL):
-                raise RuntimeError(
+                # 这是状态错误而不是调用方传错类型
+                raise RuntimeError(  # noqa: TRY004
                     "database url not resolved yet, or not valid sa URL"
                 )
             self._engine = create_async_engine(self._dburl, echo=echo, **kw)
@@ -275,9 +274,8 @@ class GenericDatabaseHelper:
         # sqlmodel session 是基于 sqlalchemy session 的浅封装,
         # 且没有 runtime warning, 只是把 sa 的方法用类型注解标成了 deprecated,
         # 因此理论上兼容 sa session
-        async with self.get_session(style="sqlmodel") as asess:
-            async with asess.begin():
-                return await asess.run_sync(func, *args, **kwargs)
+        async with self.get_session(style="sqlmodel") as asess, asess.begin():
+            return await asess.run_sync(func, *args, **kwargs)
 
     def to_async[**P, T](
         self,
@@ -293,7 +291,8 @@ class GenericDatabaseHelper:
 
         return wrapped
 
-    async def wait_until_initialized(self, timeout: float | None = None) -> None:
+    # timeout 是已有的公开参数, 调用方 (recorder / 测试) 依赖它
+    async def wait_until_initialized(self, timeout: float | None = None) -> None:  # noqa: ASYNC109
         """等待 startup 结束。
 
         startup 失败时抛出 StorageStartupError (原异常作为 __cause__);

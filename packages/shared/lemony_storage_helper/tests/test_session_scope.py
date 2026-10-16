@@ -26,7 +26,9 @@ def make_metadata() -> tuple[MetaData, Table]:
 
 async def ids(helper: SqliteDatabaseHelper, table: Table) -> list[int]:
     async with helper.engine.connect() as conn:
-        return list((await conn.execute(select(table.c.id).order_by(table.c.id))).scalars())
+        return list(
+            (await conn.execute(select(table.c.id).order_by(table.c.id))).scalars()
+        )
 
 
 @pytest.mark.asyncio
@@ -88,9 +90,11 @@ async def test_bare_session_does_not_commit_after_a_read(tmp_path: Path) -> None
         assert await ids(helper, table) == []
 
         # 直接写 (没有先读) 时 auto_begin 开的是根事务, 会提交
-        async with helper.get_session(style="sqlalchemy") as session:
-            async with auto_begin(session):
-                await session.execute(insert(table).values(id=2, name="b"))
+        async with (
+            helper.get_session(style="sqlalchemy") as session,
+            auto_begin(session),
+        ):
+            await session.execute(insert(table).values(id=2, name="b"))
         assert await ids(helper, table) == [2]
     finally:
         await helper.close()

@@ -22,7 +22,6 @@ from melobot.protocols.onebot.v11.adapter.event import (
 )
 from melobot.protocols.onebot.v11.adapter.segment import Segment
 
-from ..db.enums import MediaDownloadStatus
 from ..db.dto import (
     AccountInput,
     ConversationInput,
@@ -33,6 +32,7 @@ from ..db.dto import (
     NoticeInput,
     RecordedMessageInput,
 )
+from ..db.enums import MediaDownloadStatus
 
 
 class OneBot11MessageRecorderAdapter:

@@ -14,13 +14,13 @@ from lemony_settings.utils import resolve_config_path
 from melobot.adapter.model import Event
 from melobot.log import get_logger
 
+from .core import is_admin, is_owner
 from .models import (
     CheckerGlobalSettings,
     CheckerPluginSettings,
     UniqueUserConfig,
     UniqueUserDataclassBase,
 )
-from .core import is_admin, is_owner
 
 if TYPE_CHECKING:
     from .checkers import AdminChecker, FailCallback, LemonyChecker, OwnerChecker
@@ -96,7 +96,8 @@ class LemonyCheckerFactory:
             logger.info("Loaded checker global settings")
         else:
             warnings.warn(
-                "LemonyCheckerFactory post_init called but global settings already initialized."
+                "LemonyCheckerFactory post_init called but global settings already initialized.",
+                stacklevel=2,
             )
 
     def new_factory_wrapper(
@@ -379,7 +380,8 @@ def init_checker_factory() -> LemonyCheckerFactory:
     existing = _lemony_checker_factory.get()
     if existing is not None:
         warnings.warn(
-            "LemonyCheckerFactory has already been initialized. Returning the existing instance."
+            "LemonyCheckerFactory has already been initialized. Returning the existing instance.",
+            stacklevel=2,
         )
         return existing
     instance = LemonyCheckerFactory()
@@ -399,11 +401,11 @@ class _CheckerFactoryWrapper:
     """
 
     __slots__ = (
-        "_plugin_name",
-        "_command_name",
-        "_fail_cb",
         "_allow_admin",
+        "_command_name",
         "_factory",
+        "_fail_cb",
+        "_plugin_name",
     )
 
     def __init__(
@@ -426,7 +428,7 @@ class _CheckerFactoryWrapper:
         *,
         plugin_name: str | Literal[_Sentinel.NOT_MODIFIED] = _Sentinel.NOT_MODIFIED,
         command_name: str | Literal[_Sentinel.NOT_MODIFIED] = _Sentinel.NOT_MODIFIED,
-        fail_cb: "FailCallback | None | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
+        fail_cb: "FailCallback | Literal[_Sentinel.NOT_MODIFIED] | None" = _Sentinel.NOT_MODIFIED,
         allow_admin: "bool | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
     ) -> "LemonyChecker":
 
@@ -463,7 +465,7 @@ class _CheckerFactoryWrapper:
 
     def get_owner_checker(
         self,
-        fail_cb: "FailCallback | None | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
+        fail_cb: "FailCallback | Literal[_Sentinel.NOT_MODIFIED] | None" = _Sentinel.NOT_MODIFIED,
     ) -> "OwnerChecker":
         """获取一个只允许 Owner 的检查器."""
         return self._factory.new_owner_checker(
@@ -472,7 +474,7 @@ class _CheckerFactoryWrapper:
 
     def get_admin_checker(
         self,
-        fail_cb: "FailCallback | None | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
+        fail_cb: "FailCallback | Literal[_Sentinel.NOT_MODIFIED] | None" = _Sentinel.NOT_MODIFIED,
     ) -> "AdminChecker":
         """获取一个允许 Owner 和 Admin 的检查器."""
         return self._factory.new_admin_checker(

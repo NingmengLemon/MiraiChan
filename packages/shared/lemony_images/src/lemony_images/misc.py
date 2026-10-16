@@ -10,7 +10,7 @@ def to_full_width(text: str):
 
 def calc_eudist(p1: Iterable[float], p2: Iterable[float]):
     """欧几里得空间距离"""
-    return math.sqrt(sum((p - q) ** 2 for p, q in zip(p1, p2)))
+    return math.sqrt(sum((p - q) ** 2 for p, q in zip(p1, p2, strict=False)))
 
 
 def bytes_to_b64_url(b: bytes):

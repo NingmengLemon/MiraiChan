@@ -15,14 +15,15 @@ def wrap_text_by_length(s: str, line_length: int):
     """根据字符长度断行"""
     result: list[str] = []
     for line in s.splitlines():
-        for i in range(0, len(line), line_length):
-            result.append(line[i : i + line_length])
+        result.extend(
+            line[i : i + line_length] for i in range(0, len(line), line_length)
+        )
     return result
 
 
 def wrap_text_by_width(
     s: str,
-    line_width: int | float,
+    line_width: float,
     font: ImageFont.FreeTypeFont,
 ):
     """根据像素宽度断行"""
@@ -212,7 +213,7 @@ def crop_to_circle(img: Image.Image):
 
 def text_to_image(
     text: str,
-    font: ImageFont.FreeTypeFont | None | int = None,
+    font: ImageFont.FreeTypeFont | int | None = None,
     color: _ColorT = (255, 255, 255, 255),
     bg_color: _ColorT = (32, 32, 32, 255),
     margin: int = 10,

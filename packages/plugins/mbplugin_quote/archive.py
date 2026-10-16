@@ -43,7 +43,8 @@ class QuoteArtifact(QuoteBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
     created_at: datetime = Field(
-        default_factory=_now, sa_column=datetime_column_tzaware(default=_now, index=True)
+        default_factory=_now,
+        sa_column=datetime_column_tzaware(default=_now, index=True),
     )
     style: str = Field(index=True, description="card | chat")
     group_id: int = Field(index=True)
@@ -61,7 +62,9 @@ class QuoteArtifact(QuoteBase, table=True):
     width: int
     height: int
     sent_message_id: str | None = Field(
-        default=None, index=True, description="bot 发出的那条图片消息的 id, 用于回复定位"
+        default=None,
+        index=True,
+        description="bot 发出的那条图片消息的 id, 用于回复定位",
     )
 
     __table_args__ = (Index("ix_quote_artifact_group_time", "group_id", "created_at"),)
@@ -113,9 +116,7 @@ class QuoteArchive:
         finally:
             tmp.unlink(missing_ok=True)
 
-    async def save(
-        self, record: ArchiveRecord, data: bytes, fmt: str
-    ) -> QuoteArtifact:
+    async def save(self, record: ArchiveRecord, data: bytes, fmt: str) -> QuoteArtifact:
         artifact_id = uuid7()
         now = _now()
         rel = Path(f"{now:%Y}") / f"{now:%m}" / f"{artifact_id.hex}.{fmt}"
@@ -153,7 +154,9 @@ class QuoteArchive:
                 logger.exception("存档回调失败: %s", hook)
         return artifact
 
-    async def attach_sent_message(self, artifact_id: uuid.UUID, message_id: str) -> None:
+    async def attach_sent_message(
+        self, artifact_id: uuid.UUID, message_id: str
+    ) -> None:
         async with self._db.get_session() as session, session.begin():
             artifact = await session.get(QuoteArtifact, artifact_id)
             if artifact is not None:

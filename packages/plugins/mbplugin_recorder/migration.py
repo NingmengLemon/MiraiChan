@@ -37,7 +37,9 @@ def migrate(conn: Connection) -> list[str]:
         columns = {c["name"] for c in inspect(conn).get_columns(MEDIA_SOURCE)}
         for name, ddl in _NEW_COLUMNS:
             if name not in columns:
-                conn.exec_driver_sql(f'ALTER TABLE "{MEDIA_SOURCE}" ADD COLUMN "{name}" {ddl}')
+                conn.exec_driver_sql(
+                    f'ALTER TABLE "{MEDIA_SOURCE}" ADD COLUMN "{name}" {ddl}'
+                )
                 done.append(f"{MEDIA_SOURCE}.{name} added")
         if "next_attempt_at" not in columns:
             conn.exec_driver_sql(

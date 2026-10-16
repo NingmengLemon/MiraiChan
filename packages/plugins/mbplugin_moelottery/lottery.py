@@ -31,7 +31,7 @@ class LotteryBox:
                 encoding="utf-8"
             )
             return MoeData.model_validate_json(raw)
-        with open(moefile, "r", encoding="utf-8") as fp:
+        with open(moefile, encoding="utf-8") as fp:
             return MoeData.model_validate(json.load(fp))
 
     # ---- 抽取 ----
@@ -91,9 +91,9 @@ class LotteryBox:
             vars_[name] = computed.mapping.get(dep_value or "", computed.default)
 
         # 把抽取结果中非 None 的值合并进来
-        for name, value in drawn.items():
-            if value is not None:
-                vars_[name] = value
+        vars_.update(
+            {name: value for name, value in drawn.items() if value is not None}
+        )
 
         # 用 format_map 渲染主模板，缺失的 key 渲染为空字符串
         text = self._data.template.format_map(_DefaultDict(vars_))

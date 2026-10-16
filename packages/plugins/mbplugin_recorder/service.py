@@ -125,7 +125,7 @@ class RecorderService:
                     (await session.execute(later_stmt)).scalars().all()
                 )
 
-            return earlier_messages[::-1] + [base_message] + later_messages
+            return [*earlier_messages[::-1], base_message, *later_messages]
 
     async def get_message_window(
         self, query: MessageWindowQuery
@@ -232,9 +232,7 @@ class RecorderService:
                 await session.execute(
                     select(MessageSegment)
                     .where(queryable(MessageSegment.message_id).in_(message_ids))
-                    .order_by(
-                        col(MessageSegment.message_id), col(MessageSegment.order)
-                    )
+                    .order_by(col(MessageSegment.message_id), col(MessageSegment.order))
                 )
             )
             .scalars()
@@ -331,10 +329,7 @@ class RecorderService:
                 .group_by(queryable(ExternalIdentity.external_id))
                 .order_by(func.count(queryable(Message.id)).desc())
             )
-            return {
-                sender_id: count
-                for sender_id, count in (await session.execute(stmt)).all()
-            }
+            return dict((await session.execute(stmt)).all())
 
     async def find_media_by_sha256(self, sha256: str) -> list[MediaObject]:
         async with self.get_session() as session:

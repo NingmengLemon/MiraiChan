@@ -110,9 +110,7 @@ async def fetch_messages(
     if recorder is not None:
         views = await recorder.get_message_window(make_query(req, base_message_id))
         if views is not None:
-            return FetchResult(
-                tuple(_from_view(v) for v in views), from_recorder=True
-            )
+            return FetchResult(tuple(_from_view(v) for v in views), from_recorder=True)
     one = await fetch_one(base_message_id)
     if one is None:
         return None

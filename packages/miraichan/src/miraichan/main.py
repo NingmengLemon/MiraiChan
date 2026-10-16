@@ -117,7 +117,7 @@ def _io_from_config_model(
             access_token=cfg.access_token.get_secret_value(),
             cd_time=cfg.cd_time,
         )
-    elif isinstance(cfg, ReverseWebsocketIOConfigModel):
+    if isinstance(cfg, ReverseWebsocketIOConfigModel):
         return ReverseWebSocketIO(
             host=cfg.host,
             port=cfg.port,
@@ -161,9 +161,10 @@ def _main(
                 )
             logger.error("配置文件 config.json 不存在, 已创建默认配置文件")
             logger.error("请根据需要修改配置文件后重新启动 MiraiChan.")
-        except Exception as e:
-            logger.error("无法创建配置文件 config.json: %s", e)
-            logger.error("请检查权限或手动创建配置文件.")
+        except OSError:
+            logger.exception(
+                "无法创建配置文件 config.json, 请检查权限或手动创建配置文件."
+            )
         logger.error("预期的配置文件位置: %s", config_path.resolve())
         sys.exit(1)
 

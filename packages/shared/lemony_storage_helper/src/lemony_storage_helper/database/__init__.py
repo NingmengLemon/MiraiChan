@@ -5,7 +5,8 @@ try:
     from sqlalchemy.orm import DeclarativeBase, registry
 except ImportError:
     warnings.warn(
-        "sqlalchemy and sqlmodel are required for lemony_storage_helper.database. "
+        "sqlalchemy and sqlmodel are required for lemony_storage_helper.database. ",
+        stacklevel=2,
     )
     raise
 
@@ -28,26 +29,26 @@ from .utils import (
 )
 
 __all__ = [
-    "GenericDatabaseHelper",
-    "StorageStartupError",
     "AsyncCallable",
     "DatabaseAsyncCallable",
-    "in_transaction",
-    "auto_begin",
-    "to_async",
-    "get_session",
-    "new_session_getter",
-    "new_engine",
-    "check_table_existence_sync",
-    "check_table_existence",
-    "datetime_column_tzaware",
-    "queryable",
+    "DeclarativeBase",
     "GenericAsyncAttrs",
+    "GenericDatabaseHelper",
+    "MetaData",
     # 重导出
     "SQLModel",
+    "StorageStartupError",
+    "auto_begin",
+    "check_table_existence",
+    "check_table_existence_sync",
+    "datetime_column_tzaware",
+    "get_session",
+    "in_transaction",
+    "new_engine",
+    "new_session_getter",
+    "queryable",
     "registry",
-    "MetaData",
-    "DeclarativeBase",
+    "to_async",
 ]
 
 # 特定数据库后端对应的子模块, 有自己的依赖, 比如 sqlite 需要的 aiosqlite

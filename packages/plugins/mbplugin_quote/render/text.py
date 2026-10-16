@@ -132,7 +132,9 @@ def _wrap_line(
             lines.append([])
             width = 0.0
             # 软换行后行首的空格不画
-            token = [u for u in token if u.text != " "] if token[0].text == " " else token
+            token = (
+                [u for u in token if u.text != " "] if token[0].text == " " else token
+            )
             lines[-1].extend(token)
             width = sum(_unit_width(u, font) for u in token)
             continue
@@ -156,8 +158,9 @@ def layout_text(
 ) -> TextBlock:
     lines: list[tuple[Run, ...]] = []
     for raw in text.split("\n"):
-        for units in _wrap_line(_units(raw), font, max_width):
-            lines.append(_merge(units))
+        lines.extend(
+            _merge(units) for units in _wrap_line(_units(raw), font, max_width)
+        )
     return TextBlock(
         lines=tuple(lines),
         line_widths=tuple(_runs_width(line, font) for line in lines),

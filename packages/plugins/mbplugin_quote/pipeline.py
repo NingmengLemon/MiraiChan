@@ -20,7 +20,14 @@ from .render.chat import render_chat
 from .render.text import FontProvider, extract_emojis
 from .resources import ResourceResolver
 
-__all__ = ["Assets", "NothingToQuote", "Rendered", "encode", "render_card_quote", "render_chat_quote"]
+__all__ = [
+    "Assets",
+    "NothingToQuote",
+    "Rendered",
+    "encode",
+    "render_card_quote",
+    "render_chat_quote",
+]
 
 
 class NothingToQuote(ValueError):
@@ -46,8 +53,7 @@ def _normalize(
 ) -> tuple[QuoteMessage, ...]:
     resolve = name_resolver_from(sources)
     return tuple(
-        normalize_message(m, blocklist=blocklist, resolve_name=resolve)
-        for m in sources
+        normalize_message(m, blocklist=blocklist, resolve_name=resolve) for m in sources
     )
 
 
@@ -121,7 +127,11 @@ async def render_chat_quote(
     return Rendered(image, messages, {"fetch": t1 - t0, "draw": t2 - t1})
 
 
-_PIL_FORMATS = {"jpeg": ("JPEG", "jpg"), "png": ("PNG", "png"), "webp": ("WEBP", "webp")}
+_PIL_FORMATS = {
+    "jpeg": ("JPEG", "jpg"),
+    "png": ("PNG", "png"),
+    "webp": ("WEBP", "webp"),
+}
 
 
 def encode(image: Image.Image, fmt: str, quality: int) -> tuple[bytes, str]:

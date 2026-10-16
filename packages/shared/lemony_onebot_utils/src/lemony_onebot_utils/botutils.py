@@ -36,7 +36,7 @@ async def text_to_image_segment(text: str, /, **kwargs):
     )
 
 
-async def get_reply(adapter: Adapter, event: MessageEvent) -> None | GetMsgEcho:
+async def get_reply(adapter: Adapter, event: MessageEvent) -> GetMsgEcho | None:
     if _ := event.get_segments(ReplySegment):
         msg_id = _[0].data["id"]
     else:
@@ -115,7 +115,7 @@ class AvatarCache:
         path = os.path.join(self.CACHE_DIR, filename)
 
         if (
-            os.path.exists(path)
+            await asyncio.to_thread(os.path.exists, path)
             and time.time() - self._update_times.get(uid, 0) <= self.EXPIRES
         ):
             async with aiofiles.open(path, "rb") as fp:

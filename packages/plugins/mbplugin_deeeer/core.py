@@ -173,9 +173,9 @@ class Painter:
                 if day == 0:
                     continue
                 coor_map[day] = (
-                    x := int((self.MARGIN + j * self.GRID_SIZE[0])),
+                    x := int(self.MARGIN + j * self.GRID_SIZE[0]),
                     y := int(
-                        (self.MARGIN * 2 + self.MARGIN_INFO + i * self.GRID_SIZE[1])
+                        self.MARGIN * 2 + self.MARGIN_INFO + i * self.GRID_SIZE[1]
                     ),
                 )
                 canvas.paste(

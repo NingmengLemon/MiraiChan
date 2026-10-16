@@ -28,9 +28,9 @@ SNOWLUMA_IMAGE = {
 
 
 def test_url_shape() -> None:
-    assert URL == (
+    assert (
         f"https://gxh.vip.qq.com/club/item/parcel/item/ab/{EMOJI_ID}/raw300.gif"
-    )
+    ) == URL
 
 
 def test_snowluma_image_segment_is_mface() -> None:

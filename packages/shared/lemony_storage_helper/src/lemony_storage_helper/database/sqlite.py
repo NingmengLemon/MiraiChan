@@ -17,7 +17,9 @@ logger = logging.getLogger(__name__)
 try:
     import aiosqlite  # noqa: F401
 except ImportError:
-    warnings.warn("aiosqlite is not installed, SqliteDatabaseHelper will not work.")
+    warnings.warn(
+        "aiosqlite is not installed, SqliteDatabaseHelper will not work.", stacklevel=2
+    )
     raise
 
 
@@ -71,7 +73,7 @@ class SqliteDatabaseHelper(GenericDatabaseHelper):
         self._busy_timeout_ms = int(busy_timeout * 1000)
         self._relative_path_base = relative_path_base
         self._dburl_raw = db_path
-        self._db_path: PathLike[str] | None | Literal[_Sentinel.NOT_RESOLVED] = (
+        self._db_path: PathLike[str] | Literal[_Sentinel.NOT_RESOLVED] | None = (
             _Sentinel.NOT_RESOLVED
         )
 
@@ -112,11 +114,10 @@ class SqliteDatabaseHelper(GenericDatabaseHelper):
         if db_path is not None:
             db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db_path = db_path
-        dburl = URL.create(
+        return URL.create(
             drivername="sqlite+aiosqlite",
             database=db_path.as_posix() if db_path is not None else None,
         )
-        return dburl
 
     @override
     async def startup(
@@ -129,7 +130,7 @@ class SqliteDatabaseHelper(GenericDatabaseHelper):
         # 所有 aiosqlite 都需要 check_same_thread=False
         connect_args = kw.pop("connect_args", {})
         if not isinstance(connect_args, MutableMapping):
-            raise ValueError("connect_args must be a dict")
+            raise TypeError("connect_args must be a dict")
         connect_args.setdefault("check_same_thread", False)
         kw["connect_args"] = connect_args
 

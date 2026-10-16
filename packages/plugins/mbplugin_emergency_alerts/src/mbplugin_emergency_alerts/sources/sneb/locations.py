@@ -1,5 +1,4 @@
 import json
-from importlib import resources
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict
 
@@ -25,7 +24,7 @@ class RegionTree(TypedDict):
 async def fetch_location_data(client: ClientSession) -> RegionTree:
     async with client.get(LOCATION_DATA_URL, headers=HTTP_HEADERS) as response:
         data = await response.text()
-    return assemble_location_data((parse_js_obj(data)))
+    return assemble_location_data(parse_js_obj(data))
 
 
 def update_local_cache(data: RegionTree):

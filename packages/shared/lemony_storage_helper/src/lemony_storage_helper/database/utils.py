@@ -13,14 +13,13 @@ from typing import (
     Any,
     ClassVar,
     Concatenate,
-    Generic,
     ParamSpec,
     Protocol,
     TypeVar,
     cast,
 )
 
-from sqlalchemy import URL, Column, Connection, DateTime, Table, inspect, func
+from sqlalchemy import URL, Column, Connection, DateTime, Table, func, inspect
 from sqlalchemy.ext.asyncio import AsyncAttrs as _AsyncAttrs
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.ext.asyncio.session import (
@@ -33,15 +32,15 @@ from sqlmodel import SQLModel as _SQLModel
 __all__ = [
     "AsyncCallable",
     "DatabaseAsyncCallable",
-    "in_transaction",
     "auto_begin",
-    "to_async",
-    "get_session",
-    "new_session_getter",
-    "new_engine",
-    "check_table_existence_sync",
     "check_table_existence",
+    "check_table_existence_sync",
     "datetime_column_tzaware",
+    "get_session",
+    "in_transaction",
+    "new_engine",
+    "new_session_getter",
+    "to_async",
 ]
 
 P = ParamSpec("P")
@@ -100,8 +99,7 @@ def in_transaction() -> Callable[
             session: AsyncSession, *args: P.args, **kwargs: P.kwargs
         ) -> T:
             async with auto_begin(session):
-                rv = await func(session, *args, **kwargs)
-                return rv
+                return await func(session, *args, **kwargs)
 
         return wrapped
 
@@ -262,8 +260,7 @@ async def check_table_existence(session: AsyncSession, table: Table) -> bool:
         bool: 表是否存在.
     """
     async_conn = await session.connection()
-    existence = await async_conn.run_sync(check_table_existence_sync, table=table)
-    return existence
+    return await async_conn.run_sync(check_table_existence_sync, table=table)
 
 
 def datetime_column_tzaware(
@@ -294,7 +291,7 @@ def datetime_column_tzaware(
     )
 
 
-class GenericAsyncAttrs(_AsyncAttrs, Generic[T]):
+class GenericAsyncAttrs[T](_AsyncAttrs):
     """
     泛型 AsyncAttrs Mixin 类, 用于为关系字段提供类型标注.
 
@@ -310,7 +307,7 @@ class GenericAsyncAttrs(_AsyncAttrs, Generic[T]):
         awaitable_attrs: T  # ty: ignore[invalid-property-type-override]
 
 
-def queryable(o: T) -> QueryableAttribute[T]:
+def queryable[T](o: T) -> QueryableAttribute[T]:
     if not isinstance(o, QueryableAttribute):
         raise TypeError(f"Expected QueryableAttribute, got {type(o)!r}")
     return cast(QueryableAttribute, o)
