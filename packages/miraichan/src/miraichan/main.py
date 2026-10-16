@@ -8,7 +8,7 @@ import json5
 from lemony_checkers import init_checker_factory
 from lemony_images import init_default_font_cache
 from lemony_settings import init_settings_manager
-from lemony_storage_helper.database.sqlite import set_relative_path_base
+from lemony_storage_helper.files import set_data_root
 from melobot import Bot, add_import_fallback
 from melobot.log import Logger, LogLevel
 from melobot.log.reflect import set_global_logger
@@ -44,7 +44,8 @@ def init_modules(cfg: GlobalConfigModel):
         config_root=cfg.config_root,
     )
     init_checker_factory()
-    set_relative_path_base(get_project_root() / "data")
+    # 数据库相对路径也以 data root 为根 (SqliteDatabaseHelper 会退回到它)
+    set_data_root(get_project_root() / "data")
 
 
 def _resolve_plugins(names: list[str]) -> list[tuple[str, Loadable]]:
@@ -174,7 +175,7 @@ def _main(
     _setup_logging(debug=debug, levels=cfg.log_levels)
 
     logger.debug("Config: " + cfg.model_dump_json(indent=4))
-    os.makedirs("data", exist_ok=True)
+    os.makedirs(get_project_root() / "data", exist_ok=True)
 
     init_modules(cfg)
 

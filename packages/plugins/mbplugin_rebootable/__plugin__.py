@@ -1,13 +1,14 @@
 import asyncio
 import contextlib
 import json
-import os
 import random
 import time
+from pathlib import Path
 from typing import TypedDict
 
 from lemony_checkers import get_checker_factory_wrapper
 from lemony_settings import BaseSettings, require
+from lemony_storage_helper.files import configured_data_path
 from lemony_utils.help import Command, register_help
 from melobot import PluginInfo, PluginPlanner, on_command
 from melobot.bot import Bot, BotLifeSpan, get_bot
@@ -30,7 +31,8 @@ class RebootablePluginConfig(BaseSettings):
         "待会儿见w",
         "正在重启, 请坐和放宽...",
     ]
-    reboot_info_path: str = "data/reboot_info.json"
+    # 相对 data root; 旧配置里写的 "data/reboot_info.json" 也指向同一个文件
+    reboot_info_path: str = "reboot_info.json"
 
 
 bot = get_bot()
@@ -114,21 +116,27 @@ async def restart_bot(event: MessageEvent, adapter: Adapter, bot: Bot):
     await bot.restart()
 
 
+def _reboot_info_path() -> Path:
+    return configured_data_path(cfgloader.value.reboot_info_path, mkdir_parent=True)
+
+
 def _write_reboot_info(info: RebootInfo) -> None:
-    with open(cfgloader.value.reboot_info_path, "w+", encoding="utf-8") as fp:
+    with open(_reboot_info_path(), "w+", encoding="utf-8") as fp:
         json.dump(info, fp)
 
 
 def _read_reboot_info() -> RebootInfo | None:
-    if not os.path.isfile(cfgloader.value.reboot_info_path):
+    path = _reboot_info_path()
+    if not path.is_file():
         return None
-    with open(cfgloader.value.reboot_info_path, encoding="utf-8") as fp:
+    with open(path, encoding="utf-8") as fp:
         return json.load(fp)
 
 
 @bot.on_started
 async def startup_check(adapter: Adapter):
-    if not await asyncio.to_thread(os.path.isfile, cfgloader.value.reboot_info_path):
+    path = _reboot_info_path()
+    if not await asyncio.to_thread(path.is_file):
         return
     try:
         info = await asyncio.to_thread(_read_reboot_info)
@@ -143,4 +151,4 @@ async def startup_check(adapter: Adapter):
         )
     finally:
         with contextlib.suppress(OSError):
-            os.remove(cfgloader.value.reboot_info_path)
+            path.unlink()

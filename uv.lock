@@ -521,6 +521,7 @@ dependencies = [
     { name = "aiohttp" },
     { name = "lemony-images" },
     { name = "lemony-network" },
+    { name = "lemony-storage-helper" },
     { name = "lemony-utils" },
     { name = "melobot", extra = ["onebot"] },
     { name = "pydantic" },
@@ -543,6 +544,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.13.3" },
     { name = "lemony-images", editable = "packages/shared/lemony_images" },
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
+    { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
@@ -823,6 +825,7 @@ source = { editable = "packages/plugins/mbplugin_rebootable" }
 dependencies = [
     { name = "lemony-checkers" },
     { name = "lemony-settings" },
+    { name = "lemony-storage-helper" },
     { name = "lemony-utils" },
     { name = "melobot", extra = ["onebot"] },
 ]
@@ -831,6 +834,7 @@ dependencies = [
 requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
+    { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
 ]

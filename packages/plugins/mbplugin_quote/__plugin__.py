@@ -17,10 +17,8 @@ from lemony_mface import MFaceBlocklist
 from lemony_onebot_utils.botutils import cached_avatar_source
 from lemony_settings import require
 from lemony_storage_helper.database import StorageStartupError
-from lemony_storage_helper.database.sqlite import (
-    SqliteDatabaseHelper,
-    get_relative_path_base,
-)
+from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
+from lemony_storage_helper.files import get_data_root
 from lemony_utils.help import Command, register_help
 from melobot import PluginPlanner, get_bot
 from melobot.exceptions import PluginIpcError
@@ -107,10 +105,7 @@ _init_done = asyncio.Event()
 
 
 def _data_root() -> Path:
-    base = get_relative_path_base()
-    if base is None:
-        raise RuntimeError("storage relative path base is not set")
-    return base
+    return get_data_root()
 
 
 def _load_assets(font_path: Path) -> Assets:

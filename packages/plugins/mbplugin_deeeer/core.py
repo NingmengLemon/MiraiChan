@@ -76,6 +76,9 @@ def record(
 
 ValidImageInput = BytesIO | str | Path | Image.Image
 
+# 取不到头像时的占位图, 随插件分发, 不依赖 cwd
+NO_AVATAR_PATH = Path(__file__).parent / "resources" / "no_avatar.png"
+
 
 def _to_image(pic: ValidImageInput):
     return (
@@ -123,13 +126,7 @@ class Painter:
                 "RGBA", (self.MARGIN_INFO, self.MARGIN_INFO), color=self.BG_COLOR
             ),
             ImageOps.fit(
-                (
-                    _to_image(user_avatar)
-                    if user_avatar
-                    else _to_image(
-                        "data/no_data.png"
-                    )  # TODO: 从统一的资源管理器里拿, 别直接读相对路径, cwd 不一定是项目根
-                ),
+                (_to_image(user_avatar) if user_avatar else _to_image(NO_AVATAR_PATH)),
                 (self.MARGIN_INFO, self.MARGIN_INFO),
             ),
         )
