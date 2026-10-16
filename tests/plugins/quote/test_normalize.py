@@ -11,6 +11,7 @@ from mbplugin_quote.normalize import (
     name_resolver_from,
     normalize_message,
     normalize_segments,
+    unresolved_at_targets,
 )
 
 EMOJI_ID = "ab" + "0" * 30
@@ -105,3 +106,24 @@ def test_normalize_message_and_resolver() -> None:
     resolve = name_resolver_from([a, b])
     qm = normalize_message(a, blocklist=MFaceBlocklist(), resolve_name=resolve)
     assert (qm.display_name, qm.text) == ("甲", "@乙名片")
+
+
+def test_unresolved_at_targets_and_extra_names() -> None:
+    # 实测线上 recorder 里的 at 段只有 qq 字段
+    a = SourceMessage(
+        "m1",
+        1,
+        None,
+        "甲",
+        (
+            seg("at", qq="2"),  # 乙在这批消息里说过话, 不用查
+            seg("at", qq="3"),  # 需要查
+            seg("at", qq="4", name="@四号"),  # 自带名字, 不用查
+            seg("at", qq="all"),
+        ),
+    )
+    b = SourceMessage("m2", 2, None, "乙", (seg("text", text="嗯"),))
+    assert unresolved_at_targets([a, b]) == {3}
+    resolve = name_resolver_from([a, b], {3: "丙名片"})
+    qm = normalize_message(a, blocklist=MFaceBlocklist(), resolve_name=resolve)
+    assert qm.text == "@乙 @丙名片 @四号 @全体成员"
