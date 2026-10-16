@@ -40,7 +40,8 @@ class QuoteSettings(BaseSettings):
         default="fonts/NotoSansSC-Medium.ttf", description="字体文件, 相对 data 根目录"
     )
     emoji_cdn: str | None = Field(
-        default=None, description="emoji 图片服务地址 (EmojiServer), 不配置时 emoji 用字体字形"
+        default=None,
+        description="emoji 图片服务地址 (EmojiServer), 不配置时 emoji 用字体字形",
     )
     allow_quote_self: bool = Field(default=False, description="能否引用 bot 自己的消息")
     show_timing: bool = Field(default=False, description="回复里附带耗时")

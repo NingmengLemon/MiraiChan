@@ -26,7 +26,9 @@ def make_metadata() -> tuple[MetaData, Table]:
 
 async def ids(helper: SqliteDatabaseHelper, table: Table) -> list[int]:
     async with helper.engine.connect() as conn:
-        return list((await conn.execute(select(table.c.id).order_by(table.c.id))).scalars())
+        return list(
+            (await conn.execute(select(table.c.id).order_by(table.c.id))).scalars()
+        )
 
 
 @pytest.mark.asyncio

@@ -155,9 +155,7 @@ class GenericDatabaseHelper:
             if not isinstance(self._dburl, URL):
                 self._dburl = self._resolve_dburl(self._dburl_raw)
             if not isinstance(self._dburl, URL):
-                raise RuntimeError(
-                    "database url not resolved yet, or not valid sa URL"
-                )
+                raise RuntimeError("database url not resolved yet, or not valid sa URL")
             self._engine = create_async_engine(self._dburl, echo=echo, **kw)
             self._configure_engine(self._engine)
             async with self._engine.begin() as conn:

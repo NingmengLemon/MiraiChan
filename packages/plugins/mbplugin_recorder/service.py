@@ -232,9 +232,7 @@ class RecorderService:
                 await session.execute(
                     select(MessageSegment)
                     .where(queryable(MessageSegment.message_id).in_(message_ids))
-                    .order_by(
-                        col(MessageSegment.message_id), col(MessageSegment.order)
-                    )
+                    .order_by(col(MessageSegment.message_id), col(MessageSegment.order))
                 )
             )
             .scalars()

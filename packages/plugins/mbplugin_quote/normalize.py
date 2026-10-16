@@ -100,9 +100,7 @@ def normalize_segments(
             url = seg.data.get("url")
             out.append(
                 ImageElement(
-                    ImageRef(
-                        url=str(url) if url else None, local_paths=seg.local_paths
-                    )
+                    ImageRef(url=str(url) if url else None, local_paths=seg.local_paths)
                 )
             )
             continue
@@ -127,7 +125,9 @@ def normalize_message(
     return QuoteMessage(
         message_id=msg.message_id,
         sender_id=msg.sender_id,
-        display_name=display_name_of(msg.sender_card, msg.sender_nickname, msg.sender_id),
+        display_name=display_name_of(
+            msg.sender_card, msg.sender_nickname, msg.sender_id
+        ),
         nickname=msg.sender_nickname,
         card=msg.sender_card,
         elements=normalize_segments(

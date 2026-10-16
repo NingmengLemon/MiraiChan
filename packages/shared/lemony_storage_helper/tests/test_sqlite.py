@@ -30,7 +30,9 @@ async def test_sqlite_helper_supports_in_memory_database() -> None:
 
 @pytest.mark.asyncio
 async def test_sqlite_helper_resolves_relative_path_on_startup(tmp_path: Path) -> None:
-    helper = SqliteDatabaseHelper("nested/test.db", MetaData(), relative_path_base=tmp_path)
+    helper = SqliteDatabaseHelper(
+        "nested/test.db", MetaData(), relative_path_base=tmp_path
+    )
 
     await helper.startup()
     try:
@@ -75,7 +77,9 @@ def _counter_metadata() -> tuple[MetaData, Table]:
 
 async def _count(helper: SqliteDatabaseHelper, table: Table) -> int:
     async with helper.engine.connect() as conn:
-        return (await conn.execute(select(func.count()).select_from(table))).scalar_one()
+        return (
+            await conn.execute(select(func.count()).select_from(table))
+        ).scalar_one()
 
 
 @pytest.mark.asyncio

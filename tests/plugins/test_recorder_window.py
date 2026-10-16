@@ -187,9 +187,7 @@ async def test_view_carries_names_and_segments(service: RecorderService) -> None
     assert view.sender_external_id == ALICE
     assert view.sender_conversation_name == f"card-{ALICE}"
     assert view.sender_display_name == f"nick-{ALICE}"
-    assert [(s.type, dict(s.data)) for s in view.segments] == [
-        ("text", {"text": "m4"})
-    ]
+    assert [(s.type, dict(s.data)) for s in view.segments] == [("text", {"text": "m4"})]
 
 
 @pytest.mark.asyncio

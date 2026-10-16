@@ -97,7 +97,9 @@ async def _get(db: SqliteDatabaseHelper, file_id: str) -> MediaSource:
         from sqlalchemy import select
 
         return (
-            await s.execute(select(MediaSource).where(MediaSource.source_file_id == file_id))
+            await s.execute(
+                select(MediaSource).where(MediaSource.source_file_id == file_id)
+            )
         ).scalar_one()
 
 
@@ -135,7 +137,9 @@ async def test_failed_sources_back_off_and_do_not_block_new_ones(
 
 
 @pytest.mark.asyncio
-async def test_abandon_after_max_attempts_or_permanent(db: SqliteDatabaseHelper) -> None:
+async def test_abandon_after_max_attempts_or_permanent(
+    db: SqliteDatabaseHelper,
+) -> None:
     async with db.get_session(style="sqlalchemy") as s:
         await record_message(s, _payload("m1", ["a", "b"]))
     a, b = await _get(db, "a"), await _get(db, "b")

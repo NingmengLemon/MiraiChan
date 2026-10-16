@@ -69,7 +69,12 @@ async def run(args: argparse.Namespace) -> int:
                 status, retcode = "failed", 100
         elif name == "get_login_info":
             data = {"user_id": self_id, "nickname": "bot"}
-        return {"status": status, "retcode": retcode, "data": data, "echo": action.get("echo")}
+        return {
+            "status": status,
+            "retcode": retcode,
+            "data": data,
+            "echo": action.get("echo"),
+        }
 
     async def handler(conn: ServerConnection) -> None:
         nonlocal last_action

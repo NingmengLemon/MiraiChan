@@ -178,5 +178,7 @@ class ResourceResolver:
             for em in set(emojis):
                 tg.create_task(self._one_emoji(em, bundle))
         if bundle.missing:
-            logger.info("引用图有 %d 个资源未取到: %s", len(bundle.missing), bundle.missing)
+            logger.info(
+                "引用图有 %d 个资源未取到: %s", len(bundle.missing), bundle.missing
+            )
         return bundle
