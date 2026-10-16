@@ -8,10 +8,11 @@ from lemony_images import contrast_ratio
 from mbplugin_quote.model import ImageElement, ImageRef, QuoteMessage, TextElement
 from mbplugin_quote.render import CanvasTooLarge
 from mbplugin_quote.render.card import (
+    CardColors,
     CardStyle,
+    card_colors,
     card_signature,
     render_card,
-    text_color_for,
 )
 from mbplugin_quote.render.chat import ChatStyle, layout_chat, render_chat
 from PIL import Image, ImageFont
@@ -145,21 +146,38 @@ def test_card_signature() -> None:
 def test_card_text_color_is_readable(avatar_color: tuple[int, int, int]) -> None:
     style = CardStyle()
     avatar = Image.new("RGB", (64, 64), avatar_color)
-    color = text_color_for(avatar, style.panel, style.min_contrast)
-    assert contrast_ratio(color, style.panel) >= style.min_contrast
-    assert color == text_color_for(avatar, style.panel, style.min_contrast)
+    colors = card_colors(avatar, style)
+    assert contrast_ratio(colors.text, colors.panel) >= style.min_contrast
+    assert colors == card_colors(avatar, style)
 
 
-def test_card_text_color_follows_avatar_hue() -> None:
+def test_card_colors_follow_avatar_hue() -> None:
     style = CardStyle()
     # 灰底上一小块红色: 源色取红色, 而不是画面中心的灰
     avatar = Image.new("RGB", (64, 64), (128, 128, 128))
     avatar.paste((200, 50, 50), (0, 0, 16, 16))
-    r, g, b, _ = text_color_for(avatar, style.panel, style.min_contrast)
-    assert r > g and r > b
-    # 无彩色头像用白色
-    grey = Image.new("RGB", (64, 64), (128, 128, 128))
-    assert text_color_for(grey, style.panel, style.min_contrast) == (255, 255, 255, 255)
+    colors = card_colors(avatar, style)
+    for r, g, b, _ in (colors.text, colors.panel):
+        assert r > g and r > b
+    # 署名可读, 但比正文暗
+    assert contrast_ratio(colors.signature, colors.panel) >= style.min_contrast
+    assert contrast_ratio(colors.signature, colors.panel) < contrast_ratio(
+        colors.text, colors.panel
+    )
+    # 底色仍是深色, 与静态配色一致的定位
+    assert contrast_ratio(colors.panel, (0, 0, 0, 255)) < 2
+
+
+@pytest.mark.parametrize(
+    "avatar",
+    [None, Image.new("RGB", (64, 64), (128, 128, 128))],
+)
+def test_card_colors_static_without_hue(avatar: Image.Image | None) -> None:
+    style = CardStyle()
+    colors = card_colors(avatar, style)
+    assert colors == CardColors(
+        style.panel, (255, 255, 255, 255), style.signature_color
+    )
 
 
 def test_render_card_smoke() -> None:
@@ -173,6 +191,9 @@ def test_render_card_smoke() -> None:
         fonts=fonts,
     )
     assert out.size == (1920, 1080)
+    # 遮罩被换成按头像生成的底色
+    panel = card_colors(Image.new("RGB", (64, 64), (200, 50, 50)), CardStyle()).panel
+    assert out.getpixel((1900, 20)) == panel
     # 正文区域里有非底色像素
     region = out.crop(CardStyle().text_box)
     assert len(region.getcolors(maxcolors=1 << 16) or []) > 1
