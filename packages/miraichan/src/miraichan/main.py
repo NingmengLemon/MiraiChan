@@ -69,7 +69,8 @@ def _load_plugins(
     failed: list[str] = []
     for name, plugin in plugins:
         try:
-            bot.load_plugin(plugin, load_depth=load_depth)
+            # load_depth 在 melobot 里是仅限位置参数; 按关键字传会落进 **init_args
+            bot.load_plugin(plugin, load_depth)
         except Exception:
             failed.append(name)
             logger.exception(f"插件 {name!r} 加载失败, 已跳过")

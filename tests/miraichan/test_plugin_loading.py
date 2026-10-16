@@ -11,11 +11,13 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from melobot import Bot
 from melobot.exceptions import PluginLoadError
 from miraichan import loader as loader_mod
 
@@ -24,15 +26,32 @@ main_mod = importlib.import_module("miraichan.main")
 
 
 class _FakeBot:
+    """签名与 melobot ``Bot.load_plugin`` 保持一致 (load_depth 仅限位置)."""
+
     def __init__(self, *, fail_for: set[str]) -> None:
         self.fail_for = fail_for
         self.loaded: list[str] = []
+        self.depths: list[int] = []
+        self.init_args: list[dict[str, Any]] = []
 
-    def load_plugin(self, plugin: Any, load_depth: int = 1, **kwargs: Any) -> None:
+    def load_plugin(
+        self, plugin: Any, load_depth: int = 1, /, **init_args: Any
+    ) -> None:
         name = str(plugin)
         if name in self.fail_for:
             raise RuntimeError(f"boom: {name}")
         self.loaded.append(name)
+        self.depths.append(load_depth)
+        self.init_args.append(init_args)
+
+
+def test_fake_bot_signature_matches_melobot():
+    """假 Bot 的签名漂移会让测试抓不到传参错误, 这里钉住它."""
+    real = inspect.signature(Bot.load_plugin)
+    fake = inspect.signature(_FakeBot.load_plugin)
+    assert [(p.name, p.kind) for p in real.parameters.values()] == [
+        (p.name, p.kind) for p in fake.parameters.values()
+    ]
 
 
 class TestResolvePlugins:
@@ -71,6 +90,9 @@ class TestLoadPlugins:
             load_depth=2,
         )
         assert bot.loaded == ["a", "b"]
+        # load_depth 必须作为真正的加载深度传入, 而不是混进插件初始化参数
+        assert bot.depths == [2, 2]
+        assert bot.init_args == [{}, {}]
 
     def test_all_failures_are_tolerated(self):
         bot = _FakeBot(fail_for={"a", "b"})
