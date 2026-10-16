@@ -197,5 +197,5 @@ class TestBuiltinOb11Extractor:
 
     def test_non_ob11_event_returns_none(self):
         """通用 object 返回 None."""
-        result = builtin_ob11_uniid_extractor(object())  # type: ignore[arg-type]
+        result = builtin_ob11_uniid_extractor(object())  # ty: ignore[invalid-argument-type]
         assert result is None

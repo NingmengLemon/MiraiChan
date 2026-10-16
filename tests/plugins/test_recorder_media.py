@@ -178,7 +178,7 @@ async def test_run_once_persists_status_changes(
         await record_message(s, _payload("m1", ["ok", "bad"]))
 
     w = worker_mod.MediaDownloadWorker(db, data_root=None, retry_base=0, max_attempts=2)
-    await w.run_once(http_session=None)  # type: ignore[arg-type]
+    await w.run_once(http_session=None)  # ty: ignore[invalid-argument-type]
 
     assert (await _get(db, "ok")).download_status is MediaDownloadStatus.DOWNLOADED
     bad = await _get(db, "bad")
@@ -237,7 +237,7 @@ async def test_run_once_reclaims_orphaned_downloading(
     assert await _pending_ids(db) == []
 
     w = worker_mod.MediaDownloadWorker(db, data_root=None, request_timeout=-1)
-    await w.run_once(http_session=None)  # type: ignore[arg-type]
+    await w.run_once(http_session=None)  # ty: ignore[invalid-argument-type]
 
     assert downloaded == ["orphan"]
     assert (await _get(db, "orphan")).download_status is MediaDownloadStatus.DOWNLOADED
@@ -264,7 +264,7 @@ async def test_run_once_keeps_fresh_downloading(
         await mark_media_source_downloading(s, busy.id)
 
     w = worker_mod.MediaDownloadWorker(db, data_root=None, request_timeout=120)
-    await w.run_once(http_session=None)  # type: ignore[arg-type]
+    await w.run_once(http_session=None)  # ty: ignore[invalid-argument-type]
 
     assert downloaded == []
     assert (await _get(db, "busy")).download_status is MediaDownloadStatus.DOWNLOADING
@@ -432,7 +432,7 @@ async def test_cancelled_download_cleans_up_tmp_file(
 
     with pytest.raises(asyncio.CancelledError):
         await download_media_source(
-            session,  # type: ignore[arg-type]
+            session,  # ty: ignore[invalid-argument-type]
             source,
             root="media",
             data_root=tmp_path,
@@ -452,7 +452,7 @@ async def test_successful_download_leaves_no_tmp_file(
     session = _FakeSession(_FakeResponse([b"abc", b"def"]))
 
     payload = await download_media_source(
-        session,  # type: ignore[arg-type]
+        session,  # ty: ignore[invalid-argument-type]
         source,
         root="media",
         data_root=tmp_path,

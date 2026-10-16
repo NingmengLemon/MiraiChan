@@ -274,7 +274,7 @@ async def _handle_admin(adapter: Adapter, event: MessageEvent, args: list[str]):
             new_admin = Ob11UniqueUser(
                 user_id=uid,
                 group_id=None,
-                protocol=str(event.protocol),  # type: ignore[arg-type]
+                protocol=str(event.protocol),  # ty: ignore[invalid-argument-type]
             )
             async with EditContext(factory) as ctx:
                 success = ctx.add_admin(new_admin)
@@ -296,7 +296,7 @@ async def _handle_admin(adapter: Adapter, event: MessageEvent, args: list[str]):
             target = Ob11UniqueUser(
                 user_id=uid,
                 group_id=None,
-                protocol=str(event.protocol),  # type: ignore[arg-type]
+                protocol=str(event.protocol),  # ty: ignore[invalid-argument-type]
             )
             async with EditContext(factory) as ctx:
                 success = ctx.remove_admin(target)

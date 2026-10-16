@@ -277,7 +277,7 @@ class GenericDatabaseHelper:
         # 因此理论上兼容 sa session
         async with self.get_session(style="sqlmodel") as asess:
             async with asess.begin():
-                return await asess.run_sync(func, *args, **kwargs)  # type: ignore
+                return await asess.run_sync(func, *args, **kwargs)
 
     def to_async[**P, T](
         self,
@@ -287,7 +287,7 @@ class GenericDatabaseHelper:
         """将执行第一个参数是同步 Session 的同步函数装饰成异步函数,
         运行时会单开一个 AsyncSession 及其 transaction"""
 
-        @functools.wraps(func)  # type: ignore
+        @functools.wraps(func)
         async def wrapped(*args: P.args, **kwargs: P.kwargs):
             return await self.run_sync(func, *args, **kwargs)
 

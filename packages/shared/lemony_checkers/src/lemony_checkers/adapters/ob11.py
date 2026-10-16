@@ -14,7 +14,7 @@ from ..models import UniqueUserBase, UniqueUserDataclassBase
 from .register import registry
 
 _OB11_PROTOCOL_ID_LITERAL = Literal["OneBot-v11@Meloland"]
-OB11_PROTOCOL_ID: Final[_OB11_PROTOCOL_ID_LITERAL] = _PROTOCOL_IDENTIFIER  # type: ignore
+OB11_PROTOCOL_ID: Final[_OB11_PROTOCOL_ID_LITERAL] = _PROTOCOL_IDENTIFIER
 
 
 class Ob11UniqueUser(UniqueUserBase[_OB11_PROTOCOL_ID_LITERAL]):

@@ -51,7 +51,7 @@ def test_records_below_root_level_are_dropped(
     log.info("shown %d", 1)
 
     assert [r.getMessage() for r in sink.records] == ["shown 1"]
-    assert sink.records[0].mod_name == "bridge_test_pkg.sub"  # type: ignore[attr-defined]
+    assert sink.records[0].mod_name == "bridge_test_pkg.sub"  # ty: ignore[unresolved-attribute]
 
 
 def test_subtree_level_override_enables_debug_for_one_package(

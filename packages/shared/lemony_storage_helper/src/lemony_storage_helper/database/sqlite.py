@@ -65,7 +65,7 @@ class SqliteDatabaseHelper(GenericDatabaseHelper):
         busy_timeout: float = 15.0,
     ) -> None:
         """busy_timeout: 等待其他写者释放锁的秒数"""
-        super().__init__(_Sentinel.NOT_RESOLVED, metadata)  # type: ignore
+        super().__init__(_Sentinel.NOT_RESOLVED, metadata)  # ty: ignore[invalid-argument-type]
         if busy_timeout < 0:
             raise ValueError("busy_timeout must be non-negative")
         self._busy_timeout_ms = int(busy_timeout * 1000)
