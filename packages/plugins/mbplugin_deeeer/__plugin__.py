@@ -47,7 +47,8 @@ class CfgModel(BaseSettings):
     trigger_chars: str = "鹿撸🦌"
     group_isolation: bool = False
     daily_limit: int = 100  # < 1 的值记为无限制
-    enabled_deer_imgs: list[DeerImgCfg] = [
+    # pydantic 会为每个实例复制默认值, 可变默认值在这里是安全的
+    enabled_deer_imgs: list[DeerImgCfg] = [  # noqa: RUF012
         {"filename": "deer.jpg", "random_weight": 1.0},
     ]
     correct_sign_img: str = "correct.png"
@@ -166,7 +167,7 @@ async def deer(event: GroupMessageEvent, adapter: Adapter):
     # 锁外先做一次便宜的额度检查: 满了就直接拒绝, 既不拉头像也不画图
     if DAILY_LIMIT >= 1:
         today_total = await query_one_day_total(
-            date=datetime.now(), uid=event.user_id, gid=scope_gid
+            date=datetime.now().astimezone(), uid=event.user_id, gid=scope_gid
         )
         if today_total >= DAILY_LIMIT:
             await adapter.send_reply(_LIMIT_REPLY)
@@ -199,7 +200,7 @@ async def deer(event: GroupMessageEvent, adapter: Adapter):
     async with deer_lock:
         if DAILY_LIMIT >= 1:
             today_total = await query_one_day_total(
-                date=datetime.now(), uid=event.user_id, gid=scope_gid
+                date=datetime.now().astimezone(), uid=event.user_id, gid=scope_gid
             )
             if today_total >= DAILY_LIMIT:
                 # 图已经画好, 但既不记账也不发送, 避免超发

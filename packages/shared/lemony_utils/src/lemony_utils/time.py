@@ -41,9 +41,9 @@ def get_time_period_start(
     period: Literal["day", "month", "year"], time_input: float | datetime | None = None
 ) -> datetime:
     if time_input is None:
-        dt = datetime.now()
+        dt = datetime.now().astimezone()
     elif isinstance(time_input, (float, int)):
-        dt = datetime.fromtimestamp(time_input)
+        dt = datetime.fromtimestamp(time_input).astimezone()
     elif isinstance(time_input, datetime):
         dt = time_input
     else:
