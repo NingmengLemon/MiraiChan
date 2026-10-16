@@ -1,19 +1,15 @@
 """lemony_images — 图像处理工具集"""
 
-# --- 颜色工具 ---
+# --- 颜色工具 (完整接口见 lemony_images.color) ---
 from .color import (
+    ColorScheme,
+    SchemeVariant,
     contrast_ratio,
     ensure_4inttuple,
     ensure_4inttuple_color,
     get_main_color,
-    rel_lumin,
-)
-
-# --- MD3 动态取色 ---
-from .dynamic_color import (
-    ColorScheme,
-    SchemeVariant,
     readable_tone,
+    rel_lumin,
     scheme_from_color,
     source_color,
     source_colors,
