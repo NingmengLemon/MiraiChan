@@ -8,7 +8,6 @@
 ### 预警 (`mbplugin_emergency_alerts`)
 
 - 历史查询指令: 留档 (`archive.py`) 已经在记, 缺按事件 / 地区 / 时间查询的指令与输出格式。
-- 上线: 功能已完成, 尚未加入线上插件列表, 上线前跑 `tools/rehearse_alerts.py`。
 - 国家突发事件预警信息发布网: `sources/sneb/` 是接入草稿, 尚未接线。
 
 ### 新插件
@@ -32,6 +31,8 @@
   `lemony_settings` 生成的插件配置同理。
 - QQInfoCache 的事件联动: 用消息事件的 sender 调 `remember_member` 预热,
   在群名片变更 / 退群通知里调 `invalidate_member`。目前只靠 TTL 过期。
+- 重启前后的状态 diff: `.重启` 完成后, 除了耗时 (`mbplugin_rebootable`), 再报告和重启前相比
+  插件的增减、版本与提交的变化等。需要在重启前把这些状态和 `reboot_info.json` 一起记下来。
 - 远程插件加载 (`packages/miraichan/src/miraichan/loader.py`): 按 url 加载插件, 未实现。
 - emoji 绘制: 替换 pilmoji, 原因是它不支持自定义源, 且整行只有 emoji 时 y 轴错位
   (`packages/shared/lemony_images/src/lemony_images/emoji.py`)。
