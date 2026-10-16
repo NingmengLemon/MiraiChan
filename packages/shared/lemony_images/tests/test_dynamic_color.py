@@ -73,13 +73,18 @@ def test_readable_tone_falls_back_to_black_or_white() -> None:
 
 def test_scheme_roles_and_variants() -> None:
     dark = scheme_from_color(RED)
-    assert dark.is_dark and dark.variant is SchemeVariant.CONTENT
+    assert dark.is_dark and dark.variant is SchemeVariant.FIDELITY
     assert {"primary", "on_primary", "surface", "on_surface"} <= set(dark)
     assert all(len(c) == 4 and c[3] == 255 for c in dark.values())
     # MD3 保证 on_x 与 x 的对比度
     assert contrast_ratio(dark["on_surface"], dark["surface"]) >= 4.5
     light = scheme_from_color(RED, dark=False, variant=SchemeVariant.TONALSPOT)
     assert light["primary"] != dark["primary"]
+    # 缓存命中时结果一致, 且共享的映射不可写
+    again = scheme_from_color(RED)
+    assert again == dark
+    with pytest.raises(TypeError):
+        again.colors["primary"] = (0, 0, 0, 255)  # ty: ignore[invalid-assignment]
     # 所有变体都能构造
     for v in SchemeVariant:
         assert scheme_from_color(RED, variant=v).variant is v

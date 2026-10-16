@@ -11,13 +11,16 @@ MCU 内部的 ARGB 整数只在本模块里出现。
         fg = scheme["primary"]
         fg = readable_tone(src, background=panel, min_contrast=4.5, prefer=80)
 
-耗时 (本机实测): 640px 头像取源色约 13 ms (MCU 会先缩到 128x128), 由源色生成配色约 0.3 ms,
-所以一般不需要缓存。
+耗时 (本机实测): 640px 头像取源色约 11 ms (MCU 会先缩到 128x128)。由源色生成配色的耗时
+看变体: CONTENT 约 60 ms, FIDELITY 约 7 ms, 其余约 0.3 ms。配色按源色缓存,
+同一个头像 (源色相同) 只付一次。
 """
 
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import lru_cache
+from types import MappingProxyType
 
 import numpy as np
 from material_color_utilities import Hct, TonalPalette, Variant, theme_from_argb_color
@@ -50,7 +53,8 @@ _FALLBACK_MAX_DIST = 24.0
 class SchemeVariant(StrEnum):
     """配色变体, 与 MCU 的 Variant 一一对应。
 
-    取头像这类"要像原图"的场景用 CONTENT / FIDELITY; TONALSPOT 是 Android 默认,
+    取头像这类"要像原图"的场景用 FIDELITY / CONTENT (两者常见角色基本一致,
+    CONTENT 慢得多); TONALSPOT 是 Android 默认,
     饱和度会被压低。
     """
 
@@ -173,22 +177,35 @@ def scheme_from_color(
     source: _ColorTupleT,
     *,
     dark: bool = True,
-    variant: SchemeVariant = SchemeVariant.CONTENT,
+    variant: SchemeVariant = SchemeVariant.FIDELITY,
     contrast: float = 0.0,
 ) -> ColorScheme:
-    """由源色生成配色。contrast 取 -1 ~ 1, 0 为 MD3 标准对比度"""
-    # 运行时的 Variant 是 pybind11 整数枚举 (类型桩写成 StrEnum), 只能按成员名取
-    mcu_variant = getattr(Variant, variant.name)
-    theme = theme_from_argb_color(rgba_to_argb(source), contrast, mcu_variant)
-    scheme = theme.schemes.dark if dark else theme.schemes.light
-    colors = {
-        k: _hex_to_rgba(v)
-        for k, v in scheme.dict().items()
-        if isinstance(v, str) and v.startswith("#")
-    }
+    """由源色生成配色。contrast 取 -1 ~ 1, 0 为 MD3 标准对比度。
+
+    结果按 (源色, 变体, 深浅, 对比度) 缓存, 见模块文档里的耗时说明。
+    """
+    argb = rgba_to_argb(source) | 0xFF000000
     return ColorScheme(
-        source=argb_to_rgba(rgba_to_argb(source)),
+        source=argb_to_rgba(argb),
         is_dark=dark,
         variant=variant,
-        colors=colors,
+        colors=_scheme_colors(argb, variant, dark, contrast),
+    )
+
+
+@lru_cache(maxsize=1024)
+def _scheme_colors(
+    argb: int, variant: SchemeVariant, dark: bool, contrast: float
+) -> Mapping[str, _4IntTupleT]:
+    # 运行时的 Variant 是 pybind11 整数枚举 (类型桩写成 StrEnum), 只能按成员名取
+    mcu_variant = getattr(Variant, variant.name)
+    theme = theme_from_argb_color(argb, contrast, mcu_variant)
+    scheme = theme.schemes.dark if dark else theme.schemes.light
+    # 缓存的结果在调用方之间共享, 包成只读视图
+    return MappingProxyType(
+        {
+            k: _hex_to_rgba(v)
+            for k, v in scheme.dict().items()
+            if isinstance(v, str) and v.startswith("#")
+        }
     )
