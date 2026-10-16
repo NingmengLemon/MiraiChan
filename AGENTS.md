@@ -6,7 +6,9 @@
 
 - 安装: `just install` (`uv sync --all-packages --all-groups`)
 - 测试: `uv run pytest` (仓库根)
-- 类型检查 / lint: `uv run ty check <path>`、`uv run ruff check <path>`
+- 类型检查 / lint: `uv run ty check <path>`、`uv run ruff check <path>`; 配置在根 `pyproject.toml`
+  的 `[tool.ruff]` / `[tool.ty]`。抑制 ty 诊断用 `# ty: ignore[rule]`, mypy 的 `# type: ignore[code]` ty 不认。
+  存量问题尚未清零, 改动的文件不应新增诊断。
 - 运行: `just dev` / `just run`, 需要根目录 `config.json` (参考 `config.example.json`)
 
 ## 约定
