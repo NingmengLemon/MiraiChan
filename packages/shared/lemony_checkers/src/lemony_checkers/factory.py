@@ -59,13 +59,15 @@ class LemonyCheckerFactory:
 
         from .migration import (
             DEFAULT_LEGACY_RULE_PRIORITY,
+            backup_path_of,
             migrate_config_file,
             read_legacy_rule_priority,
         )
 
         if kind == "global":
-            # 迁移会删掉 rule_priority 字段, 先在迁移前读出全局取值: 旧插件配置里的
-            # rule_priority=null 表示继承全局, 稍后迁移插件配置时要用它
+            # 旧插件配置里的 rule_priority=null 表示继承全局取值, 迁移插件配置时要用它.
+            # 迁移会删掉该字段, 所以在迁移前读; 若之前的启动已经迁移过全局文件,
+            # read_legacy_rule_priority 会改从 .bak 备份读取
             self._legacy_default_rule_priority = read_legacy_rule_priority(
                 config_file, global_settings.preference
             )
@@ -80,7 +82,7 @@ class LemonyCheckerFactory:
         ):
             logger.info(
                 f"Migrated legacy checker config {MODULE_IDENTIFIER}:{namespace}; "
-                f"backup saved as {config_file.with_suffix(config_file.suffix + '.bak')!r}."
+                f"backup saved as {str(backup_path_of(config_file))!r}."
             )
 
     def post_init(self):

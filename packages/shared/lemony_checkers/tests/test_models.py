@@ -588,6 +588,32 @@ class TestReadLegacyRulePriority:
             assert read_legacy_rule_priority(path, "json") == "group_first"
         assert "Failed to read legacy rule priority" in caplog.text
 
+    def test_already_migrated_file_falls_back_to_backup(self, tmp_path):
+        """全局文件在之前的启动里已迁移 (字段被删), 插件配置首次迁移时要从 .bak 读."""
+        path = tmp_path / "global.json"
+        path.write_text('{"mode": "whitelist"}', encoding="utf-8")
+        (tmp_path / "global.json.bak").write_text(
+            '{"rule_priority": "user_first"}', encoding="utf-8"
+        )
+        assert read_legacy_rule_priority(path, "json") == "user_first"
+
+    def test_field_in_current_file_wins_over_backup(self, tmp_path):
+        path = tmp_path / "global.json"
+        path.write_text('{"rule_priority": "group_first"}', encoding="utf-8")
+        (tmp_path / "global.json.bak").write_text(
+            '{"rule_priority": "user_first"}', encoding="utf-8"
+        )
+        assert read_legacy_rule_priority(path, "json") == "group_first"
+
+    def test_backup_without_field_uses_default(self, tmp_path):
+        path = tmp_path / "global.json"
+        path.write_text("{}", encoding="utf-8")
+        (tmp_path / "global.json.bak").write_text("{}", encoding="utf-8")
+        assert (
+            read_legacy_rule_priority(path, "json", default="user_first")
+            == "user_first"
+        )
+
     def test_unsupported_format_uses_default_and_warns(self, tmp_path, caplog):
         path = tmp_path / "global.conf"
         path.write_text("mode=whitelist", encoding="utf-8")

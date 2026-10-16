@@ -197,37 +197,54 @@ def read_raw_config(path: Path, format: str) -> Any:
 def read_legacy_rule_priority(
     path: Path, format: str, *, default: str = DEFAULT_LEGACY_RULE_PRIORITY
 ) -> str:
-    """读取旧配置文件里生效的规则优先级.
+    """读取旧全局配置里生效的规则优先级.
 
-    必须在文件被迁移前调用: 迁移完成后 rule_priority 字段已被删除, 但插件配置里的
-    rule_priority=null 仍然需要回退到全局配置的取值.
+    插件配置是按需加载、按需迁移的, 可能晚于全局配置很多次启动才第一次被迁移.
+    此时全局文件里的 rule_priority 早已被迁移删除, 于是字段缺失时改从迁移留下的
+    ``.bak`` 备份 (迁移前的原文件) 读取; 两处都没有才使用 default.
 
     Args:
-        path: 配置文件路径
+        path: 全局配置文件路径
         format: 配置格式 (json/yaml/toml)
-        default: 文件不存在或不可解析时使用的优先级
+        default: 文件与备份都给不出取值时使用的优先级
 
     Returns:
         "group_first" 或 "user_first"
     """
+    value = _read_rule_priority_field(path, format)
+    if value is _MISSING:
+        value = _read_rule_priority_field(backup_path_of(path), format)
+    return normalize_rule_priority(
+        None if value is _MISSING else value, default=default
+    )
+
+
+#: 配置文件里没有 rule_priority 字段 (区别于字段值为 null)
+_MISSING = object()
+
+
+def _read_rule_priority_field(path: Path, format: str) -> Any:
+    """读出配置文件里 rule_priority 的原始值; 文件不存在、不可解析或没有该字段时返回 _MISSING."""
     if not path.exists():
-        return normalize_rule_priority(None, default=default)
+        return _MISSING
     try:
         raw = read_raw_config(path, format)
     except (OSError, ValueError, yaml.YAMLError) as exc:
         # 读不出旧配置不应该阻断启动, 但要留下痕迹; 其他异常照常抛出
-        logger.warning(
-            f"Failed to read legacy rule priority from {str(path)!r}, "
-            f"falling back to {default!r}: {exc}"
-        )
-        return normalize_rule_priority(None, default=default)
-    if not isinstance(raw, dict):
-        return normalize_rule_priority(None, default=default)
-    return normalize_rule_priority(raw.get("rule_priority"), default=default)
+        logger.warning(f"Failed to read legacy rule priority from {str(path)!r}: {exc}")
+        return _MISSING
+    if not isinstance(raw, dict) or "rule_priority" not in raw:
+        return _MISSING
+    return raw["rule_priority"]
+
+
+def backup_path_of(path: Path) -> Path:
+    """迁移时备份文件的路径."""
+    return path.with_suffix(path.suffix + ".bak")
 
 
 def backup_config(path: Path) -> Path:
-    backup_path = path.with_suffix(path.suffix + ".bak")
+    backup_path = backup_path_of(path)
     shutil.copy2(path, backup_path)
     return backup_path
 
