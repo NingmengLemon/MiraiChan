@@ -274,8 +274,9 @@ class TestConstraintMatches:
 
     def test_malformed_bare_value_treated_as_single_item(self):
         """值列表被写成裸值时不崩溃, 按单元素列表处理."""
-        assert constraint_matches({"user_id": 1001}, {"user_id": 1001})
-        assert not constraint_matches({"user_id": 1001}, {"user_id": 1002})
+        # 故意传入不合类型的配置
+        assert constraint_matches({"user_id": 1001}, {"user_id": 1001})  # ty: ignore[invalid-argument-type]
+        assert not constraint_matches({"user_id": 1001}, {"user_id": 1002})  # ty: ignore[invalid-argument-type]
 
     def test_hand_edited_rule_matches(self, ob11_user_alice):
         """整条规则走一遍 Rule.model_validate, 手改配置里带引号的 ID 依然生效."""

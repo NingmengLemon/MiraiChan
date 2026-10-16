@@ -257,8 +257,7 @@ async def _handle_admin(adapter: Adapter, event: MessageEvent, args: list[str]):
                 await adapter.send_reply("暂无管理员")
             else:
                 lines = ["管理员列表:"]
-                for admin in admins:
-                    lines.append(f"  • {admin.model_dump()}")
+                lines.extend(f"  • {admin.model_dump()}" for admin in admins)
                 await adapter.send_reply("\n".join(lines))
 
         case "add":

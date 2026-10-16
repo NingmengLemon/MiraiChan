@@ -26,7 +26,8 @@ class FetchCustomFaceAction(Action):
 
 
 class FetchCustomFaceEcho(Echo):
-    class Model(Echo.Model):
+    # 用子类覆盖父类的嵌套 Model 是 melobot Echo 的约定写法, ty 暂不接受这种覆盖
+    class Model(Echo.Model):  # ty: ignore[invalid-attribute-override]
         data: list[str] | None
 
     data: list[str] | None
@@ -153,7 +154,7 @@ class _GetEssenceMsgListEchoInterface(_GetEssenceMsgListEchoData):
 
 
 class GetEssenceMsgListEcho(Echo):
-    class Model(Echo.Model):
+    class Model(Echo.Model):  # ty: ignore[invalid-attribute-override]
         data: list[_GetEssenceMsgListEchoData] | None
 
     data: list[_GetEssenceMsgListEchoInterface] | None

@@ -15,8 +15,9 @@ def wrap_text_by_length(s: str, line_length: int):
     """根据字符长度断行"""
     result: list[str] = []
     for line in s.splitlines():
-        for i in range(0, len(line), line_length):
-            result.append(line[i : i + line_length])
+        result.extend(
+            line[i : i + line_length] for i in range(0, len(line), line_length)
+        )
     return result
 
 

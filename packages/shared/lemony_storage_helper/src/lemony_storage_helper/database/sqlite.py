@@ -17,7 +17,9 @@ logger = logging.getLogger(__name__)
 try:
     import aiosqlite  # noqa: F401
 except ImportError:
-    warnings.warn("aiosqlite is not installed, SqliteDatabaseHelper will not work.")
+    warnings.warn(
+        "aiosqlite is not installed, SqliteDatabaseHelper will not work.", stacklevel=2
+    )
     raise
 
 
@@ -128,7 +130,7 @@ class SqliteDatabaseHelper(GenericDatabaseHelper):
         # 所有 aiosqlite 都需要 check_same_thread=False
         connect_args = kw.pop("connect_args", {})
         if not isinstance(connect_args, MutableMapping):
-            raise ValueError("connect_args must be a dict")
+            raise TypeError("connect_args must be a dict")
         connect_args.setdefault("check_same_thread", False)
         kw["connect_args"] = connect_args
 

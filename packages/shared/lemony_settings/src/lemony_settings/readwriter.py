@@ -67,7 +67,8 @@ def register_readwriter[T: ConfigReadWriterABC](
     def decorator(cls: type[T]) -> type[T]:
         if (key := format.lower().strip()) in _readwriter_registry:
             warnings.warn(
-                f"ReadWriter for format {key!r} is already registered, it will be overwritten."
+                f"ReadWriter for format {key!r} is already registered, it will be overwritten.",
+                stacklevel=2,
             )
         _readwriter_registry[key] = cls
         return cls

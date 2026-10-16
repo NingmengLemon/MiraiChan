@@ -153,7 +153,10 @@ class GenericDatabaseHelper:
             if not isinstance(self._dburl, URL):
                 self._dburl = self._resolve_dburl(self._dburl_raw)
             if not isinstance(self._dburl, URL):
-                raise RuntimeError("database url not resolved yet, or not valid sa URL")
+                # 这是状态错误而不是调用方传错类型
+                raise RuntimeError(  # noqa: TRY004
+                    "database url not resolved yet, or not valid sa URL"
+                )
             self._engine = create_async_engine(self._dburl, echo=echo, **kw)
             self._configure_engine(self._engine)
             async with self._engine.begin() as conn:
@@ -288,7 +291,8 @@ class GenericDatabaseHelper:
 
         return wrapped
 
-    async def wait_until_initialized(self, timeout: float | None = None) -> None:
+    # timeout 是已有的公开参数, 调用方 (recorder / 测试) 依赖它
+    async def wait_until_initialized(self, timeout: float | None = None) -> None:  # noqa: ASYNC109
         """等待 startup 结束。
 
         startup 失败时抛出 StorageStartupError (原异常作为 __cause__);

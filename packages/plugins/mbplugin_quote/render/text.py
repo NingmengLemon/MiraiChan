@@ -158,8 +158,9 @@ def layout_text(
 ) -> TextBlock:
     lines: list[tuple[Run, ...]] = []
     for raw in text.split("\n"):
-        for units in _wrap_line(_units(raw), font, max_width):
-            lines.append(_merge(units))
+        lines.extend(
+            _merge(units) for units in _wrap_line(_units(raw), font, max_width)
+        )
     return TextBlock(
         lines=tuple(lines),
         line_widths=tuple(_runs_width(line, font) for line in lines),

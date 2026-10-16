@@ -66,7 +66,7 @@ class ResourceResolver:
         data_root: Path,
         avatar_source: AvatarSource,
         emoji_cdn: str | None,
-        limits: FetchLimits = FetchLimits(),
+        limits: FetchLimits = FetchLimits(),  # noqa: B008 - frozen dataclass, 共享默认实例是安全的
     ) -> None:
         self._data_root = data_root
         self._avatar_source = avatar_source
@@ -134,7 +134,7 @@ class ResourceResolver:
             bundle.images[ref.key] = await asyncio.to_thread(
                 _decode, data, self._limits.max_image_side
             )
-        except (TimeoutError, Exception) as e:
+        except Exception as e:  # noqa: BLE001 - 单个资源失败只记缺失, 不中断整张图
             bundle.missing.append(f"image {ref.key[:80]}: {type(e).__name__}")
 
     async def _one_avatar(self, uid: int, bundle: ResourceBundle) -> None:
@@ -142,7 +142,7 @@ class ResourceResolver:
             async with asyncio.timeout(self._limits.timeout):
                 data = await self._avatar_source(uid)
             bundle.avatars[uid] = await asyncio.to_thread(_decode, data, 640)
-        except (TimeoutError, Exception) as e:
+        except Exception as e:  # noqa: BLE001 - 同上
             bundle.missing.append(f"avatar {uid}: {type(e).__name__}")
 
     async def _one_emoji(self, em: str, bundle: ResourceBundle) -> None:
@@ -154,7 +154,7 @@ class ResourceResolver:
         try:
             data = await self._download(self._emoji_cdn + quote(em, safe=""))
             img = await asyncio.to_thread(_decode, data, 160)
-        except (TimeoutError, Exception) as e:
+        except Exception as e:  # noqa: BLE001 - 同上
             bundle.missing.append(f"emoji {em}: {type(e).__name__}")
             return
         if len(self._emoji_cache) < 4096:

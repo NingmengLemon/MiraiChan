@@ -91,13 +91,15 @@ async def test_savepoint_after_select_is_rolled_back_with_outer_transaction(
     helper = SqliteDatabaseHelper("tx.db", metadata, relative_path_base=tmp_path)
     await helper.startup()
     try:
-        async with helper.get_session(style="sqlalchemy") as session:
-            async with session.begin() as outer:
-                await session.execute(select(table))
-                async with session.begin_nested():
-                    await session.execute(insert(table).values(id=1, name="inner"))
-                await session.execute(insert(table).values(id=2, name="outer"))
-                await outer.rollback()
+        async with (
+            helper.get_session(style="sqlalchemy") as session,
+            session.begin() as outer,
+        ):
+            await session.execute(select(table))
+            async with session.begin_nested():
+                await session.execute(insert(table).values(id=1, name="inner"))
+            await session.execute(insert(table).values(id=2, name="outer"))
+            await outer.rollback()
         assert await _count(helper, table) == 0
     finally:
         await helper.close()
@@ -129,12 +131,14 @@ async def test_concurrent_writers_do_not_fail_with_database_locked(
     await helper.startup()
 
     async def writer(i: int) -> None:
-        async with helper.get_session(style="sqlalchemy") as session:
-            async with session.begin():
-                # 先读后写, 是 DEFERRED 事务下最容易撞 SQLITE_BUSY 的形态
-                await session.execute(select(table).where(table.c.id == i))
-                await asyncio.sleep(0.01)
-                await session.execute(insert(table).values(id=i, name=f"w{i}"))
+        async with (
+            helper.get_session(style="sqlalchemy") as session,
+            session.begin(),
+        ):
+            # 先读后写, 是 DEFERRED 事务下最容易撞 SQLITE_BUSY 的形态
+            await session.execute(select(table).where(table.c.id == i))
+            await asyncio.sleep(0.01)
+            await session.execute(insert(table).values(id=i, name=f"w{i}"))
 
     try:
         await asyncio.gather(*(writer(i) for i in range(20)))

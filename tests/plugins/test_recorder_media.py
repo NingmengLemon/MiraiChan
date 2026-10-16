@@ -16,6 +16,7 @@ if str(PLUGINS_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGINS_ROOT))
 
 from aiohttp import ClientResponseError, RequestInfo
+from lemony_storage_helper.database import queryable
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
 from mbplugin_recorder.db.dto import (
     AccountInput,
@@ -98,7 +99,9 @@ async def _get(db: SqliteDatabaseHelper, file_id: str) -> MediaSource:
 
         return (
             await s.execute(
-                select(MediaSource).where(MediaSource.source_file_id == file_id)
+                select(MediaSource).where(
+                    queryable(MediaSource.source_file_id) == file_id
+                )
             )
         ).scalar_one()
 
@@ -465,6 +468,7 @@ async def test_successful_download_leaves_no_tmp_file(
     assert payload.download_status is MediaDownloadStatus.DOWNLOADED
     assert payload.size == 6
     assert list((tmp_path / "media").rglob("*.download")) == []
+    assert payload.cache_path is not None
     assert (tmp_path / payload.cache_path).is_file()
 
 

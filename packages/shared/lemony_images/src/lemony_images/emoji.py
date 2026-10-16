@@ -23,7 +23,7 @@ class SelfHostSource(HTTPBasedSource):
             return BytesIO(
                 self.request(self._cdn + quote_plus(emoji) + "?style=google")
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - 取不到 emoji 时由调用方回退为文字
             return None
 
 

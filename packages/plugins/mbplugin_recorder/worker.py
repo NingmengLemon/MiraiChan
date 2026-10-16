@@ -124,7 +124,7 @@ class MediaDownloadWorker:
                     data_root=self.data_root,
                     max_bytes=self.max_bytes,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - 任何下载失败都要落库重试, 不能打断 worker
                 permanent = is_permanent_failure(exc)
                 async with self.db.session_scope(style="sqlalchemy") as session:
                     await mark_media_source_failed(

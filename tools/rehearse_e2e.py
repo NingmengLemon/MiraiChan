@@ -353,7 +353,7 @@ def main() -> int:
                 left == 1 and not path.exists(),
                 f"left={left}",
             )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - 演练脚本把任何失败都报成退出码 2
         print(f"rehearsal failed to run: {e!r}", file=sys.stderr)
         print(f"root kept at {root}", file=sys.stderr)
         return 2

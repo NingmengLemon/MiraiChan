@@ -5,7 +5,8 @@ try:
     from sqlalchemy.orm import DeclarativeBase, registry
 except ImportError:
     warnings.warn(
-        "sqlalchemy and sqlmodel are required for lemony_storage_helper.database. "
+        "sqlalchemy and sqlmodel are required for lemony_storage_helper.database. ",
+        stacklevel=2,
     )
     raise
 

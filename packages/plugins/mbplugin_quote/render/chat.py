@@ -128,7 +128,7 @@ def layout_chat(
     *,
     image_sizes: Mapping[str, tuple[int, int]],
     fonts: FontProvider,
-    style: ChatStyle = ChatStyle(),
+    style: ChatStyle = ChatStyle(),  # noqa: B008 - frozen dataclass, 共享默认实例是安全的
     scale: float = 1.0,
     max_pixels: int | None = None,
     placeholder_size: tuple[int, int] = (256, 256),
@@ -313,7 +313,7 @@ def render_chat(
     emojis: Mapping[str, Image.Image],
     fonts: FontProvider,
     placeholder: Image.Image,
-    style: ChatStyle = ChatStyle(),
+    style: ChatStyle = ChatStyle(),  # noqa: B008 - frozen dataclass, 共享默认实例是安全的
     scale: float = 1.0,
     max_pixels: int | None = None,
 ) -> Image.Image:

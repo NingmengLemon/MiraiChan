@@ -52,19 +52,14 @@ class UniversalCookieJar:
 def cookiedicts_from_morsels(
     morsels: Iterable[Morsel],
 ) -> list[DictedCookieItem]:
-    result: list[DictedCookieItem] = []
-    for m in morsels:
-        result.append({"key": m.key, "value": m.value, "metadata": dict(m)})
-    return result
+    return [{"key": m.key, "value": m.value, "metadata": dict(m)} for m in morsels]
 
 
 def cookiedicts_from_session(cj: CookieJar) -> list[DictedCookieItem]:
-    result: list[DictedCookieItem] = []
-    for cookie in cj:
-        result.append(
-            {"key": cookie.key, "value": cookie.value, "metadata": dict(cookie)}
-        )
-    return result
+    return [
+        {"key": cookie.key, "value": cookie.value, "metadata": dict(cookie)}
+        for cookie in cj
+    ]
 
 
 def morsels_from_cookiedicts(cookies: Iterable[DictedCookieItem]) -> list[Morsel[str]]:

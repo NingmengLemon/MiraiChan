@@ -81,7 +81,7 @@ def render_card(
     mask: Image.Image,
     emojis: Mapping[str, Image.Image],
     fonts: FontProvider,
-    style: CardStyle = CardStyle(),
+    style: CardStyle = CardStyle(),  # noqa: B008 - frozen dataclass, 共享默认实例是安全的
 ) -> Image.Image:
     h = style.size[1]
     canvas = Image.new("RGBA", style.size, style.background)

@@ -62,7 +62,10 @@ def _validate_unique_user_config(value: Any) -> "UniqueUserBase":
 
     protocol = data.get("protocol")
     if not isinstance(protocol, str):
-        raise ValueError("Unique user config item must contain string field 'protocol'")
+        # BeforeValidator 里只有 ValueError 会被 pydantic 包成 ValidationError, 不能改成 TypeError
+        raise ValueError(  # noqa: TRY004
+            "Unique user config item must contain string field 'protocol'"
+        )
 
     model = _UNIQUE_USER_PROTOCOL_REGISTRY.get(protocol)
     if model is None:
@@ -164,16 +167,19 @@ class UniqueUserBase[PCT: str](BaseModel):
     @classmethod
     @lru_cache(1)
     def get_dataclass(cls) -> type[UniqueUserDataclassBase[PCT]]:
-        return make_dataclass(
-            cls_name=cls.__name__,
-            fields=[
-                (name, field.annotation, cls._dataclass_default(field))
-                for name, field in cls.model_fields.items()
-            ],
-            bases=(UniqueUserDataclassBase,),
-            slots=True,
-            weakref_slot=True,
-            frozen=True,
+        return cast(
+            "type[UniqueUserDataclassBase[PCT]]",
+            make_dataclass(
+                cls_name=cls.__name__,
+                fields=[
+                    (name, field.annotation, cls._dataclass_default(field))
+                    for name, field in cls.model_fields.items()
+                ],
+                bases=(UniqueUserDataclassBase,),
+                slots=True,
+                weakref_slot=True,
+                frozen=True,
+            ),
         )
 
 

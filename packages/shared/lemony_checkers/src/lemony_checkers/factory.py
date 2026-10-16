@@ -96,7 +96,8 @@ class LemonyCheckerFactory:
             logger.info("Loaded checker global settings")
         else:
             warnings.warn(
-                "LemonyCheckerFactory post_init called but global settings already initialized."
+                "LemonyCheckerFactory post_init called but global settings already initialized.",
+                stacklevel=2,
             )
 
     def new_factory_wrapper(
@@ -379,7 +380,8 @@ def init_checker_factory() -> LemonyCheckerFactory:
     existing = _lemony_checker_factory.get()
     if existing is not None:
         warnings.warn(
-            "LemonyCheckerFactory has already been initialized. Returning the existing instance."
+            "LemonyCheckerFactory has already been initialized. Returning the existing instance.",
+            stacklevel=2,
         )
         return existing
     instance = LemonyCheckerFactory()
