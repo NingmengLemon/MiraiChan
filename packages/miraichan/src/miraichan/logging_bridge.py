@@ -28,8 +28,8 @@ class MelobotForwardHandler(logging.Handler):
         try:
             # melobot 的 formatter 依赖它自己 makeRecord 填的字段
             if not hasattr(record, "mod_name"):
-                record.mod_name = record.name  # type: ignore[attr-defined]
-                record.func_lineno = record.lineno  # type: ignore[attr-defined]
+                record.mod_name = record.name
+                record.func_lineno = record.lineno
             # melobot 的 filter 负责填充格式化所需的 msg_str / log_info
             for flt in self._target.filters:
                 if isinstance(flt, logging.Filter):

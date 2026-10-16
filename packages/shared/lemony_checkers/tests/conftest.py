@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 # 触发 Ob11UniqueUser 的 __pydantic_on_complete__ 以注册到全局 registry
-from lemony_checkers.adapters.ob11 import (  # noqa: F401
+from lemony_checkers.adapters.ob11 import (
     OB11_PROTOCOL_ID,
     Ob11UniqueUser,
     Ob11UniqueUserDataclass,

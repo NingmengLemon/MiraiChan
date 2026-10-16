@@ -52,13 +52,13 @@ class TestOb11UniqueUserPydantic:
     def test_missing_user_id_raises(self):
         """缺少 user_id 时抛出 ValidationError."""
         with pytest.raises(ValidationError):
-            Ob11UniqueUser(group_id=None, protocol=OB11_PROTOCOL_ID)  # type: ignore[arg-type]
+            Ob11UniqueUser(group_id=None, protocol=OB11_PROTOCOL_ID)  # ty: ignore[missing-argument]
 
     def test_frozen_immutable(self):
         """frozen 模型不可修改."""
         u = Ob11UniqueUser(user_id=1001, group_id=None, protocol=OB11_PROTOCOL_ID)
         with pytest.raises(ValidationError):
-            u.user_id = 9999  # type: ignore[misc]
+            u.user_id = 9999  # ty: ignore[invalid-assignment]
 
     def test_model_dump(self):
         """model_dump 输出正确的字典."""
@@ -99,9 +99,9 @@ class TestOb11UniqueUserDataclass:
         u = Ob11UniqueUserDataclass.from_kwargs(
             user_id=1001, group_id=5000, protocol=OB11_PROTOCOL_ID
         )
-        assert u.user_id == 1001  # type: ignore
-        assert u.group_id == 5000  # type: ignore
-        assert u.protocol == OB11_PROTOCOL_ID  # type: ignore
+        assert u.user_id == 1001  # ty: ignore[unresolved-attribute]
+        assert u.group_id == 5000  # ty: ignore[unresolved-attribute]
+        assert u.protocol == OB11_PROTOCOL_ID  # ty: ignore[unresolved-attribute]
 
     def test_frozen(self):
         """dataclass 是 frozen 的, 不可修改."""
@@ -110,7 +110,7 @@ class TestOb11UniqueUserDataclass:
         )
         # dataclasses.FrozenInstanceError 是 AttributeError 的子类
         with pytest.raises(AttributeError):
-            u.user_id = 9999  # type: ignore[misc]
+            u.user_id = 9999  # ty: ignore[invalid-assignment]
 
     def test_to_dict(self):
         """to_dict 返回正确的字典."""
@@ -162,7 +162,7 @@ class TestOptionalGroupId:
     def test_dataclass_default_is_none(self):
         """省略 group_id 得到 None, 而不是 FieldInfo 之类的脏值."""
         u = Ob11UniqueUserDataclass.from_kwargs(user_id=1001, protocol=OB11_PROTOCOL_ID)
-        assert u.group_id is None  # type: ignore
+        assert u.group_id is None  # ty: ignore[unresolved-attribute]
         assert u.to_dict() == {
             "protocol": OB11_PROTOCOL_ID,
             "user_id": 1001,
@@ -193,8 +193,8 @@ class TestOptionalGroupId:
 
         loaded = writer.read(path, CheckerGlobalSettings)
         assert len(loaded.owner) == 1
-        assert loaded.owner[0].user_id == 1001  # type: ignore
-        assert loaded.owner[0].group_id is None  # type: ignore
+        assert loaded.owner[0].user_id == 1001  # ty: ignore[unresolved-attribute]
+        assert loaded.owner[0].group_id is None  # ty: ignore[unresolved-attribute]
 
 
 # ============================================================
@@ -225,7 +225,7 @@ class TestRule:
         r = Rule(
             action="allow",
             protocol=OB11_PROTOCOL_ID,
-            constrains={"user_id": [1001]},  # type: ignore[arg-type]
+            constrains={"user_id": [1001]},
         )
         assert r.constrains == [{"user_id": [1001]}]
 
@@ -237,12 +237,12 @@ class TestRule:
     def test_missing_protocol_raises(self):
         """缺少 protocol 时抛出 ValidationError."""
         with pytest.raises(ValidationError):
-            Rule(action="allow")  # type: ignore[call-arg]
+            Rule(action="allow")  # ty: ignore[missing-argument]
 
     def test_invalid_action_raises(self):
         """无效 action 抛出 ValidationError."""
         with pytest.raises(ValidationError):
-            Rule(action="invalid", protocol=OB11_PROTOCOL_ID)  # type: ignore[arg-type]
+            Rule(action="invalid", protocol=OB11_PROTOCOL_ID)  # ty: ignore[invalid-argument-type]
 
 
 # ============================================================
@@ -367,8 +367,8 @@ class TestCheckerGlobalSettingsMigration:
         assert changed is True
         settings = CheckerGlobalSettings.model_validate(migrated)
         assert len(settings.admins) == 2
-        assert settings.admins[0].user_id == 1001  # type: ignore
-        assert settings.admins[1].user_id == 1002  # type: ignore
+        assert settings.admins[0].user_id == 1001  # ty: ignore[unresolved-attribute]
+        assert settings.admins[1].user_id == 1002  # ty: ignore[unresolved-attribute]
 
     def test_legacy_rules_migrated(self):
         """旧格式 rules={user_rules:..., group_rules:...} 经迁移函数转换."""
@@ -405,7 +405,7 @@ class TestCheckerGlobalSettingsMigration:
             }
         )
         assert settings.mode == "whitelist"
-        assert settings.owner[0].user_id == 1  # type: ignore
+        assert settings.owner[0].user_id == 1  # ty: ignore[unresolved-attribute]
         assert settings.rules[0].constrains == [{"user_id": [1001], "group_id": [5000]}]
 
     def test_default_owner_is_empty_list(self):

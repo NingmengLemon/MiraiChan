@@ -17,7 +17,7 @@ class GroupPokeAction(Action):
         group_id: int
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("group_poke", kwargs)  # type: ignore
+        super().__init__("group_poke", kwargs)  # ty: ignore[invalid-argument-type]
 
 
 class FetchCustomFaceAction(Action):
@@ -27,7 +27,7 @@ class FetchCustomFaceAction(Action):
 
 class FetchCustomFaceEcho(Echo):
     class Model(Echo.Model):
-        data: list[str] | None  # type: ignore
+        data: list[str] | None
 
     data: list[str] | None
 
@@ -39,7 +39,7 @@ class GetFriendMsgHistoryAction(Action):
         count: int
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("get_friend_msg_history", kwargs)  # type: ignore
+        super().__init__("get_friend_msg_history", kwargs)  # ty: ignore[invalid-argument-type]
 
 
 class GetGroupMsgHistoryAction(Action):
@@ -49,7 +49,7 @@ class GetGroupMsgHistoryAction(Action):
         count: int
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("get_group_msg_history", kwargs)  # type: ignore
+        super().__init__("get_group_msg_history", kwargs)  # ty: ignore[invalid-argument-type]
 
 
 class UploadGroupFileAction(Action):
@@ -60,7 +60,7 @@ class UploadGroupFileAction(Action):
         folder: NotRequired[str]
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("upload_group_file", kwargs)  # type: ignore
+        super().__init__("upload_group_file", kwargs)  # ty: ignore[invalid-argument-type]
 
 
 class UploadPrivateFileAction(Action):
@@ -70,7 +70,7 @@ class UploadPrivateFileAction(Action):
         name: str
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("upload_private_file", kwargs)  # type: ignore
+        super().__init__("upload_private_file", kwargs)  # ty: ignore[invalid-argument-type]
 
 
 class CreateGroupFileFolderAction(Action):
@@ -80,7 +80,7 @@ class CreateGroupFileFolderAction(Action):
         parent_id: str
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("create_group_file_folder", kwargs)  # type: ignore
+        super().__init__("create_group_file_folder", kwargs)  # ty: ignore[invalid-argument-type]
 
 
 class GetGroupRootFilesAction(Action):
@@ -94,7 +94,7 @@ class GetGroupFilesByFolderAction(Action):
         folder_id: str
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("get_group_files_by_folder", kwargs)  # type: ignore
+        super().__init__("get_group_files_by_folder", kwargs)  # ty: ignore[invalid-argument-type]
 
 
 class GetGroupFileUrlAction(Action):
@@ -104,7 +104,7 @@ class GetGroupFileUrlAction(Action):
         busid: int
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("get_group_file_url", kwargs)  # type: ignore
+        super().__init__("get_group_file_url", kwargs)  # ty: ignore[invalid-argument-type]
 
 
 class SetGroupSpecialTitleAction(Action):
@@ -114,7 +114,7 @@ class SetGroupSpecialTitleAction(Action):
         special_title: str
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("set_group_special_title", kwargs)  # type: ignore
+        super().__init__("set_group_special_title", kwargs)  # ty: ignore[invalid-argument-type]
 
 
 class SetGroupReactionAction(Action):
@@ -125,7 +125,7 @@ class SetGroupReactionAction(Action):
         is_add: bool
 
     def __init__(self, **kwargs: Unpack[Params]):
-        super().__init__("set_group_reaction", kwargs)  # type: ignore
+        super().__init__("set_group_reaction", kwargs)  # ty: ignore[invalid-argument-type]
 
 
 class SetEssenceMsgAction(Action):
@@ -154,7 +154,7 @@ class _GetEssenceMsgListEchoInterface(_GetEssenceMsgListEchoData):
 
 class GetEssenceMsgListEcho(Echo):
     class Model(Echo.Model):
-        data: list[_GetEssenceMsgListEchoData] | None  # type: ignore
+        data: list[_GetEssenceMsgListEchoData] | None
 
     data: list[_GetEssenceMsgListEchoInterface] | None
 
@@ -178,7 +178,7 @@ class _MFaceData(TypedDict):
 
 
 class MfaceSegment(Segment[Literal["mface"], _MFaceData]):
-    class Model(BaseModel):  # type: ignore
+    class Model(BaseModel):  # ty: ignore[invalid-attribute-override]
         type: Literal["mface"]
         data: _MFaceData
 

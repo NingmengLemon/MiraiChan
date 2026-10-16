@@ -78,14 +78,14 @@ class TestLoadPlugins:
         bot = _FakeBot(fail_for={"bad"})
         plugins = [("good", "good"), ("bad", "bad"), ("also_good", "also_good")]
 
-        main_mod._load_plugins(bot, plugins, load_depth=1)  # type: ignore[arg-type]
+        main_mod._load_plugins(bot, plugins, load_depth=1)  # ty: ignore[invalid-argument-type]
 
         assert bot.loaded == ["good", "also_good"]
 
     def test_loads_everything_when_nothing_fails(self):
         bot = _FakeBot(fail_for=set())
         main_mod._load_plugins(
-            bot,  # type: ignore[arg-type]
+            bot,  # ty: ignore[invalid-argument-type]
             [("a", "a"), ("b", "b")],
             load_depth=2,
         )
@@ -96,7 +96,7 @@ class TestLoadPlugins:
 
     def test_all_failures_are_tolerated(self):
         bot = _FakeBot(fail_for={"a", "b"})
-        main_mod._load_plugins(bot, [("a", "a"), ("b", "b")], load_depth=1)  # type: ignore[arg-type]
+        main_mod._load_plugins(bot, [("a", "a"), ("b", "b")], load_depth=1)  # ty: ignore[invalid-argument-type]
         assert bot.loaded == []
 
 

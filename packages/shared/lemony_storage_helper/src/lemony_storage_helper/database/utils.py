@@ -57,7 +57,7 @@ if TYPE_CHECKING:
     # https://github.com/microsoft/pylance-release/issues/3484
     # https://github.com/fastapi/sqlmodel/issues/98
     class SQLModel(_SQLModel):
-        __tablename__: ClassVar[str | Callable[..., str]]  # type: ignore
+        __tablename__: ClassVar[str | Callable[..., str]]
 
 else:
     SQLModel = _SQLModel
@@ -307,7 +307,7 @@ class GenericAsyncAttrs(_AsyncAttrs, Generic[T]):
     """
 
     if TYPE_CHECKING:
-        awaitable_attrs: T  # type: ignore
+        awaitable_attrs: T  # ty: ignore[invalid-property-type-override]
 
 
 def queryable(o: T) -> QueryableAttribute[T]:
