@@ -34,6 +34,7 @@ Checker Manager 插件
 from lemony_checkers import EditContext, Rule, get_checker_factory, require_admin
 from lemony_checkers.adapters.ob11 import Ob11UniqueUser
 from lemony_checkers.factory import LemonyCheckerFactory
+from lemony_utils.help import Command, register_help
 from melobot import PluginPlanner, get_logger
 from melobot.handle import on_command
 from melobot.protocols.onebot.v11 import (
@@ -52,6 +53,41 @@ from .parsing import (
 
 CheckerManager = PluginPlanner("1.0.2")
 logger = get_logger()
+
+register_help(
+    "checker_manager",
+    title="权限管理",
+    summary="管理 lemony_checkers 的权限规则, 仅 bot 管理员可用",
+    aliases=["checker", "ck"],
+    commands=[
+        Command(".checker status", "查看全局模式、管理员数量等", admin_only=True),
+        Command(
+            ".checker global <mode|rules|add|remove|clear> ...",
+            """
+            mode <whitelist|blacklist>: 设置全局权限模式
+            rules: 查看全局规则
+            add <allow|deny> [uid|uid:gid|this,...]: 添加规则, 省略 ID 表示所有人
+            remove <序号> / clear: 移除一条 / 清空规则
+            """,
+            admin_only=True,
+        ),
+        Command(
+            ".checker admin <list|add|remove> [QQ号]",
+            "查看、添加、移除 bot 管理员",
+            admin_only=True,
+        ),
+        Command(
+            ".checker plugin <插件名> <enable|disable|mode|rules|add|remove|clear> ...",
+            "与 global 相同, 作用于单个插件; mode 额外接受 inherit (继承全局)",
+            admin_only=True,
+        ),
+        Command(
+            ".checker <reload|save> [global|<插件名>]",
+            "从文件重载 / 保存到文件",
+            admin_only=True,
+        ),
+    ],
+)
 
 
 def _get_factory() -> LemonyCheckerFactory:

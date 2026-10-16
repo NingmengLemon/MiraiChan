@@ -21,6 +21,7 @@ from lemony_storage_helper.database.sqlite import (
     SqliteDatabaseHelper,
     get_relative_path_base,
 )
+from lemony_utils.help import Command, register_help
 from melobot import PluginPlanner, get_bot
 from melobot.exceptions import PluginIpcError
 from melobot.handle import on_command
@@ -60,6 +61,26 @@ logger = logging.getLogger(__name__)
 bot = get_bot()
 plugin = PluginPlanner("2.0.0")
 cfgloader = require(model=QuoteSettings, identifier=PLUGIN_IDENTIFIER, auto_load=False)
+
+register_help(
+    PLUGIN_IDENTIFIER,
+    title="引用图",
+    summary="把群消息画成图片, 仅群聊; 先回复一条消息再发送指令",
+    aliases=["q", "mq"],
+    commands=[
+        Command(".q / .quote", "名言卡片, 只画文字"),
+        Command(
+            ".mq / .momoquote [x..y] [-s] [Nx]",
+            """
+            聊天记录样式, 参数顺序任意:
+            x..y  以被回复的消息为 0 的相对区间, 如 -3..2; 只写 n 等价于 n..0 或 0..n
+            -s    只取被回复者本人的消息
+            Nx    输出倍率, 如 2x
+            """,
+        ),
+        Command(".qdel", "回复 bot 发出的引用图, 删除它的存档", admin_only=True),
+    ],
+)
 quote_db = SqliteDatabaseHelper(DATABASE_PATH, metadata=quote_metadata)
 
 

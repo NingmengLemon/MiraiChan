@@ -8,6 +8,7 @@ from typing import TypedDict
 
 from lemony_checkers import get_checker_factory_wrapper
 from lemony_settings import BaseSettings, require
+from lemony_utils.help import Command, register_help
 from melobot import PluginInfo, PluginPlanner, on_command
 from melobot.bot import Bot, BotLifeSpan, get_bot
 from melobot.protocols.onebot.v11.adapter import Adapter
@@ -46,6 +47,22 @@ cfgloader = require(
     identifier=PLUGIN_IDENTIFIER,
 )
 cfgloader.load()
+
+_who = "owner 与 bot 管理员" if cfgloader.value.allow_admins else "owner"
+register_help(
+    PLUGIN_IDENTIFIER,
+    title="重启",
+    summary=f"重启 / 关闭 bot, 仅 {_who} 可用",
+    aliases=["rebootable"],
+    commands=[
+        Command(
+            f".{cfgloader.value.reboot_command}",
+            "重启 bot, 完成后在原会话报告耗时",
+            admin_only=True,
+        ),
+        Command(f".{cfgloader.value.poweroff_command}", "关闭 bot", admin_only=True),
+    ],
+)
 checker_factory = get_checker_factory_wrapper(
     plugin_name=PLUGIN_IDENTIFIER,
 )

@@ -5,6 +5,7 @@ description = "Quote messages as images: card (.q) and chat log (.mq) styles."
 readme = "readme.md"
 requires-python = ">=3.12"
 dependencies = [
+    "lemony_utils",
     "aiohttp",
     "emoji",
     "lemony_checkers",
@@ -28,6 +29,7 @@ mbplugin_quote = "."
 mbplugin_quote = ["resources/*.png"]
 
 [tool.uv.sources]
+lemony_utils = { workspace = true }
 lemony_checkers = { workspace = true }
 lemony_images = { workspace = true }
 lemony_mface = { workspace = true }

@@ -2,6 +2,7 @@ import time
 
 from lemony_checkers import get_checker_factory, require_permission
 from lemony_settings import BaseSettings, require
+from lemony_utils.help import Command, register_help
 from melobot import get_logger
 from melobot.handle import on_command
 from melobot.log import GenericLogger
@@ -14,6 +15,13 @@ from .lottery import LotteryBox
 MoeLottery = PluginPlanner("1.0.0")
 
 PLUGIN_IDENTIFIER = "moelottery"
+
+register_help(
+    PLUGIN_IDENTIFIER,
+    title="今日人设",
+    summary="每天抽一份萌属性人设, 仅群聊",
+    commands=[Command(".今日人设", "抽取今天的人设, 每人每天一次")],
+)
 
 
 class MoeLotConfig(BaseSettings):

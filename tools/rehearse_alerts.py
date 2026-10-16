@@ -22,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-PLUGINS = ["mbplugin_checker_manager", "mbplugin_emergency_alerts"]
+PLUGINS = ["mbplugin_checker_manager", "mbplugin_emergency_alerts", "mbplugin_helper"]
 TOKEN = "rehearsal-token"
 SELF, OWNER, MEMBER, GADMIN, GROUP = 10000, 39999, 30001, 30002, 20000
 CST = timezone(timedelta(hours=8))
@@ -67,7 +67,10 @@ COMMANDS = [
     private_msg(4003, OWNER, ".预警 订阅"),
     private_msg(4004, OWNER, ".预警 设置 种类 速报"),
     group_msg(4005, GADMIN, "admin", ".预警 状态"),
+    group_msg(4006, MEMBER, "member", ".help"),
+    private_msg(4007, OWNER, ".help 预警"),
 ]
+FORWARD_ACTIONS = ("send_group_forward_msg", "send_private_forward_msg")
 
 
 def build_root(root: Path, wolfx_port: int) -> None:
@@ -160,6 +163,23 @@ def read_actions(record: Path) -> list[dict]:
 def is_reply(action: dict) -> bool:
     msg = (action.get("params") or {}).get("message")
     return isinstance(msg, list) and any(s.get("type") == "reply" for s in msg)
+
+
+def is_response(action: dict) -> bool:
+    """对指令的响应: 回复消息, 或 .help 发出的合并转发"""
+    return is_reply(action) or action.get("action") in FORWARD_ACTIONS
+
+
+def node_texts(action: dict) -> list[str]:
+    nodes = (action.get("params") or {}).get("messages") or []
+    return [
+        "".join(
+            s["data"].get("text", "")
+            for s in n["data"].get("content", [])
+            if s.get("type") == "text"
+        )
+        for n in nodes
+    ]
 
 
 def plain(action: dict) -> str:
@@ -260,7 +280,7 @@ def run(root: Path, port: int, wolfx_port: int) -> tuple[list[dict], dict[str, i
             )
             # 每条指令恰好一条回复; 全部回复后订阅已落定, 再触发推送
             deadline = time.monotonic() + 90
-            while sum(map(is_reply, read_actions(record))) < len(COMMANDS):
+            while sum(map(is_response, read_actions(record))) < len(COMMANDS):
                 if time.monotonic() > deadline or server.poll() is not None:
                     raise RuntimeError("bot did not answer every command in time")
                 time.sleep(0.3)
@@ -309,8 +329,28 @@ def main() -> int:
         group_pushes = [a for a in pushes if a["params"].get("group_id") == GROUP]
         private_pushes = [a for a in pushes if a["params"].get("user_id") == OWNER]
 
+        forwards = [a for a in actions if a.get("action") in FORWARD_ACTIONS]
+        group_fwd = [a for a in forwards if a["params"].get("group_id") == GROUP]
+        private_fwd = [a for a in forwards if a["params"].get("user_id") == OWNER]
+
         for plugin in PLUGINS:
             check(f"loaded {plugin}", f"成功加载插件：{plugin}" in bot_log)
+        overview = node_texts(group_fwd[0]) if group_fwd else []
+        check(
+            ".help sent a merged forward with an index and one node per plugin",
+            len(group_fwd) == 1
+            and len(overview) == 1 + len(PLUGINS)
+            and all(t in overview[0] for t in ("权限管理", "地震预警", "帮助")),
+            str([t[:30] for t in overview]),
+        )
+        detail = node_texts(private_fwd[0]) if private_fwd else []
+        check(
+            ".help 预警 splits one plugin per command",
+            len(private_fwd) == 1
+            and detail[0].startswith("【地震预警】")
+            and any(t.startswith(".预警 设置") for t in detail),
+            str([t[:30] for t in detail]),
+        )
         check("no ERROR in bot log", " | ERROR " not in bot_log)
         check(
             "plugin connected to all endpoints",
