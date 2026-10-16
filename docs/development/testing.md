@@ -27,7 +27,8 @@ uv run pytest
 ## 数据
 
 测试不得读写 `data/` 下的真实数据。用 `tmp_path` 并通过
-`lemony_storage_helper.database.sqlite.set_relative_path_base(tmp_path)` 重定向存储根目录。
+`lemony_storage_helper.files.set_data_root(tmp_path)` 重定向数据根目录 (数据库的相对路径也跟着它),
+测试结束时 `set_data_root(None)` 复原。
 
 ## 端到端冒烟
 

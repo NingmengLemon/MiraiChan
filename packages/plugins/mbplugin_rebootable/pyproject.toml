@@ -8,6 +8,7 @@ dependencies = [
     "lemony_utils",
     "lemony_checkers",
     "lemony_settings",
+    "lemony_storage_helper",
     "melobot[onebot]>=3.5.0",
 ]
 
@@ -16,3 +17,4 @@ dependencies = [
 lemony_utils = { workspace = true }
 lemony_checkers = { workspace = true }
 lemony_settings = { workspace = true }
+lemony_storage_helper = { workspace = true }

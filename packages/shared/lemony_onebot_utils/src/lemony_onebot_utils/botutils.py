@@ -1,14 +1,18 @@
 import asyncio
+import contextlib
 import functools
 import os
+import tempfile
 import time
 import traceback
 from collections.abc import Awaitable
+from pathlib import Path
 
 import aiofiles
 from aiohttp import ClientSession, ClientTimeout
 from lemony_images import bytes_to_b64_url, text_to_image
 from lemony_network.request import HTTP_HEADERS, async_http
+from lemony_storage_helper.files import data_path
 from lemony_utils.misc import to_ordinal
 from melobot import get_bot
 from melobot.adapter.base import Adapter as BaseAdapter
@@ -52,22 +56,45 @@ async def get_reply(adapter: Adapter, event: MessageEvent) -> GetMsgEcho | None:
 AVATAR_REQUEST_TIMEOUT = 10.0
 
 
+def _write_atomic(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as fp:
+            fp.write(data)
+        os.replace(tmp, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
+
+
 @singleton
 class AvatarCache:
-    CACHE_DIR = "data/avatars"  # TODO: 从统一的资源管理器里拿, 别直接读相对路径, cwd 不一定是项目根
+    """头像的本地文件缓存, 位于 data root 下的 ``avatars/``。
+
+    新鲜度看文件 mtime, 所以重启后已有的缓存仍然有效; 写入走临时文件 + replace,
+    并发读不会读到写了一半的文件。
+    """
+
+    #: 缓存目录; None 表示 data root 下的 CACHE_SUBDIR (测试可以直接指定目录)
+    CACHE_DIR: str | None = None
+    CACHE_SUBDIR = "avatars"
     EXPIRES = 24 * 60 * 60
     FILENAME_TEMPLATE = "{uid}.png"
     HEADERS = HTTP_HEADERS.copy()
 
     def __init__(self, *, auto_close: bool = True):
-        # auto_close 依赖 bot 的 stopped 事件关闭 session
-        # TODO: 那我问你这个单例怎么传参数
-        os.makedirs(self.CACHE_DIR, exist_ok=True)
-        # TODO: use mtime instead of a separate dict to track update times
-        self._update_times: dict[int, float] = {}
+        # auto_close 依赖 bot 的 stopped 事件关闭 session。
+        # 模块导入时就会实例化, 那时 data root 可能还没设定, 所以目录在第一次用到时才解析
         self._session: ClientSession | None = None
         self._auto_close = auto_close
         self._bot: Bot | None = None
+
+    def cache_dir(self) -> Path:
+        if self.CACHE_DIR is not None:
+            return Path(self.CACHE_DIR)
+        return data_path(self.CACHE_SUBDIR)
 
     def __getitem__(self, val: int) -> Awaitable[bytes]:
         return self.get(val)
@@ -111,21 +138,20 @@ class AvatarCache:
         if not self._bot and self._auto_close:
             self._bot = get_bot()
             self._bot.on_stopped(self.close)
-        filename = self.FILENAME_TEMPLATE.format(uid=uid)
-        path = os.path.join(self.CACHE_DIR, filename)
-
-        if (
-            await asyncio.to_thread(os.path.exists, path)
-            and time.time() - self._update_times.get(uid, 0) <= self.EXPIRES
-        ):
+        path = self.cache_dir() / self.FILENAME_TEMPLATE.format(uid=uid)
+        if await asyncio.to_thread(self._is_fresh, path):
             async with aiofiles.open(path, "rb") as fp:
                 return await fp.read()
-        else:
-            data = await self.get_from_remote(uid)
-            async with aiofiles.open(path, "wb+") as fp:
-                await fp.write(data)
-            self._update_times[uid] = time.time()
-            return data
+        data = await self.get_from_remote(uid)
+        await asyncio.to_thread(_write_atomic, path, data)
+        return data
+
+    def _is_fresh(self, path: Path) -> bool:
+        try:
+            mtime = path.stat().st_mtime
+        except FileNotFoundError:
+            return False
+        return time.time() - mtime <= self.EXPIRES
 
     async def close(self):
         if self._session:

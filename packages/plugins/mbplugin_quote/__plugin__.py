@@ -15,12 +15,11 @@ from lemony_checkers.core import check_command_permission
 from lemony_images import bytes_to_b64_url
 from lemony_mface import MFaceBlocklist
 from lemony_onebot_utils.botutils import cached_avatar_source
+from lemony_onebot_utils.qq import qq_info_cache
 from lemony_settings import require
 from lemony_storage_helper.database import StorageStartupError
-from lemony_storage_helper.database.sqlite import (
-    SqliteDatabaseHelper,
-    get_relative_path_base,
-)
+from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
+from lemony_storage_helper.files import get_data_root
 from lemony_utils.help import Command, register_help
 from melobot import PluginPlanner, get_bot
 from melobot.exceptions import PluginIpcError
@@ -33,7 +32,6 @@ from PIL import Image, ImageFont
 from .archive import ArchiveRecord, QuoteArchive, quote_metadata
 from .cooldown import Cooldown
 from .model import SourceMessage
-from .normalize import display_name_of
 from .pipeline import (
     Assets,
     MemberNames,
@@ -107,10 +105,7 @@ _init_done = asyncio.Event()
 
 
 def _data_root() -> Path:
-    base = get_relative_path_base()
-    if base is None:
-        raise RuntimeError("storage relative path base is not set")
-    return base
+    return get_data_root()
 
 
 def _load_assets(font_path: Path) -> Assets:
@@ -216,38 +211,25 @@ async def _get_msg(adapter: Adapter, message_id: str) -> SourceMessage | None:
 
 
 _MAX_MEMBER_LOOKUPS = 20
-_MEMBER_LOOKUP_TIMEOUT = 5.0
 
 
 def _member_names(adapter: Adapter, group_id: int) -> MemberNames:
-    """用 get_group_member_info 补全 At 段的名字。
+    """用共享的 QQInfoCache 补全 At 段的名字。
 
     实现端发来的 At 段通常只有 qq 字段, 被 @ 的人又不一定在引用的消息里说过话。
-    单次最多查 _MAX_MEMBER_LOOKUPS 个, 查不到的保持显示 QQ 号。
+    单次最多查 _MAX_MEMBER_LOOKUPS 个; 每次查询的超时、失败缓存由 QQInfoCache 负责,
+    查不到的保持显示 QQ 号。
     """
 
-    async def one(uid: int) -> str | None:
-        try:
-            echo = (await (await adapter.get_group_member_info(group_id, uid)))[0]
-        except Exception:
-            logger.debug("get_group_member_info %s 失败", uid, exc_info=True)
-            return None
-        if echo is None or not echo.is_ok() or echo.data is None:
-            return None
-        data = echo.data
-        name = display_name_of(data.get("card"), data.get("nickname"), uid)
-        return None if name == str(uid) else name
-
     async def lookup(uids: set[int]) -> dict[int, str]:
-        targets = sorted(uids)[:_MAX_MEMBER_LOOKUPS]
-        # melobot 不给 action 的回执等待设超时, 实现端不回时整体限时, 不拖住出图
-        try:
-            async with asyncio.timeout(_MEMBER_LOOKUP_TIMEOUT):
-                names = await asyncio.gather(*(one(uid) for uid in targets))
-        except TimeoutError:
-            logger.warning("查询群成员名字超时: group=%s n=%d", group_id, len(targets))
-            return {}
-        return {uid: n for uid, n in zip(targets, names, strict=True) if n}
+        found = await qq_info_cache.members(
+            adapter, group_id, uids, limit=_MAX_MEMBER_LOOKUPS
+        )
+        return {
+            uid: m.display_name
+            for uid, m in found.items()
+            if m.display_name != str(uid)
+        }
 
     return lookup
 
