@@ -28,15 +28,14 @@ from material_color_utilities._core import prominent_colors_from_array_argb
 from material_color_utilities.image_utils import image_to_argb
 from PIL import Image
 
-from .color import contrast_ratio
-from .typedef import _4IntTupleT, _ColorTupleT
+from ..typedef import _4IntTupleT, _ColorTupleT
+from .contrast import contrast_ratio, readable_on
+from .convert import argb_to_rgba, rgba_to_argb
 
 __all__ = [
     "ColorScheme",
     "SchemeVariant",
-    "argb_to_rgba",
     "readable_tone",
-    "rgba_to_argb",
     "scheme_from_color",
     "source_color",
     "source_colors",
@@ -67,15 +66,6 @@ class SchemeVariant(StrEnum):
     CONTENT = "content"
     RAINBOW = "rainbow"
     FRUITSALAD = "fruitsalad"
-
-
-def argb_to_rgba(argb: int) -> _4IntTupleT:
-    return ((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF, (argb >> 24) & 0xFF)
-
-
-def rgba_to_argb(color: _ColorTupleT) -> int:
-    a = color[3] if len(color) == 4 else 255
-    return (a << 24) | (color[0] << 16) | (color[1] << 8) | color[2]
 
 
 def _hex_to_rgba(hex_color: str) -> _4IntTupleT:
@@ -141,11 +131,7 @@ def readable_tone(
         candidate = tone_of(color, t)
         if contrast_ratio(candidate, background) >= min_contrast:
             return candidate
-    white: _4IntTupleT = (255, 255, 255, 255)
-    black: _4IntTupleT = (0, 0, 0, 255)
-    if contrast_ratio(white, background) >= contrast_ratio(black, background):
-        return white
-    return black
+    return readable_on(background)
 
 
 @dataclass(frozen=True, slots=True)

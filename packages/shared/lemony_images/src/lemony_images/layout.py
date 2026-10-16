@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 from pilmoji import Pilmoji
 from pilmoji.source import BaseSource
 
-from .color import ensure_4inttuple
+from .color.convert import ensure_4inttuple
 from .font import FontCache, get_default_font_cache
 from .typedef import _BboxT, _ColorT, _FontFileT
 

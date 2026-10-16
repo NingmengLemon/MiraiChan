@@ -5,7 +5,7 @@
 
 import asyncio
 import time
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from concurrent.futures import Executor
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -14,7 +14,7 @@ from lemony_mface import MFaceBlocklist
 from PIL import Image
 
 from .model import QuoteMessage, SourceMessage
-from .normalize import name_resolver_from, normalize_message
+from .normalize import name_resolver_from, normalize_message, unresolved_at_targets
 from .render.card import card_signature, render_card
 from .render.chat import render_chat
 from .render.text import FontProvider, extract_emojis
@@ -22,6 +22,7 @@ from .resources import ResourceResolver
 
 __all__ = [
     "Assets",
+    "MemberNames",
     "NothingToQuote",
     "Rendered",
     "encode",
@@ -48,10 +49,19 @@ class Rendered:
     timings: dict[str, float] = field(default_factory=dict)
 
 
-def _normalize(
-    sources: Sequence[SourceMessage], blocklist: MFaceBlocklist
+MemberNames = Callable[[set[int]], Awaitable[Mapping[int, str]]]
+"""按 QQ 号批量查群内显示名 (群名片优先), 用于补全不带名字的 At 段; 查不到的不出现在结果里"""
+
+
+async def _normalize(
+    sources: Sequence[SourceMessage],
+    blocklist: MFaceBlocklist,
+    member_names: MemberNames | None = None,
 ) -> tuple[QuoteMessage, ...]:
-    resolve = name_resolver_from(sources)
+    extra: Mapping[int, str] = {}
+    if member_names is not None and (missing := unresolved_at_targets(sources)):
+        extra = await member_names(missing)
+    resolve = name_resolver_from(sources, extra)
     return tuple(
         normalize_message(m, blocklist=blocklist, resolve_name=resolve) for m in sources
     )
@@ -63,9 +73,10 @@ async def render_card_quote(
     resolver: ResourceResolver,
     assets: Assets,
     executor: Executor,
+    member_names: MemberNames | None = None,
 ) -> Rendered:
     t0 = time.perf_counter()
-    (msg,) = _normalize([source], MFaceBlocklist())
+    (msg,) = await _normalize([source], MFaceBlocklist(), member_names)
     text = msg.text
     if not text:
         raise NothingToQuote("这条消息没有文字, 试试 .mq")
@@ -98,9 +109,10 @@ async def render_chat_quote(
     resolver: ResourceResolver,
     assets: Assets,
     executor: Executor,
+    member_names: MemberNames | None = None,
 ) -> Rendered:
     t0 = time.perf_counter()
-    messages = _normalize(sources, blocklist)
+    messages = await _normalize(sources, blocklist, member_names)
     if not messages:
         raise NothingToQuote("区间内没有消息")
     texts = [m.text for m in messages] + [m.display_name for m in messages]

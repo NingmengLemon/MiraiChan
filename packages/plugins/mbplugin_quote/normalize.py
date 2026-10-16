@@ -1,6 +1,6 @@
 """OneBot 段 -> 渲染元素 (纯函数)。"""
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 
 from lemony_mface import MFaceBlocklist, is_summary_echo, parse_mface
 
@@ -14,7 +14,12 @@ from .model import (
     TextElement,
 )
 
-__all__ = ["display_name_of", "normalize_message"]
+__all__ = [
+    "display_name_of",
+    "name_resolver_from",
+    "normalize_message",
+    "unresolved_at_targets",
+]
 
 # 不画出来的段: 回复引用本身对引用图没有意义
 _DROPPED = frozenset({"reply"})
@@ -136,11 +141,27 @@ def normalize_message(
     )
 
 
-def name_resolver_from(messages: Sequence[SourceMessage]) -> NameResolver:
-    """用同一批消息里出现过的发送者名字解析 At"""
-    names: dict[int, str] = {}
+def name_resolver_from(
+    messages: Sequence[SourceMessage], extra: Mapping[int, str] | None = None
+) -> NameResolver:
+    """用同一批消息里出现过的发送者名字解析 At; extra 是另外查到的名字 (例如群成员信息)"""
+    names: dict[int, str] = dict(extra or {})
     for m in messages:
         names.setdefault(
             m.sender_id, display_name_of(m.sender_card, m.sender_nickname, m.sender_id)
         )
     return names.get
+
+
+def unresolved_at_targets(messages: Sequence[SourceMessage]) -> set[int]:
+    """At 段里既没带名字、也不是这批消息发送者的 QQ 号, 需要另外查名字"""
+    senders = {m.sender_id for m in messages}
+    out: set[int] = set()
+    for m in messages:
+        for seg in m.segments:
+            if seg.type != "at" or str(seg.data.get("name") or "").strip():
+                continue
+            qq = str(seg.data.get("qq", "")).strip()
+            if qq.isdigit() and int(qq) not in senders:
+                out.add(int(qq))
+    return out

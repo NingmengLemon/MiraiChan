@@ -8,7 +8,7 @@ from lemony_images import (
     source_colors,
     tone_of,
 )
-from lemony_images.dynamic_color import argb_to_rgba, rgba_to_argb
+from lemony_images.color import argb_to_rgba, rgba_to_argb
 from PIL import Image
 
 RED = (200, 50, 50, 255)

@@ -33,8 +33,10 @@ from PIL import Image, ImageFont
 from .archive import ArchiveRecord, QuoteArchive, quote_metadata
 from .cooldown import Cooldown
 from .model import SourceMessage
+from .normalize import display_name_of
 from .pipeline import (
     Assets,
+    MemberNames,
     NothingToQuote,
     Rendered,
     encode,
@@ -211,6 +213,43 @@ async def _get_msg(adapter: Adapter, message_id: str) -> SourceMessage | None:
         # 用 raw 保留实现端的扩展字段 (例如 SnowLuma 的商城表情标记)
         segments=[getattr(s, "raw", s.to_dict()) for s in data["message"]],
     )
+
+
+_MAX_MEMBER_LOOKUPS = 20
+_MEMBER_LOOKUP_TIMEOUT = 5.0
+
+
+def _member_names(adapter: Adapter, group_id: int) -> MemberNames:
+    """用 get_group_member_info 补全 At 段的名字。
+
+    实现端发来的 At 段通常只有 qq 字段, 被 @ 的人又不一定在引用的消息里说过话。
+    单次最多查 _MAX_MEMBER_LOOKUPS 个, 查不到的保持显示 QQ 号。
+    """
+
+    async def one(uid: int) -> str | None:
+        try:
+            echo = (await (await adapter.get_group_member_info(group_id, uid)))[0]
+        except Exception:
+            logger.debug("get_group_member_info %s 失败", uid, exc_info=True)
+            return None
+        if echo is None or not echo.is_ok() or echo.data is None:
+            return None
+        data = echo.data
+        name = display_name_of(data.get("card"), data.get("nickname"), uid)
+        return None if name == str(uid) else name
+
+    async def lookup(uids: set[int]) -> dict[int, str]:
+        targets = sorted(uids)[:_MAX_MEMBER_LOOKUPS]
+        # melobot 不给 action 的回执等待设超时, 实现端不回时整体限时, 不拖住出图
+        try:
+            async with asyncio.timeout(_MEMBER_LOOKUP_TIMEOUT):
+                names = await asyncio.gather(*(one(uid) for uid in targets))
+        except TimeoutError:
+            logger.warning("查询群成员名字超时: group=%s n=%d", group_id, len(targets))
+            return {}
+        return {uid: n for uid, n in zip(targets, names, strict=True) if n}
+
+    return lookup
 
 
 def _recorder():
@@ -400,6 +439,7 @@ async def quote_card(event: GroupMessageEvent, adapter: Adapter) -> None:
                 resolver=state.resolver,
                 assets=state.assets,
                 executor=state.executor,
+                member_names=_member_names(adapter, event.group_id),
             )
             await _deliver(
                 event,
@@ -483,6 +523,7 @@ async def quote_chat(event: GroupMessageEvent, adapter: Adapter, args: CmdArgs) 
                 resolver=state.resolver,
                 assets=state.assets,
                 executor=state.executor,
+                member_names=_member_names(adapter, event.group_id),
             )
             await _deliver(
                 event, adapter, rendered, _record(event, "chat", base_id, req, rendered)
