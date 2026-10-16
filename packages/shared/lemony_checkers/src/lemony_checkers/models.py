@@ -4,10 +4,12 @@
 使用 lemony_settings 进行配置管理.
 """
 
+import dataclasses
 import textwrap
+from collections.abc import Callable
 from dataclasses import dataclass, make_dataclass
 from functools import lru_cache
-from typing import Annotated, Any, Generic, Literal, Self, get_args, get_origin
+from typing import Annotated, Any, Generic, Literal, Self, cast, get_args, get_origin
 
 from lemony_settings import BaseSettings
 from pydantic import (
@@ -18,12 +20,18 @@ from pydantic import (
     SerializeAsAny,
     field_validator,
 )
+from pydantic.fields import FieldInfo
 from typing_extensions import TypeVar
 
 from .exceptions import LemonyInternalImplError, LemonyProgrammingError
 
 PCT = TypeVar("PCT", bound=str)
 type Constraint = dict[str, list[Any]]
+
+#: Constraint 值列表中的通配符, 表示"该字段存在且不为 None".
+#: 例如 {"group_id": [ANY_VALUE]} 匹配任意群聊中的用户, 但不匹配私聊 (私聊的 group_id 为 None).
+#: 旧配置的 group_rules 用 ids=None 表示"所有群聊", 迁移时需要它来保持"不涉及私聊"的语义.
+ANY_VALUE = "*"
 
 _UNIQUE_USER_MODEL_REGISTRY: list[
     tuple[type["UniqueUserDataclassBase"], type["UniqueUserBase"]]
@@ -141,12 +149,27 @@ class UniqueUserBase(BaseModel, Generic[PCT]):
             _UNIQUE_USER_PROTOCOL_REGISTRY[protocol] = cls
 
     @classmethod
+    def _dataclass_default(cls, field: FieldInfo) -> Any:
+        """把 pydantic 字段的默认值转成对应 dataclass 字段的默认值.
+
+        没有默认值的字段返回 ``MISSING`` (保持必填)。不能直接把 ``FieldInfo`` 对象当默认值:
+        那样"省略该字段"会构造出一个字段值是 FieldInfo 的身份对象, 是个静默的脏值。
+        """
+        if field.is_required():
+            return dataclasses.MISSING
+        if field.default_factory is not None:
+            # 让 dataclass 自己调用工厂, 避免把同一个可变默认值共享给所有实例
+            factory = cast("Callable[[], Any]", field.default_factory)
+            return dataclasses.field(default_factory=factory)
+        return field.default
+
+    @classmethod
     @lru_cache(1)
     def get_dataclass(cls) -> type[UniqueUserDataclassBase[PCT]]:
         return make_dataclass(
             cls_name=cls.__name__,
             fields=[
-                (name, field.annotation, field)
+                (name, field.annotation, cls._dataclass_default(field))
                 for name, field in cls.model_fields.items()
             ],
             bases=(UniqueUserDataclassBase,),
@@ -168,6 +191,7 @@ class Rule(BaseModel):
     )
     # None -> 无条件匹配
     # 不为 None 时, 外层列表中任意一个 constraint 匹配即可；单个 constraint 内各字段为 AND 关系。
+    # 值列表里可以写 ANY_VALUE, 表示该字段任意非 None 取值 (见 ANY_VALUE 的定义)。
     constrains: list[Constraint] | None = None
     protocol: str = Field(
         description="适用此规则的协议. 需要先在 adapter 中注册 extractor. "

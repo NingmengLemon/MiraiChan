@@ -1,5 +1,6 @@
-"""recorder 媒体下载队列: 退避、放弃、优先级、中断回收, 以及 schema 迁移。"""
+"""recorder 媒体下载队列: 退避、放弃、优先级、中断回收、取消清理, 以及 schema 迁移。"""
 
+import asyncio
 import sqlite3
 import sys
 from collections.abc import AsyncIterator
@@ -28,12 +29,14 @@ from mbplugin_recorder.db.enums import MediaDownloadStatus
 from mbplugin_recorder.db.models import MediaSource, recorder_metadata
 from mbplugin_recorder.db.operations import (
     list_pending_media_sources,
+    mark_media_source_downloaded,
     mark_media_source_downloading,
     mark_media_source_failed,
     reclaim_stale_downloading,
     record_message,
     retry_delay,
 )
+from mbplugin_recorder.media import download_media_source
 from mbplugin_recorder.migration import migrate
 from mbplugin_recorder.worker import is_permanent_failure
 from multidict import CIMultiDict, CIMultiDictProxy
@@ -196,6 +199,269 @@ async def test_reclaim_stale_downloading(db: SqliteDatabaseHelper) -> None:
         assert await reclaim_stale_downloading(s, older_than=timedelta(seconds=-1)) == 1
     assert (await _get(db, "a")).download_status is MediaDownloadStatus.FAILED
     assert await _pending_ids(db) == ["a"]
+
+
+@pytest.mark.asyncio
+async def test_run_once_reclaims_orphaned_downloading(
+    db: SqliteDatabaseHelper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """回归: 崩溃后很快重启留下的 DOWNLOADING 不会再被永久漏掉.
+
+    旧实现只在启动时回收一次, 且要求行已超过 request_timeout。崩溃后很快重启
+    (间隔小于 request_timeout) 的行既不在待下载列表里, 也没被回收, 就此永远卡住。
+    """
+    from mbplugin_recorder import worker as worker_mod
+
+    payload = MediaSourceInput(
+        source_file_id="orphan",
+        media_type="image",
+        url="https://x/orphan",
+        download_status=MediaDownloadStatus.DOWNLOADED,
+        sha256="a" * 64,
+        size=3,
+        cache_path="record/media/image/orphan.png",
+    )
+    downloaded: list[str] = []
+
+    async def fake_download(session, source, *, root, data_root=None, max_bytes=0):
+        downloaded.append(source.source_file_id)
+        return payload
+
+    monkeypatch.setattr(worker_mod, "download_media_source", fake_download)
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["orphan"]))
+    orphan = await _get(db, "orphan")
+    async with db.get_session(style="sqlalchemy") as s:
+        await mark_media_source_downloading(s, orphan.id)  # 模拟下载中进程退出
+    # DOWNLOADING 不在待下载列表里, 只有回收能把它放回来
+    assert await _pending_ids(db) == []
+
+    w = worker_mod.MediaDownloadWorker(db, data_root=None, request_timeout=-1)
+    await w.run_once(http_session=None)  # type: ignore[arg-type]
+
+    assert downloaded == ["orphan"]
+    assert (await _get(db, "orphan")).download_status is MediaDownloadStatus.DOWNLOADED
+
+
+@pytest.mark.asyncio
+async def test_run_once_keeps_fresh_downloading(
+    db: SqliteDatabaseHelper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """正在下载的行 (updated_at 新鲜) 不能被回收后重复下载."""
+    from mbplugin_recorder import worker as worker_mod
+
+    downloaded: list[str] = []
+
+    async def fake_download(session, source, *, root, data_root=None, max_bytes=0):
+        downloaded.append(source.source_file_id)
+        raise AssertionError("正在下载的行不应该被再次下载")
+
+    monkeypatch.setattr(worker_mod, "download_media_source", fake_download)
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["busy"]))
+    busy = await _get(db, "busy")
+    async with db.get_session(style="sqlalchemy") as s:
+        await mark_media_source_downloading(s, busy.id)
+
+    w = worker_mod.MediaDownloadWorker(db, data_root=None, request_timeout=120)
+    await w.run_once(http_session=None)  # type: ignore[arg-type]
+
+    assert downloaded == []
+    assert (await _get(db, "busy")).download_status is MediaDownloadStatus.DOWNLOADING
+
+
+def _downloaded(file_id: str, url: str) -> MediaSourceInput:
+    """构造一个"已下载"来源的输入 (用于直接标记下载完成)."""
+    return MediaSourceInput(
+        source_file_id=file_id,
+        media_type="image",
+        url=url,
+        download_status=MediaDownloadStatus.DOWNLOADED,
+        sha256="f" * 64,
+        size=7,
+        cache_path=f"record/media/image/{file_id}.png",
+    )
+
+
+def _payload_urls(mid: str, pairs: list[tuple[str, str]]) -> RecordedMessageInput:
+    """会话/发送者固定、但每条媒体来源的链接可控的消息输入."""
+    account = AccountInput(protocol="p", self_id="1")
+    return RecordedMessageInput(
+        account=account,
+        conversation=ConversationInput(type="group", external_id="2"),
+        sender=IdentityInput(
+            protocol="p", namespace="user", external_id="3", account=account
+        ),
+        external_message_id=mid,
+        sent_at=T0,
+        segments=[
+            MessageSegmentInput(
+                type="image",
+                data={"file": file_id},
+                media_sources=(
+                    MediaSourceInput(
+                        source_file_id=file_id, media_type="image", url=url
+                    ),
+                ),
+            )
+            for file_id, url in pairs
+        ],
+    )
+
+
+@pytest.mark.asyncio
+async def test_rereport_does_not_reset_downloaded_status(
+    db: SqliteDatabaseHelper,
+) -> None:
+    """回归: 同一个 file_id 出现在新消息里时, 已下载的记录不得退回待下载."""
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["img"]))
+    img = await _get(db, "img")
+    async with db.get_session(style="sqlalchemy") as s:
+        await mark_media_source_downloading(s, img.id)
+        await mark_media_source_downloaded(
+            s, img.id, _downloaded("img", "https://x/img")
+        )
+
+    # 另一条消息引用了同一个 file_id (转发、重发)
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m2", ["img"]))
+
+    assert (await _get(db, "img")).download_status is MediaDownloadStatus.DOWNLOADED
+    assert await _pending_ids(db) == []
+
+
+@pytest.mark.asyncio
+async def test_rereport_keeps_downloading_status(db: SqliteDatabaseHelper) -> None:
+    """正在下载的记录也不能被重报退回待下载 (会重复下载)."""
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["busy"]))
+    busy = await _get(db, "busy")
+    async with db.get_session(style="sqlalchemy") as s:
+        await mark_media_source_downloading(s, busy.id)
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m2", ["busy"]))
+
+    assert (await _get(db, "busy")).download_status is MediaDownloadStatus.DOWNLOADING
+
+
+@pytest.mark.asyncio
+async def test_abandoned_source_revives_only_with_new_url(
+    db: SqliteDatabaseHelper,
+) -> None:
+    """已放弃的来源: 同一个死链接重报不复活, 换上新链接才重新排队."""
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["dead"]))
+    dead = await _get(db, "dead")
+    async with db.get_session(style="sqlalchemy") as s:
+        await mark_media_source_downloading(s, dead.id)
+        await mark_media_source_failed(s, dead.id, "403", permanent=True)
+    assert (await _get(db, "dead")).download_status is MediaDownloadStatus.ABANDONED
+
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m2", ["dead"]))
+    assert (await _get(db, "dead")).download_status is MediaDownloadStatus.ABANDONED
+    assert await _pending_ids(db) == []
+
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(
+            s, _payload_urls("m3", [("dead", "https://x/dead?token=new")])
+        )
+    revived = await _get(db, "dead")
+    assert revived.download_status is MediaDownloadStatus.PENDING
+    assert revived.attempt_count == 0
+    assert revived.next_attempt_at is None
+    assert await _pending_ids(db) == ["dead"]
+
+
+class _FakeContent:
+    """按块产出内容, 可在第 N 块之后抛 CancelledError (模拟进程停止时取消下载)."""
+
+    def __init__(self, chunks: list[bytes], cancel_after: int | None = None) -> None:
+        self._chunks = chunks
+        self._cancel_after = cancel_after
+
+    async def iter_chunked(self, size: int) -> AsyncIterator[bytes]:
+        for index, chunk in enumerate(self._chunks):
+            yield chunk
+            if self._cancel_after is not None and index + 1 == self._cancel_after:
+                raise asyncio.CancelledError
+
+
+class _FakeResponse:
+    def __init__(self, chunks: list[bytes], *, cancel_after: int | None = None) -> None:
+        self.content = _FakeContent(chunks, cancel_after)
+        self.content_length: int | None = None
+
+    def raise_for_status(self) -> None:
+        return None
+
+
+class _FakeGet:
+    def __init__(self, response: _FakeResponse) -> None:
+        self._response = response
+
+    async def __aenter__(self) -> _FakeResponse:
+        return self._response
+
+    async def __aexit__(self, *exc: object) -> bool:
+        return False
+
+
+class _FakeSession:
+    def __init__(self, response: _FakeResponse) -> None:
+        self._response = response
+
+    def get(self, url: str, **kwargs: object) -> _FakeGet:
+        return _FakeGet(self._response)
+
+
+@pytest.mark.asyncio
+async def test_cancelled_download_cleans_up_tmp_file(
+    db: SqliteDatabaseHelper, tmp_path: Path
+) -> None:
+    """回归: 取消 (CancelledError) 不是 Exception, 旧的清理分支漏掉了它.
+
+    进程停止时 worker.stop() 会取消正在下载的任务, 于是每次重启都在媒体目录里留下
+    一个 .download 半成品。
+    """
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["img"]))
+    source = await _get(db, "img")
+    session = _FakeSession(_FakeResponse([b"abc", b"def"], cancel_after=1))
+
+    with pytest.raises(asyncio.CancelledError):
+        await download_media_source(
+            session,  # type: ignore[arg-type]
+            source,
+            root="media",
+            data_root=tmp_path,
+        )
+
+    assert list((tmp_path / "media").rglob("*.download")) == []
+
+
+@pytest.mark.asyncio
+async def test_successful_download_leaves_no_tmp_file(
+    db: SqliteDatabaseHelper, tmp_path: Path
+) -> None:
+    """正常下载: 临时文件被改名成最终文件, 不残留 .download."""
+    async with db.get_session(style="sqlalchemy") as s:
+        await record_message(s, _payload("m1", ["img"]))
+    source = await _get(db, "img")
+    session = _FakeSession(_FakeResponse([b"abc", b"def"]))
+
+    payload = await download_media_source(
+        session,  # type: ignore[arg-type]
+        source,
+        root="media",
+        data_root=tmp_path,
+    )
+
+    assert payload.download_status is MediaDownloadStatus.DOWNLOADED
+    assert payload.size == 6
+    assert list((tmp_path / "media").rglob("*.download")) == []
+    assert (tmp_path / payload.cache_path).is_file()
 
 
 LEGACY_SCHEMA = """

@@ -31,8 +31,6 @@ Checker Manager 插件
     uid 格式: 纯数字表示 user 规则, "数字:数字" 表示 user:group 规则.
 """
 
-from typing import Any
-
 from lemony_checkers import EditContext, Rule, get_checker_factory, require_admin
 from lemony_checkers.adapters.ob11 import Ob11UniqueUser
 from lemony_checkers.factory import LemonyCheckerFactory
@@ -44,6 +42,13 @@ from melobot.protocols.onebot.v11 import (
     MessageEvent,
 )
 from melobot.utils.parse import CmdArgs
+
+from .parsing import (
+    ConstraintParseError,
+    ThisInPrivateChatError,
+    join_id_tokens,
+    parse_constrains,
+)
 
 CheckerManager = PluginPlanner("1.0.2")
 logger = get_logger()
@@ -73,64 +78,6 @@ def _format_rules(rules: list[Rule]) -> str:
             f"constrains={constrains_str}"
         )
     return "\n".join(lines)
-
-
-class ThisInPrivateChatError(Exception):
-    """在私聊中使用了 'this' 简写"""
-
-
-class ConstraintParseError(ValueError):
-    """解析约束条件时出错（非法的 ID 格式）"""
-
-
-def _parse_constrains(
-    ids_str: str | None, *, group_id: int | None = None
-) -> list[dict[str, list[Any]]] | None:
-    """解析约束条件字符串.
-
-    支持格式: "123456" (user_id), "123456:789012" (user_id:group_id),
-    "this" (当前群号), "all"/"none"/"*" 表示匹配所有.
-
-    Returns:
-        constraint 列表或 None (匹配所有)。每个 constraint 内部字段为 AND, 多个 constraint 之间为 OR。
-
-    Raises:
-        ConstraintParseError: ID 格式无效时抛出
-    """
-    if ids_str is None or ids_str.lower() in ("all", "none", "*"):
-        return None
-    if not ids_str.strip():
-        return []  # 空输入不匹配任何人, 避免意外创建无条件规则
-
-    result: list[dict[str, list[Any]]] = []
-    for part in ids_str.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        if part.lower() == "this":
-            if group_id is None:
-                raise ThisInPrivateChatError()
-            result.append({"group_id": [group_id]})
-        elif ":" in part:
-            uid_str, gid_str = part.split(":", 1)
-            try:
-                constraint: dict[str, list[Any]] = {"user_id": [int(uid_str)]}
-            except ValueError:
-                raise ConstraintParseError(f"无法解析 user_id: {uid_str!r}") from None
-            if gid_str.strip():
-                try:
-                    constraint["group_id"] = [int(gid_str)]
-                except ValueError:
-                    raise ConstraintParseError(
-                        f"无法解析 group_id: {gid_str!r}"
-                    ) from None
-            result.append(constraint)
-        else:
-            try:
-                result.append({"user_id": [int(part)]})
-            except ValueError:
-                raise ConstraintParseError(f"无法解析 ID: {part!r}") from None
-    return result if result else None
 
 
 @CheckerManager.use
@@ -228,7 +175,9 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
                 )
                 return
             rule_action = action_args[0].lower()
-            ids_str = action_args[1] if len(action_args) > 1 else None
+            # ids 之后的所有分词都参与解析: 命令按空白切分, "123, 456" 会变成两个参数
+            id_tokens = action_args[1:]
+            ids_str = join_id_tokens(id_tokens) if id_tokens else None
 
             if rule_action not in ("allow", "deny"):
                 await adapter.send_reply("动作必须是 allow 或 deny")
@@ -236,7 +185,7 @@ async def _handle_global(adapter: Adapter, event: MessageEvent, args: list[str])
 
             group_id = _get_group_id(event)
             try:
-                constrains = _parse_constrains(ids_str, group_id=group_id)
+                constrains = parse_constrains(ids_str, group_id=group_id)
             except ThisInPrivateChatError:
                 await adapter.send_reply('"this" 只能在群聊中使用, 用于代替当前群号')
                 return
@@ -421,7 +370,9 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
                 )
                 return
             rule_action = action_args[0].lower()
-            ids_str = action_args[1] if len(action_args) > 1 else None
+            # 同 global add: ids 之后的所有分词都参与解析
+            id_tokens = action_args[1:]
+            ids_str = join_id_tokens(id_tokens) if id_tokens else None
 
             if rule_action not in ("allow", "deny"):
                 await adapter.send_reply("动作必须是 allow 或 deny")
@@ -429,7 +380,7 @@ async def _handle_plugin(adapter: Adapter, event: MessageEvent, args: list[str])
 
             group_id = _get_group_id(event)
             try:
-                constrains = _parse_constrains(ids_str, group_id=group_id)
+                constrains = parse_constrains(ids_str, group_id=group_id)
             except ThisInPrivateChatError:
                 await adapter.send_reply('"this" 只能在群聊中使用, 用于代替当前群号')
                 return
@@ -484,13 +435,18 @@ async def _handle_reload(adapter: Adapter, args: list[str]):
         await adapter.send_reply("已重新加载全局配置")
         return
 
-    target = args[0].lower()
-    if target == "global":
+    target = args[0]
+    if target.lower() == "global":
         factory.reload_global_settings()
         await adapter.send_reply("已重新加载全局配置")
-    else:
+    elif factory.is_plugin_settings_loaded(target):
         factory.reload_plugin_settings(target)
         await adapter.send_reply(f"已重新加载插件 {target} 配置")
+    else:
+        # 没加载过的插件配置无从重载, 不能报成功
+        await adapter.send_reply(
+            f"插件 {target} 的检查器配置尚未加载, 没有可重新加载的内容"
+        )
 
 
 async def _handle_save(adapter: Adapter, args: list[str]):
@@ -501,10 +457,14 @@ async def _handle_save(adapter: Adapter, args: list[str]):
         await adapter.send_reply("已保存全局配置")
         return
 
-    target = args[0].lower()
-    if target == "global":
+    target = args[0]
+    if target.lower() == "global":
         factory.save_global_settings()
         await adapter.send_reply("已保存全局配置")
-    else:
+    elif factory.is_plugin_settings_loaded(target):
         factory.save_plugin_settings(target)
         await adapter.send_reply(f"已保存插件 {target} 配置")
+    else:
+        await adapter.send_reply(
+            f"插件 {target} 的检查器配置尚未加载, 没有可保存的内容"
+        )

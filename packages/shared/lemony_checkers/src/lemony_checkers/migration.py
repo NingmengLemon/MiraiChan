@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 from pathlib import Path
 from typing import Any, Literal
@@ -15,7 +16,38 @@ from melobot.protocols.onebot.v11.const import (
     PROTOCOL_IDENTIFIER as OB11_PROTOCOL_IDENTIFIER,
 )
 
-from .models import CheckerGlobalSettings, CheckerPluginSettings
+from .models import ANY_VALUE, CheckerGlobalSettings, CheckerPluginSettings
+
+logger = logging.getLogger(__name__)
+
+#: 旧配置中 rule_priority 的合法取值
+LEGACY_RULE_PRIORITIES: tuple[str, ...] = ("group_first", "user_first")
+
+#: 旧全局配置中 rule_priority 的默认值
+DEFAULT_LEGACY_RULE_PRIORITY = "group_first"
+
+
+def normalize_rule_priority(
+    value: Any, *, default: str = DEFAULT_LEGACY_RULE_PRIORITY
+) -> str:
+    """把旧配置里的 rule_priority 收敛为两个已知取值之一.
+
+    旧插件配置中该字段可以是 null (表示继承全局配置), 也可能是缺失或非预期字符串.
+    直接 ``str()`` 会把它变成 "None" 之类的值, 与 "user_first" 比较失败后落到
+    group_first 分支, 规则顺序被静默改变.
+
+    Args:
+        value: 配置中的原始 rule_priority
+        default: 无法识别时使用的优先级 (来自全局配置)
+
+    Returns:
+        "group_first" 或 "user_first"
+    """
+    if value in LEGACY_RULE_PRIORITIES:
+        return value
+    if default in LEGACY_RULE_PRIORITIES:
+        return default
+    return DEFAULT_LEGACY_RULE_PRIORITY
 
 
 def legacy_ob11_user_config(user_id: int) -> dict[str, Any]:
@@ -57,7 +89,12 @@ def migrate_legacy_rules(value: Any, *, rule_priority: str = "group_first") -> A
             group_rules.append(raw_rule)
             continue
         ids = raw_rule.get("ids")
-        constrains = None if ids is None else {"group_id": ids}
+        if ids is None:
+            # 旧语义: group_rules 按群号匹配, 且只在群聊中参与判断, ids=None 表示"所有群聊".
+            # 写成 constrains=None 会让规则连私聊一起匹配, 白名单模式下等于放宽了权限.
+            constrains: dict[str, list[Any]] | None = {"group_id": [ANY_VALUE]}
+        else:
+            constrains = {"group_id": ids}
         group_rules.append(legacy_ob11_rule(raw_rule.get("action"), constrains))
 
     if rule_priority == "user_first":
@@ -102,7 +139,7 @@ def migrate_global_config_data(data: Any) -> tuple[Any, bool]:
     ):
         migrated["rules"] = migrate_legacy_rules(
             migrated["rules"],
-            rule_priority=str(migrated.get("rule_priority", "group_first")),
+            rule_priority=normalize_rule_priority(migrated.get("rule_priority")),
         )
         changed = True
 
@@ -113,7 +150,9 @@ def migrate_global_config_data(data: Any) -> tuple[Any, bool]:
     return migrated, changed
 
 
-def migrate_plugin_config_data(data: Any) -> tuple[Any, bool]:
+def migrate_plugin_config_data(
+    data: Any, *, default_rule_priority: str = DEFAULT_LEGACY_RULE_PRIORITY
+) -> tuple[Any, bool]:
     if not isinstance(data, dict):
         return data, False
 
@@ -123,9 +162,13 @@ def migrate_plugin_config_data(data: Any) -> tuple[Any, bool]:
     if isinstance(migrated.get("rules"), dict) and (
         "user_rules" in migrated["rules"] or "group_rules" in migrated["rules"]
     ):
+        # 旧插件配置的 rule_priority 为 null 时继承全局配置的优先级, 因此需要调用方
+        # 把全局值作为 default 传进来
         migrated["rules"] = migrate_legacy_rules(
             migrated["rules"],
-            rule_priority=str(migrated.get("rule_priority", "group_first")),
+            rule_priority=normalize_rule_priority(
+                migrated.get("rule_priority"), default=default_rule_priority
+            ),
         )
         changed = True
 
@@ -151,8 +194,57 @@ def read_raw_config(path: Path, format: str) -> Any:
             raise ValueError(f"Unsupported config format for migration: {format}")
 
 
+def read_legacy_rule_priority(
+    path: Path, format: str, *, default: str = DEFAULT_LEGACY_RULE_PRIORITY
+) -> str:
+    """读取旧全局配置里生效的规则优先级.
+
+    插件配置是按需加载、按需迁移的, 可能晚于全局配置很多次启动才第一次被迁移.
+    此时全局文件里的 rule_priority 早已被迁移删除, 于是字段缺失时改从迁移留下的
+    ``.bak`` 备份 (迁移前的原文件) 读取; 两处都没有才使用 default.
+
+    Args:
+        path: 全局配置文件路径
+        format: 配置格式 (json/yaml/toml)
+        default: 文件与备份都给不出取值时使用的优先级
+
+    Returns:
+        "group_first" 或 "user_first"
+    """
+    value = _read_rule_priority_field(path, format)
+    if value is _MISSING:
+        value = _read_rule_priority_field(backup_path_of(path), format)
+    return normalize_rule_priority(
+        None if value is _MISSING else value, default=default
+    )
+
+
+#: 配置文件里没有 rule_priority 字段 (区别于字段值为 null)
+_MISSING = object()
+
+
+def _read_rule_priority_field(path: Path, format: str) -> Any:
+    """读出配置文件里 rule_priority 的原始值; 文件不存在、不可解析或没有该字段时返回 _MISSING."""
+    if not path.exists():
+        return _MISSING
+    try:
+        raw = read_raw_config(path, format)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        # 读不出旧配置不应该阻断启动, 但要留下痕迹; 其他异常照常抛出
+        logger.warning(f"Failed to read legacy rule priority from {str(path)!r}: {exc}")
+        return _MISSING
+    if not isinstance(raw, dict) or "rule_priority" not in raw:
+        return _MISSING
+    return raw["rule_priority"]
+
+
+def backup_path_of(path: Path) -> Path:
+    """迁移时备份文件的路径."""
+    return path.with_suffix(path.suffix + ".bak")
+
+
 def backup_config(path: Path) -> Path:
-    backup_path = path.with_suffix(path.suffix + ".bak")
+    backup_path = backup_path_of(path)
     shutil.copy2(path, backup_path)
     return backup_path
 
@@ -161,8 +253,16 @@ def migrate_config_file(
     path: Path,
     format: str,
     kind: Literal["global", "plugin"],
+    *,
+    default_rule_priority: str = DEFAULT_LEGACY_RULE_PRIORITY,
 ) -> bool:
     """Migrate a checker config file in place.
+
+    Args:
+        path: 配置文件路径
+        format: 配置格式 (json/yaml/toml)
+        kind: 全局配置还是插件配置
+        default_rule_priority: kind="plugin" 且配置里 rule_priority 为 null 时继承的优先级
 
     Returns True when the file was migrated and rewritten.
     """
@@ -173,7 +273,9 @@ def migrate_config_file(
     migrated, changed = (
         migrate_global_config_data(raw)
         if kind == "global"
-        else migrate_plugin_config_data(raw)
+        else migrate_plugin_config_data(
+            raw, default_rule_priority=default_rule_priority
+        )
     )
     if not changed:
         return False

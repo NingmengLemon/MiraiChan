@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
-
 from lemony_checkers.adapters.ob11 import Ob11UniqueUser
 from lemony_checkers.core import (
     CheckResult,
     check_command_permission,
     check_permission,
     check_rules,
+    constraint_matches,
     get_effective_mode,
     is_admin,
     is_owner,
@@ -17,12 +16,12 @@ from lemony_checkers.core import (
     matches_unique_user,
 )
 from lemony_checkers.models import (
+    ANY_VALUE,
     CheckerGlobalSettings,
     CheckerPluginSettings,
     Rule,
     UniqueUserDataclassBase,
 )
-
 
 # ============================================================
 # matches_unique_user
@@ -210,6 +209,84 @@ class TestMatchRules:
             constrains=[{"user_id": [1001], "group_id": [9999]}],
         )
         assert match_rules([rule], ob11_user_alice) is CheckResult.DEFAULT
+
+    def test_any_value_matches_any_group_chat(self, ob11_user_alice):
+        """ANY_VALUE 表示"该字段存在", 因此匹配任意群聊."""
+        rule = Rule(
+            action="deny",
+            protocol="OneBot-v11@Meloland",
+            constrains=[{"group_id": [ANY_VALUE]}],
+        )
+        assert match_rules([rule], ob11_user_alice) is CheckResult.DENY
+
+    def test_any_value_skips_private_chat(self, ob11_user_alice_private):
+        """私聊的 group_id 为 None, 不满足"该字段存在"."""
+        rule = Rule(
+            action="deny",
+            protocol="OneBot-v11@Meloland",
+            constrains=[{"group_id": [ANY_VALUE]}],
+        )
+        assert match_rules([rule], ob11_user_alice_private) is CheckResult.DEFAULT
+
+
+# ============================================================
+# constraint_matches
+# ============================================================
+
+
+class TestConstraintMatches:
+    """单个 constraint 的匹配语义."""
+
+    def test_equality_by_default(self):
+        assert constraint_matches({"user_id": [1001]}, {"user_id": 1001})
+        assert not constraint_matches({"user_id": [1001]}, {"user_id": 1002})
+
+    def test_any_value_requires_field_present(self):
+        assert constraint_matches({"group_id": [ANY_VALUE]}, {"group_id": 5000})
+        assert not constraint_matches({"group_id": [ANY_VALUE]}, {"group_id": None})
+
+    def test_any_value_combines_with_equality(self):
+        constraint = {"group_id": [ANY_VALUE], "user_id": [1001]}
+        assert constraint_matches(constraint, {"group_id": 5000, "user_id": 1001})
+        assert not constraint_matches(constraint, {"group_id": 5000, "user_id": 1002})
+        assert not constraint_matches(constraint, {"group_id": None, "user_id": 1001})
+
+    def test_empty_constraint_matches_everything(self):
+        """空 constraint 无字段约束, 与 constrains=None 行为一致."""
+        assert constraint_matches({}, {"user_id": 1002, "group_id": None})
+
+    def test_quoted_id_matches_int_identity(self):
+        """配置里把数字 ID 写成字符串时规则仍然生效 (改配置时最容易踩的坑)."""
+        assert constraint_matches({"user_id": ["1001"]}, {"user_id": 1001})
+        assert not constraint_matches({"user_id": ["1001"]}, {"user_id": 1002})
+
+    def test_int_config_matches_str_identity(self):
+        """反向也不应失效: 运行时身份是字符串时与数字配置比较."""
+        assert constraint_matches({"user_id": [1001]}, {"user_id": "1001"})
+
+    def test_quoted_any_value_still_needs_field(self):
+        assert constraint_matches({"group_id": ["*"]}, {"group_id": 5000})
+        assert not constraint_matches({"group_id": ["*"]}, {"group_id": None})
+
+    def test_null_identity_does_not_match_string_none(self):
+        """私聊/无群身份的 None 不得被 "None" 之类的字符串匹配上."""
+        assert not constraint_matches({"group_id": ["None"]}, {"group_id": None})
+
+    def test_malformed_bare_value_treated_as_single_item(self):
+        """值列表被写成裸值时不崩溃, 按单元素列表处理."""
+        assert constraint_matches({"user_id": 1001}, {"user_id": 1001})
+        assert not constraint_matches({"user_id": 1001}, {"user_id": 1002})
+
+    def test_hand_edited_rule_matches(self, ob11_user_alice):
+        """整条规则走一遍 Rule.model_validate, 手改配置里带引号的 ID 依然生效."""
+        rule = Rule.model_validate(
+            {
+                "action": "allow",
+                "protocol": "OneBot-v11@Meloland",
+                "constrains": [{"user_id": ["1001"]}],
+            }
+        )
+        assert match_rules([rule], ob11_user_alice) is CheckResult.ALLOW
 
 
 # ============================================================

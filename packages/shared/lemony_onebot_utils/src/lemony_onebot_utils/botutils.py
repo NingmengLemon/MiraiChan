@@ -6,7 +6,7 @@ import traceback
 from collections.abc import Awaitable
 
 import aiofiles
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from lemony_images import bytes_to_b64_url, text_to_image
 from lemony_network.request import HTTP_HEADERS, async_http
 from lemony_utils.misc import to_ordinal
@@ -47,6 +47,11 @@ async def get_reply(adapter: Adapter, event: MessageEvent) -> None | GetMsgEcho:
     return msg
 
 
+#: 单次头像请求的超时。get_from_remote 会重试 3 次, 不设超时的话最坏要等
+#: 3 × aiohttp 默认的 300s, 调用方 (签到、引用渲染) 会一直挂在那里
+AVATAR_REQUEST_TIMEOUT = 10.0
+
+
 @singleton
 class AvatarCache:
     CACHE_DIR = "data/avatars"  # TODO: 从统一的资源管理器里拿, 别直接读相对路径, cwd 不一定是项目根
@@ -70,15 +75,26 @@ class AvatarCache:
     def __call__(self, uid: int) -> Awaitable[bytes]:
         return self.get(uid)
 
+    def _ensure_session(self) -> ClientSession:
+        """懒创建共享 session.
+
+        必须显式设超时: aiohttp 默认 total 是 300s, 配上 3 次重试后一个连不上的
+        头像地址能让调用方等上十几分钟。
+        """
+        if self._session is None:
+            self._session = ClientSession(
+                timeout=ClientTimeout(total=AVATAR_REQUEST_TIMEOUT)
+            )
+        return self._session
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
     )
     async def get_from_remote(self, uid: int):
-        if self._session is None:
-            self._session = ClientSession()
+        session = self._ensure_session()
         url = uid_to_avatar_url(uid)
-        async with async_http(self._session, "get", url, headers=self.HEADERS) as resp:
+        async with async_http(session, "get", url, headers=self.HEADERS) as resp:
             resp.raise_for_status()
             return await resp.read()
 

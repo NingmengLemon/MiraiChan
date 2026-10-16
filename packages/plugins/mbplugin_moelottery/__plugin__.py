@@ -49,14 +49,13 @@ async def draw_attrs(event: GroupMessageEvent, adapter: Adapter, logger: Generic
     factory = get_checker_factory()
     user = factory.extract_user(event)
     is_owner = user is not None and factory.is_owner(user)
-    if (
-        cd_table.get((uid, gid))
-        == (now_date := time.strftime("%Y-%m-%d", time.localtime()))
-        and not is_owner
-    ):
+    now_date = time.strftime("%Y-%m-%d", time.localtime())
+    if cd_table.get((uid, gid)) == now_date and not is_owner:
         await adapter.send_reply("今天已经抽过了噢")
         return
-    cd_table[(uid, gid)] = now_date
     moeattr = moelot.lot()
     logger.debug(f"{moeattr=}")
     await adapter.send_reply(f"你今天的人设是{moelot.build_response_text(moeattr)}！")
+    # 冷却记账放在抽签与发送都成功之后: 失败时不应该消耗当天的次数。
+    # cd_table 只在内存里, 重启即失效 (相当于重启赦免一次), 这是当前的取舍。
+    cd_table[(uid, gid)] = now_date

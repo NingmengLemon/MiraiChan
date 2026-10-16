@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import functools
 import threading
 from collections.abc import Awaitable, Callable, Generator
@@ -67,11 +68,26 @@ def to_async[**P, T](func: Callable[P, T]) -> Callable[P, Awaitable[T]]:
 async def gather_with_concurrency[T](
     *aws: Awaitable[T], concurrency: int = 4, return_exceptions: bool = False
 ) -> list[T | BaseException]:
+    """并发执行若干可等待对象, 同时最多运行 concurrency 个, 结果顺序与入参一致.
+
+    ``return_exceptions=False`` 时, 任一个任务抛异常都会取消其余任务并等它们结束, 再把
+    异常原样抛出。``asyncio.gather`` 自己不这么做: 调用方拿到异常就开始收尾, 而兄弟任务
+    还在后台继续跑, 收尾期间继续产生副作用, 它们的异常也只能以 "Task exception was never
+    retrieved" 的形式落到日志里。
+    """
     semaphore = asyncio.Semaphore(concurrency)
 
     async def wrapper(aw: Awaitable[T]) -> T:
         async with semaphore:
             return await aw
 
-    tasks = [wrapper(aw) for aw in aws]
-    return await asyncio.gather(*tasks, return_exceptions=return_exceptions)
+    tasks = [asyncio.ensure_future(wrapper(aw)) for aw in aws]
+    try:
+        return await asyncio.gather(*tasks, return_exceptions=return_exceptions)
+    except BaseException:
+        for task in tasks:
+            task.cancel()
+        # 自身也在被取消时, 等待清理会再次抛 CancelledError: 忽略它, 让原来的异常继续向上
+        with contextlib.suppress(BaseException):
+            await asyncio.gather(*tasks, return_exceptions=True)
+        raise

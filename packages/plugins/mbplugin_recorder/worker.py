@@ -79,12 +79,6 @@ class MediaDownloadWorker:
     async def _run(self) -> None:
         try:
             await self.db.wait_until_initialized()
-            async with self.db.session_scope(style="sqlalchemy") as session:
-                # 上次进程中途退出时留下的 DOWNLOADING
-                if n := await reclaim_stale_downloading(
-                    session, older_than=timedelta(seconds=self.request_timeout)
-                ):
-                    logger.info("回收了 %d 个中断的媒体下载", n)
         except Exception:
             logger.exception("媒体下载 worker 启动失败, 不再下载媒体")
             return
@@ -104,6 +98,13 @@ class MediaDownloadWorker:
         await self.db.wait_until_initialized()
         # 每步用独立作用域: 写入立即提交, 下载期间不占着写事务 (BEGIN IMMEDIATE)
         async with self.db.session_scope(style="sqlalchemy") as session:
+            # 上次进程中途退出会留下 DOWNLOADING, 这种行不在待下载列表里, 只能靠回收放回
+            # FAILED 等重试。回收必须每轮做: 只在启动时做一次的话, 崩溃后很快重启
+            # (间隔小于 request_timeout) 的那一行不会被回收, 之后再也没人看它。
+            if n := await reclaim_stale_downloading(
+                session, older_than=timedelta(seconds=self.request_timeout)
+            ):
+                logger.warning(f"回收了 {n} 个中断的媒体下载")
             sources = await list_pending_media_sources(session, limit=self.batch_size)
         if sources:
             logger.debug(f"媒体下载 worker 获取到 {len(sources)} 个待处理来源")

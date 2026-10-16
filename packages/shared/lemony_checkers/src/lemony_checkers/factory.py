@@ -45,6 +45,8 @@ class LemonyCheckerFactory:
         self._plugin_settings_cache: dict[
             str, LemonySettings[CheckerPluginSettings]
         ] = {}
+        # 旧全局配置的规则优先级: post_init 迁移全局配置前读取, 供插件配置继承
+        self._legacy_default_rule_priority: str | None = None
 
     def _migrate_settings_file_if_needed(self, namespace: str) -> None:
         global_settings = get_global_settings()
@@ -55,12 +57,32 @@ class LemonyCheckerFactory:
         )
         kind = "global" if namespace == "global" else "plugin"
 
-        from .migration import migrate_config_file
+        from .migration import (
+            DEFAULT_LEGACY_RULE_PRIORITY,
+            backup_path_of,
+            migrate_config_file,
+            read_legacy_rule_priority,
+        )
 
-        if migrate_config_file(config_file, global_settings.preference, kind):
+        if kind == "global":
+            # 旧插件配置里的 rule_priority=null 表示继承全局取值, 迁移插件配置时要用它.
+            # 迁移会删掉该字段, 所以在迁移前读; 若之前的启动已经迁移过全局文件,
+            # read_legacy_rule_priority 会改从 .bak 备份读取
+            self._legacy_default_rule_priority = read_legacy_rule_priority(
+                config_file, global_settings.preference
+            )
+
+        if migrate_config_file(
+            config_file,
+            global_settings.preference,
+            kind,
+            default_rule_priority=(
+                self._legacy_default_rule_priority or DEFAULT_LEGACY_RULE_PRIORITY
+            ),
+        ):
             logger.info(
                 f"Migrated legacy checker config {MODULE_IDENTIFIER}:{namespace}; "
-                f"backup saved as {config_file.with_suffix(config_file.suffix + '.bak')!r}."
+                f"backup saved as {str(backup_path_of(config_file))!r}."
             )
 
     def post_init(self):
@@ -184,6 +206,14 @@ class LemonyCheckerFactory:
             logger.info("Global checker settings saved")
         else:
             logger.warning("Global checker settings not initialized, nothing to save")
+
+    def is_plugin_settings_loaded(self, plugin_name: str) -> bool:
+        """该插件的检查器配置是否已经加载.
+
+        没有加载过时 reload / save 都是空操作, 调用方需要据此给出诚实的回复,
+        而不是一律报"已保存"。
+        """
+        return plugin_name in self._plugin_settings_cache
 
     def save_plugin_settings(self, plugin_name: str) -> None:
         """

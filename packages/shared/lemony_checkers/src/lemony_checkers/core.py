@@ -9,11 +9,13 @@ own event object and then calling these helpers.
 
 import logging
 from enum import Enum, auto
-from typing import Literal
+from typing import Any, Literal
 
 from .models import (
+    ANY_VALUE,
     CheckerGlobalSettings,
     CheckerPluginSettings,
+    Constraint,
     Rule,
     UniqueUserBase,
     UniqueUserDataclassBase,
@@ -74,6 +76,41 @@ def is_admin(
     return any(matches_unique_user(admin, user) for admin in global_settings.admins)
 
 
+def _value_in(incoming: Any, values: list[Any]) -> bool:
+    """``incoming`` 是否等于配置中的某个值.
+
+    比较时容忍写成字符串的数字 id: 手改的配置很容易写成 ``{"user_id": ["1001"]}``,
+    而运行时身份里是 int ``1001``, 严格相等会让规则静默地永不匹配。
+    这里不处理 ``ANY_VALUE``, 见 ``constraint_matches``。
+    """
+    if incoming in values:
+        return True
+    if incoming is None:
+        # None 只与 None 相等, 避免 "None" 之类的字符串把私聊/无群身份匹配上
+        return False
+    return any(str(incoming) == str(value) for value in values)
+
+
+def constraint_matches(constraint: Constraint, user_dict: dict[str, Any]) -> bool:
+    """单条约束是否匹配运行时身份.
+
+    约束内各字段按 AND 组合。某字段的值列表含 ``ANY_VALUE`` 时, 只要求该字段存在
+    (不为 None), 不再要求等于列出的某个值; 其余值按相等比较。
+    """
+    for field, raw_values in constraint.items():
+        # 配置里把值列表写成裸值时也不要崩: 当成单元素列表
+        values = (
+            list(raw_values) if isinstance(raw_values, (list, tuple)) else [raw_values]
+        )
+        incoming = user_dict.get(field)
+        if ANY_VALUE in values:
+            if incoming is None:
+                return False
+        elif not _value_in(incoming, values):
+            return False
+    return True
+
+
 def match_rules(rules: list[Rule], user: UniqueUserDataclassBase) -> CheckResult:
     """Match a runtime identity against ordered permission rules."""
     user_dict = user.to_dict()
@@ -86,9 +123,7 @@ def match_rules(rules: list[Rule], user: UniqueUserDataclassBase) -> CheckResult
 
         # Multiple constraints are OR; fields inside one constraint are AND.
         for constraint in rule.constrains:
-            if all(
-                user_dict.get(field) in values for field, values in constraint.items()
-            ):
+            if constraint_matches(constraint, user_dict):
                 return CheckResult.ALLOW if rule.action == "allow" else CheckResult.DENY
 
     return CheckResult.DEFAULT

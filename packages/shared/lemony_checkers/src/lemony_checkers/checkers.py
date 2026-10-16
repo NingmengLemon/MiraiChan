@@ -11,7 +11,8 @@ from typing import TYPE_CHECKING
 
 from melobot.adapter.model import Event
 from melobot.log import get_logger
-from melobot.typ import AsyncCallable
+from melobot.typ import SyncOrAsyncCallable
+from melobot.utils.base import to_async
 from melobot.utils.check import Checker
 
 from .adapters.register import registry
@@ -23,8 +24,8 @@ if TYPE_CHECKING:
 logger = get_logger()
 
 
-# 失败回调类型
-type FailCallback = AsyncCallable[[], None]
+# 失败回调类型: melobot 允许同步回调, 这里统一包装成可 await 的形式
+type FailCallback = SyncOrAsyncCallable[[], None]
 
 
 class FailCallbackMixin:
@@ -35,7 +36,9 @@ class FailCallbackMixin:
     """
 
     def __init__(self, fail_cb: FailCallback | None = None) -> None:
-        self.fail_cb = fail_cb
+        # 必须经过 to_async: 直接保存原值的话, 同步回调会在 _call_fail_cb 里 await 失败,
+        # 异常被吞成一条 error 日志, 回调静默不执行 (melobot 的 Checker 基类也这么做)
+        self.fail_cb = to_async(fail_cb) if fail_cb is not None else None
         # 持有后台 Task 的强引用, 防止 GC 在 Task 完成前回收它.
         # 参见: https://docs.python.org/3/library/asyncio-task.html#creating-tasks
         self._background_tasks: set[asyncio.Task[None]] = set()

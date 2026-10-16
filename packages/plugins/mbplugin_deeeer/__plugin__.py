@@ -136,6 +136,17 @@ checker_factory = get_checker_factory_wrapper(
 )
 
 
+#: 当日次数用尽时的回复
+_LIMIT_REPLY = "今天🦌太多了qwq\n奖励自己太多会变成小迷糊啦(๑>ᴗ<๑)"
+
+
+def _truncate_combo(combo: int, today_total: int) -> int:
+    """按当日剩余额度截断本次次数 (DAILY_LIMIT < 1 表示不限次)"""
+    if DAILY_LIMIT < 1:
+        return combo
+    return min(combo, max(0, DAILY_LIMIT - today_total))
+
+
 @plugin.use
 @on_message()
 async def deer(event: GroupMessageEvent, adapter: Adapter):
@@ -147,51 +158,60 @@ async def deer(event: GroupMessageEvent, adapter: Adapter):
     if not await checker_factory(command_name="do_deer").check(event):
         return
     combo = len(re.findall(DEER_COUNT_REGEX, msg))
+    ts = time.time()
+    group_id = event.group_id
+    # GROUP_ISOLATION 关闭时按用户跨群统计, 但记录本身始终带真实群号
+    scope_gid = group_id if GROUP_ISOLATION else None
 
-    async with deer_lock:
+    # 锁外先做一次便宜的额度检查: 满了就直接拒绝, 既不拉头像也不画图
+    if DAILY_LIMIT >= 1:
         today_total = await query_one_day_total(
-            date=datetime.now(),
-            uid=event.user_id,
-            gid=event.group_id if GROUP_ISOLATION else None,
+            date=datetime.now(), uid=event.user_id, gid=scope_gid
         )
+        if today_total >= DAILY_LIMIT:
+            await adapter.send_reply(_LIMIT_REPLY)
+            return
+        combo = _truncate_combo(combo, today_total)
+
+    # 头像拉取与绘图都放到锁外, 而且排在记账之前: 它们失败时还没有扣次数, 不会白扣
+    avatar = BytesIO(await cached_avatar_source.get(event.user_id))
+    records = await query(uid=event.user_id, gid=scope_gid)
+    random_deer = random.choices(
+        DEERS,
+        [deer["random_weight"] for deer in DEERS],
+    )[0]
+    logger.info(f"selected deer img: {random_deer['filename']}")
+    nt = time.localtime(ts)
+    pic = await asyncio.to_thread(
+        PAINTER.draw,
+        random_deer["data"],
+        CORRECT_SIGN_IMG,
+        # 画的是记账之后的日历, 这里先算上本次 (combo 在锁内可能被再次截断, 极端并发下
+        # 图上的 xN 会略大, 不影响账目)
+        records=[*records, (ts, combo)],
+        year=nt.tm_year,
+        month=nt.tm_mon,
+        user_name=str(event.sender.nickname),
+        user_avatar=avatar,
+    )
+
+    # 临界区只包含"查当日总数 + 记账": 锁外那次检查可能已经过期, 以锁内读数为准重算
+    async with deer_lock:
         if DAILY_LIMIT >= 1:
+            today_total = await query_one_day_total(
+                date=datetime.now(), uid=event.user_id, gid=scope_gid
+            )
             if today_total >= DAILY_LIMIT:
-                await adapter.send_reply(
-                    "今天🦌太多了qwq\n奖励自己太多会变成小迷糊啦(๑>ᴗ<๑)"
-                )
+                # 图已经画好, 但既不记账也不发送, 避免超发
+                await adapter.send_reply(_LIMIT_REPLY)
                 return
-            elif today_total + combo > DAILY_LIMIT:  # 隐式截断
-                combo = DAILY_LIMIT - today_total
+            combo = _truncate_combo(combo, today_total)
 
         await record(
             uid=event.user_id,
-            gid=event.group_id,
+            gid=group_id,
             combo=combo,
-            ts=time.time(),
-        )
-
-        records = await query(
-            uid=event.user_id,
-            gid=event.group_id if GROUP_ISOLATION else None,
-        )
-
-        nt = time.localtime()
-        avatar = BytesIO(await cached_avatar_source.get(event.user_id))
-
-        random_deer = random.choices(
-            DEERS,
-            [deer["random_weight"] for deer in DEERS],
-        )[0]
-        logger.info(f"selected deer img: {random_deer['filename']}")
-        pic = await asyncio.to_thread(
-            PAINTER.draw,
-            random_deer["data"],
-            CORRECT_SIGN_IMG,
-            records=records,
-            year=nt.tm_year,
-            month=nt.tm_mon,
-            user_name=str(event.sender.nickname),
-            user_avatar=avatar,
+            ts=ts,
         )
 
     await adapter.send_reply(
