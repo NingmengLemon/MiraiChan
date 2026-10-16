@@ -42,3 +42,9 @@ uv run pytest
 3. 假服务端在 bot 空闲一段时间后退出, 之后检查记录的 action 与临时目录下产生的数据。
 
 场景里的 QQ 号、群号、消息内容一律用构造值。
+
+现成的演练脚本把上面的步骤封装好了, 退出码 0 表示全部检查通过:
+
+- `tools/rehearse_e2e.py`: 上线插件组合 (recorder、deeeer、quote 等) 的关键路径
+- `tools/rehearse_alerts.py`: 预警插件, 额外启动 `tools/mock_wolfx_server.py` 模拟 Wolfx,
+  经它的 `POST /_mock/push` 触发推送
