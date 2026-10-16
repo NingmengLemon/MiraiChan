@@ -20,7 +20,7 @@ from typing import (
     cast,
 )
 
-from sqlalchemy import URL, Column, Connection, DateTime, Table, inspect, func
+from sqlalchemy import URL, Column, Connection, DateTime, Table, func, inspect
 from sqlalchemy.ext.asyncio import AsyncAttrs as _AsyncAttrs
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.ext.asyncio.session import (
@@ -33,15 +33,15 @@ from sqlmodel import SQLModel as _SQLModel
 __all__ = [
     "AsyncCallable",
     "DatabaseAsyncCallable",
-    "in_transaction",
     "auto_begin",
-    "to_async",
-    "get_session",
-    "new_session_getter",
-    "new_engine",
-    "check_table_existence_sync",
     "check_table_existence",
+    "check_table_existence_sync",
     "datetime_column_tzaware",
+    "get_session",
+    "in_transaction",
+    "new_engine",
+    "new_session_getter",
+    "to_async",
 ]
 
 P = ParamSpec("P")

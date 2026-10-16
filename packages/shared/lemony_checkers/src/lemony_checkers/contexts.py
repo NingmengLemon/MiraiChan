@@ -147,9 +147,8 @@ class EditContext:
             logger.info(f"Owner added: {owner}")
             self._edited_global = True
             return True
-        else:
-            logger.info(f"Owner already exists: {owner}")
-            return False
+        logger.info(f"Owner already exists: {owner}")
+        return False
 
     def remove_owner(self, owner: UniqueUserBase) -> bool:
         """

@@ -275,9 +275,8 @@ class GenericDatabaseHelper:
         # sqlmodel session 是基于 sqlalchemy session 的浅封装,
         # 且没有 runtime warning, 只是把 sa 的方法用类型注解标成了 deprecated,
         # 因此理论上兼容 sa session
-        async with self.get_session(style="sqlmodel") as asess:
-            async with asess.begin():
-                return await asess.run_sync(func, *args, **kwargs)
+        async with self.get_session(style="sqlmodel") as asess, asess.begin():
+            return await asess.run_sync(func, *args, **kwargs)
 
     def to_async[**P, T](
         self,

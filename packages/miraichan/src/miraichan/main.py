@@ -117,7 +117,7 @@ def _io_from_config_model(
             access_token=cfg.access_token.get_secret_value(),
             cd_time=cfg.cd_time,
         )
-    elif isinstance(cfg, ReverseWebsocketIOConfigModel):
+    if isinstance(cfg, ReverseWebsocketIOConfigModel):
         return ReverseWebSocketIO(
             host=cfg.host,
             port=cfg.port,

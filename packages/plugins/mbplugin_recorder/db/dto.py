@@ -12,10 +12,10 @@ __all__ = [
     "ConversationInput",
     "IdentityInput",
     "MediaSourceInput",
-    "MessageSegmentInput",
-    "RecordedMessageInput",
     "MemberEventInput",
+    "MessageSegmentInput",
     "NoticeInput",
+    "RecordedMessageInput",
 ]
 
 

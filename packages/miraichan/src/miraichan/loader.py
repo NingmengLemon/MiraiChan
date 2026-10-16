@@ -49,7 +49,7 @@ def resolve_plugin_path(plugin_name: str) -> Loadable:
     logger.debug(f"Plugin name {plugin_name!r} is not an installed package.")
 
     # 3. url 形式的远程插件
-    pass  # TODO: 实现远程插件加载
+    # TODO: 实现远程插件加载
 
     # -1. 作为项目自带的插件存在
     packages_dir = get_project_root() / "packages"

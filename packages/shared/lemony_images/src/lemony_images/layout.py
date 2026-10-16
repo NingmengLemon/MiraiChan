@@ -22,7 +22,7 @@ def wrap_text_by_length(s: str, line_length: int):
 
 def wrap_text_by_width(
     s: str,
-    line_width: int | float,
+    line_width: float,
     font: ImageFont.FreeTypeFont,
 ):
     """根据像素宽度断行"""

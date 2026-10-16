@@ -64,6 +64,6 @@ def get_time_period_start(
 
 
 def tzaware_datetime_from_timestamp(
-    timestamp: int | float, tz: timezone | None = None
+    timestamp: float, tz: timezone | None = None
 ) -> datetime:
     return datetime.fromtimestamp(timestamp, tz or UTC)

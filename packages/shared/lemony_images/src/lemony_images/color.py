@@ -27,7 +27,7 @@ def ensure_4inttuple_color(
             b = (color >> 8) & 0xFF
             a = color & 0xFF
         return (r, g, b, a)
-    elif isinstance(color, str):
+    if isinstance(color, str):
         color = color.lstrip("#")
         if len(color) == 6:
             r = int(color[0:2], 16)
@@ -42,7 +42,7 @@ def ensure_4inttuple_color(
         else:
             raise ValueError(f"Invalid color string: {color}")
         return (r, g, b, a)
-    elif isinstance(color, tuple):
+    if isinstance(color, tuple):
         if len(color) == 3:
             r, g, b = color
             a = 255
@@ -51,8 +51,7 @@ def ensure_4inttuple_color(
         else:
             raise ValueError(f"Invalid color tuple: {color}")
         return ensure_4inttuple((r, g, b, a))
-    else:
-        raise TypeError(f"Unsupported color type: {type(color)}")
+    raise TypeError(f"Unsupported color type: {type(color)}")
 
 
 def rel_lumin(color: _ColorTupleT) -> float:

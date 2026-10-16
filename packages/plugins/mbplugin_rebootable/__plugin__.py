@@ -100,7 +100,7 @@ async def startup_check(adapter: Adapter):
     if not os.path.isfile(cfgloader.value.reboot_info_path):
         return
     try:
-        with open(cfgloader.value.reboot_info_path, "r", encoding="utf-8") as fp:
+        with open(cfgloader.value.reboot_info_path, encoding="utf-8") as fp:
             info: RebootInfo = json.load(fp)
         start_time = bot.get_hook_evoke_time(BotLifeSpan.STARTED)
         interval = (start_time if start_time > 0 else time.time()) - info["time"]

@@ -47,11 +47,11 @@ class TestIdExtractorRegistry:
 
         def ex1(event: object) -> None:
             results.append(1)
-            return None
+            return
 
         def ex2(event: object) -> None:
             results.append(2)
-            return None
+            return
 
         registry.register_uniid_extractor("test-protocol")(ex1)
         registry.register_uniid_extractor("test-protocol")(ex2)

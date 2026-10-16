@@ -14,13 +14,13 @@ from lemony_settings.utils import resolve_config_path
 from melobot.adapter.model import Event
 from melobot.log import get_logger
 
+from .core import is_admin, is_owner
 from .models import (
     CheckerGlobalSettings,
     CheckerPluginSettings,
     UniqueUserConfig,
     UniqueUserDataclassBase,
 )
-from .core import is_admin, is_owner
 
 if TYPE_CHECKING:
     from .checkers import AdminChecker, FailCallback, LemonyChecker, OwnerChecker
@@ -399,11 +399,11 @@ class _CheckerFactoryWrapper:
     """
 
     __slots__ = (
-        "_plugin_name",
-        "_command_name",
-        "_fail_cb",
         "_allow_admin",
+        "_command_name",
         "_factory",
+        "_fail_cb",
+        "_plugin_name",
     )
 
     def __init__(

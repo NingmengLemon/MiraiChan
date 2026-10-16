@@ -31,7 +31,7 @@ class LotteryBox:
                 encoding="utf-8"
             )
             return MoeData.model_validate_json(raw)
-        with open(moefile, "r", encoding="utf-8") as fp:
+        with open(moefile, encoding="utf-8") as fp:
             return MoeData.model_validate(json.load(fp))
 
     # ---- 抽取 ----

@@ -48,7 +48,7 @@ def customize_melobot_logo(new_logo: str) -> None:
         from melobot._meta import MetaInfoMeta
         # 咳咳私有成员注意, 后续随时可能被改掉
 
-        setattr(MetaInfoMeta, "logo", new_logo.strip())
+        MetaInfoMeta.logo = new_logo.strip()
     except Exception as e:
         logger.warning(
             f"Failed to patch MetaInfoMeta: {e}, logo will not be customized."

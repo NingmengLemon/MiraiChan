@@ -210,7 +210,7 @@ def require_owner(deny_message: str | None = None):
             if user is None or not is_owner(factory.global_settings, user):
                 if deny_message:
                     await send_text(deny_message)
-                return
+                return None
             return await handler(*args, **kwargs)
 
         return wrapper
@@ -245,7 +245,7 @@ def require_admin(deny_message: str | None = None):
             ):
                 if deny_message:
                     await send_text(deny_message)
-                return
+                return None
             return await handler(*args, **kwargs)
 
         return wrapper
@@ -290,7 +290,7 @@ def require_permission(
             ):
                 if deny_message:
                     await send_text(deny_message)
-                return
+                return None
             return await handler(*args, **kwargs)
 
         return wrapper

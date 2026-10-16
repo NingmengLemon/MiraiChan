@@ -71,7 +71,7 @@ class SqliteDatabaseHelper(GenericDatabaseHelper):
         self._busy_timeout_ms = int(busy_timeout * 1000)
         self._relative_path_base = relative_path_base
         self._dburl_raw = db_path
-        self._db_path: PathLike[str] | None | Literal[_Sentinel.NOT_RESOLVED] = (
+        self._db_path: PathLike[str] | Literal[_Sentinel.NOT_RESOLVED] | None = (
             _Sentinel.NOT_RESOLVED
         )
 

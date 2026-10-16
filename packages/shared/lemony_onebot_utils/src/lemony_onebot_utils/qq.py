@@ -22,8 +22,7 @@ def avatar_url_to_uid(url: str | URL) -> int | None:
     uid = url.query.get("nk") or url.query.get("dst_uin")
     if uid and uid.isdigit():
         return int(uid)
-    else:
-        return None
+    return None
 
 
 class QQInfoCache:

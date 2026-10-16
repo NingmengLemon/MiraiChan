@@ -62,7 +62,7 @@ def straight_sync(src: str, dst: str):
             if not os.path.exists(droot):
                 os.makedirs(droot, exist_ok=True)
             if ext in EXPECTED_EXTS:
-                if sum(((i in sfile) for i in IGNORE_KWLIST)):
+                if sum((i in sfile) for i in IGNORE_KWLIST):
                     stat.ignore += 1
                     continue
                 if os.path.exists(dfile):
@@ -106,7 +106,7 @@ def reversed_sync(src: str, dst: str):
             if ext.lower() not in EXPECTED_EXTS:
                 continue
             dfile = os.path.join(droot, dfilename)
-            if sum(((i in dfile) for i in IGNORE_KWLIST)):
+            if sum((i in dfile) for i in IGNORE_KWLIST):
                 stat.ignore += 1
                 continue
             flag = 0

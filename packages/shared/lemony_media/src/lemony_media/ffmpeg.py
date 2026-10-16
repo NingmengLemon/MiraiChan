@@ -25,9 +25,7 @@ def merge_avfile(
 
     if au_file and cover_image:
         args.extend(["-map", "0", "-map", "1", "-map", "2"])
-    elif au_file:
-        args.extend(["-map", "0", "-map", "1"])
-    elif cover_image:
+    elif au_file or cover_image:
         args.extend(["-map", "0", "-map", "1"])
     else:
         args.extend(["-map", "0"])
