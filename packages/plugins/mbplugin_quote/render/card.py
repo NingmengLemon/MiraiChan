@@ -1,17 +1,25 @@
 """名言卡片样式 (``.q``): 1920x1080, 左侧头像, 右侧深色底上的正文与署名。
 
+配色按头像做 MD3 动态取色, 见 ``card_colors``。
+
 只画文字; 目标消息没有文字时由上层提示改用聊天样式。
 """
 
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from lemony_images import readable_tone, source_color
+from lemony_images import (
+    SchemeVariant,
+    contrast_ratio,
+    readable_tone,
+    scheme_from_color,
+    source_color,
+)
 from PIL import Image, ImageOps
 
 from .text import FontProvider, draw_text_block, fit_text
 
-__all__ = ["CardStyle", "card_signature", "render_card", "text_color_for"]
+__all__ = ["CardColors", "CardStyle", "card_colors", "card_signature", "render_card"]
 
 Color = tuple[int, int, int, int]
 Box = tuple[int, int, int, int]
@@ -21,7 +29,7 @@ Box = tuple[int, int, int, int]
 class CardStyle:
     size: tuple[int, int] = (1920, 1080)
     background: Color = (255, 255, 255, 255)
-    # 遮罩右侧的底色, 用来算正文对比度
+    # 头像无彩色时的静态配色; 有彩色时由 card_colors 按头像生成
     panel: Color = (19, 19, 21, 255)
     text_box: Box = (1000, 325, 1850, 675)
     text_max_size: int = 72
@@ -41,20 +49,48 @@ def card_signature(card: str | None, nickname: str | None, fallback: str) -> str
     return f"—— {card or nickname or fallback}"
 
 
-def text_color_for(
-    avatar: Image.Image | None, panel: Color, min_contrast: float
-) -> Color:
-    """按 MD3 动态取色取头像源色, 保持色相与色度, 在 HCT 明度上找与底色对比度达标的颜色。
+@dataclass(frozen=True, slots=True)
+class CardColors:
+    panel: Color
+    text: Color
+    signature: Color
 
-    头像缺失或无彩色 (灰度 / 全透明) 时用白色。结果确定且保证可读。
+
+def card_colors(avatar: Image.Image | None, style: CardStyle) -> CardColors:
+    """由头像生成卡片配色。
+
+    取头像的 MD3 源色生成深色配色: 遮罩底色用 surface_container, 正文用 primary,
+    署名用 outline (比正文暗一档, 对应静态配色里的灰色)。
+    头像缺失或无彩色 (灰度 / 全透明) 时用 style 里的静态配色。
+    正文或署名与底色的对比度不足 style.min_contrast 时, 在源色色相下调明度补足。
     """
-    white: Color = (255, 255, 255, 255)
+    static = CardColors(style.panel, (255, 255, 255, 255), style.signature_color)
     if avatar is None:
-        return white
+        return static
     source = source_color(avatar)
     if source is None:
-        return white
-    return readable_tone(source, background=panel, min_contrast=min_contrast, prefer=80)
+        return static
+    # FIDELITY 与 CONTENT 都贴近源色, 前者生成快约 9 倍
+    scheme = scheme_from_color(source, dark=True, variant=SchemeVariant.FIDELITY)
+    panel = scheme["surface_container"]
+    text = scheme["primary"]
+    if contrast_ratio(text, panel) < style.min_contrast:
+        text = readable_tone(
+            source, background=panel, min_contrast=style.min_contrast, prefer=80
+        )
+    signature = scheme["outline"]
+    if contrast_ratio(signature, panel) < style.min_contrast:
+        signature = readable_tone(
+            signature, background=panel, min_contrast=style.min_contrast, prefer=60
+        )
+    return CardColors(panel, text, signature)
+
+
+def _tint(mask: Image.Image, color: Color) -> Image.Image:
+    """保留遮罩的 alpha 渐变, 把颜色换成 color"""
+    out = Image.new("RGBA", mask.size, (*color[:3], 255))
+    out.putalpha(mask.getchannel("A"))
+    return out
 
 
 def _center_in(box: Box, w: int, h: int) -> tuple[int, int]:
@@ -80,7 +116,8 @@ def render_card(
         )
     if mask.size != style.size:
         mask = mask.resize(style.size, Image.Resampling.LANCZOS)
-    canvas.alpha_composite(mask.convert("RGBA"))
+    colors = card_colors(avatar, style)
+    canvas.alpha_composite(_tint(mask.convert("RGBA"), colors.panel))
 
     for content, box, max_size, min_size, color in (
         (
@@ -88,14 +125,14 @@ def render_card(
             style.text_box,
             style.text_max_size,
             style.text_min_size,
-            text_color_for(avatar, style.panel, style.min_contrast),
+            colors.text,
         ),
         (
             signature,
             style.signature_box,
             style.signature_max_size,
             style.signature_min_size,
-            style.signature_color,
+            colors.signature,
         ),
     ):
         font, block = fit_text(
