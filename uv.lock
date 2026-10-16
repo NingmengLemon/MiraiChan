@@ -457,6 +457,7 @@ dependencies = [
     { name = "coloraide" },
     { name = "coloraide-extras" },
     { name = "material-color-utilities" },
+    { name = "numpy" },
     { name = "pillow" },
     { name = "pilmoji" },
 ]
@@ -466,6 +467,7 @@ requires-dist = [
     { name = "coloraide", specifier = ">=8.6" },
     { name = "coloraide-extras", specifier = ">=1.12.2" },
     { name = "material-color-utilities", specifier = ">=0.2.6" },
+    { name = "numpy", specifier = ">=2.2.6" },
     { name = "pillow", specifier = ">=11.0.0" },
     { name = "pilmoji", git = "https://github.com/jay3332/pilmoji.git?rev=2.0" },
 ]
