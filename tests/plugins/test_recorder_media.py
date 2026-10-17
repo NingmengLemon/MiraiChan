@@ -37,7 +37,7 @@ from mbplugin_recorder.db.operations import (
     record_message,
     retry_delay,
 )
-from mbplugin_recorder.media import download_media_source
+from mbplugin_recorder.media import download_media_source, media_cache_path
 from mbplugin_recorder.migration import migrate
 from mbplugin_recorder.worker import is_permanent_failure
 from multidict import CIMultiDict, CIMultiDictProxy
@@ -109,6 +109,27 @@ async def _get(db: SqliteDatabaseHelper, file_id: str) -> MediaSource:
 def test_retry_delay_is_capped_exponential() -> None:
     delays = [retry_delay(n, base=60, cap=3600).total_seconds() for n in range(1, 6)]
     assert delays == [60, 240, 960, 3600, 3600]
+
+
+def test_media_cache_path_is_named_after_the_content_hash(tmp_path: Path) -> None:
+    digest = "b" * 64
+    source = MediaSource(
+        source_file_id="FILE_1", media_type="image", url="https://x/a.PNG?token=1"
+    )
+    assert media_cache_path(tmp_path, source, sha256_hex=digest) == (
+        tmp_path / "image" / f"{digest}.png"
+    )
+
+
+def test_media_cache_path_falls_back_to_a_cleaned_source_id(tmp_path: Path) -> None:
+    source = MediaSource(
+        source_file_id="FILE/1", media_type="image", url="https://x/a.jpeg"
+    )
+    # 没有内容摘要时用来源 id: 路径分隔符之类换成下划线
+    assert media_cache_path(tmp_path, source) == tmp_path / "image" / "FILE_1.jpeg"
+    # 后缀取不到时只留文件名
+    no_suffix = MediaSource(source_file_id="abc", media_type="image", url=None)
+    assert media_cache_path(tmp_path, no_suffix) == tmp_path / "image" / "abc"
 
 
 def test_permanent_failures() -> None:
