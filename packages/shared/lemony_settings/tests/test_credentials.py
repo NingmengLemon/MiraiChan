@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from lemony_settings.credentials import (
     CredentialsFileError,
+    MissingCredentialError,
     ensure_credentials_file,
     env_name,
     get_secret,
@@ -75,7 +76,9 @@ def test_missing_path_or_file_reads_as_empty(tmp_path: Path) -> None:
     assert get_secret(KEY) is None
     set_credentials_path(tmp_path / "nope.json")
     assert get_secret(KEY) is None
-    with pytest.raises(KeyError):
+    with pytest.raises(
+        MissingCredentialError, match="MIRAICHAN_WEBSOCKET_ACCESS_TOKEN"
+    ):
         require_secret(KEY)
 
 

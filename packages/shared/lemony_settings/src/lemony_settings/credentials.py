@@ -29,6 +29,7 @@ from pathlib import Path
 __all__ = [
     "DEFAULT_ENV_PREFIX",
     "CredentialsFileError",
+    "MissingCredentialError",
     "ensure_credentials_file",
     "env_name",
     "get_credentials_path",
@@ -50,6 +51,10 @@ _cache: tuple[tuple[str, int, int], dict[str, str]] | None = None
 
 class CredentialsFileError(ValueError):
     """凭据文件格式不对 (不是 JSON 对象, 或者值不是字符串)"""
+
+
+class MissingCredentialError(LookupError):
+    """需要的凭据既不在环境变量里也不在凭据文件里"""
 
 
 def set_credentials_path(path: str | Path | None) -> None:
@@ -102,7 +107,11 @@ def load_credentials() -> dict[str, str]:
 
 
 def env_name(key: str, prefix: str = DEFAULT_ENV_PREFIX) -> str:
-    """键对应的环境变量名, 例如 ``websocket.access_token`` -> ``MIRAICHAN_WEBSOCKET_ACCESS_TOKEN``"""
+    """键对应的环境变量名, 例如 ``websocket.access_token`` -> ``MIRAICHAN_WEBSOCKET_ACCESS_TOKEN``
+
+    映射是有损的: 非字母数字一律变成下划线, 所以 ``a.b_c`` 与 ``a_b.c`` 会撞到同一个
+    环境变量名。键的命名要自己避开这种形状。
+    """
     normalized = "".join(ch if ch.isalnum() else "_" for ch in key).upper()
     return f"{prefix}_{normalized}" if prefix else normalized
 
@@ -117,10 +126,10 @@ def get_secret(key: str, *, env_prefix: str = DEFAULT_ENV_PREFIX) -> str | None:
 
 
 def require_secret(key: str, *, env_prefix: str = DEFAULT_ENV_PREFIX) -> str:
-    """同 :func:`get_secret`, 但取不到时抛 KeyError (启动阶段用)"""
+    """同 :func:`get_secret`, 但取不到时抛 :class:`MissingCredentialError` (启动阶段用)"""
     value = get_secret(key, env_prefix=env_prefix)
     if value is None:
-        raise KeyError(
+        raise MissingCredentialError(
             f"缺少凭据 {key!r}: 请写进凭据文件, 或设置环境变量 {env_name(key, env_prefix)}"
         )
     return value
@@ -131,9 +140,10 @@ def ensure_credentials_file(
     *,
     template: Mapping[str, str] | None = None,
 ) -> Path:
-    """确保凭据文件存在; 新建时写一份模板, 权限 0600。
+    """确保凭据文件存在; 新建时写一份模板。
 
-    已存在时不动它 (只把权限记录到警告里, 交给 :func:`warn_if_insecure`)。
+    POSIX 下新文件的权限是 0600, Windows 上只把只读位打开 (mode 位在 Windows 上不代表 ACL)。
+    已存在时不动它 (权限问题交给 :func:`warn_if_insecure`)。
     """
     target = Path(path) if path is not None else _credentials_path
     if target is None:
@@ -145,18 +155,27 @@ def ensure_credentials_file(
     try:
         fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except FileExistsError:
-        # 另一个进程刚好抢先建好了, 用它就行, 不要覆盖
+        # 另一个进程刚好抢先建好了 (用它就行); 也可能路径是个目录 / 悬空符号链接
+        if not target.is_file():
+            logger.warning("凭据路径 %s 已存在但不是普通文件, 没有创建凭据文件", target)
         return target
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fp:
             fp.write(content)
             fp.flush()
             os.fsync(fp.fileno())
+    except BaseException:
+        # 写到一半失败 (磁盘满之类) 不能留下半个文件, 否则之后每次启动都解析失败
+        with contextlib.suppress(OSError):
+            target.unlink(missing_ok=True)
+        raise
     finally:
-        # Windows 上 mode 参数基本无效, 这里显式收一次权限 (Linux 上就是 0600)
         with contextlib.suppress(OSError):
             os.chmod(target, 0o600)
-    logger.info("已创建凭据文件 %s, 把凭据填进去 (权限 0600)", target)
+    if os.name == "nt":
+        logger.info("已创建凭据文件 %s, 把凭据填进去", target)
+    else:
+        logger.info("已创建凭据文件 %s, 把凭据填进去 (权限 0600)", target)
     return target
 
 
