@@ -28,23 +28,6 @@ BLOCK = (255, 0, 0, 255)  # 用一个纯红方块代替字形
 _WHITE = (255, 255, 255, 255)
 
 
-def _write_default_font(path: Path) -> Path:
-    """把 Pillow 自带字体落到文件, 才能按路径打开。
-
-    只写一次: 字体文件被 FreeType 映射之后再截断同一条路径, Windows 会报 EINVAL。
-    """
-    if path.exists():
-        return path
-    font = ImageFont.load_default(20)
-    assert isinstance(font, ImageFont.FreeTypeFont)
-    embedded = font.path
-    if isinstance(embedded, BytesIO):
-        path.write_bytes(embedded.getvalue())
-        return path
-    assert isinstance(embedded, str)
-    return Path(embedded)
-
-
 class _StubRenderer(ColorFontEmoji):
     """固定返回同一张图片的渲染器"""
 
@@ -62,11 +45,6 @@ def _red_mask(canvas: Image.Image) -> np.ndarray:
         & (arr[:, :, 2] == 0)
         & (arr[:, :, 3] == 255)
     )
-
-
-@pytest.fixture(scope="module")
-def font_file(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return _write_default_font(tmp_path_factory.mktemp("font") / "default.otf")
 
 
 @pytest.fixture
@@ -259,10 +237,10 @@ def test_plain_drawn_block_stays_inside_the_box(font_file: Path) -> None:
 
 
 def test_nonsquare_icon_is_centered_in_its_square(
-    font: ImageFont.FreeTypeFont, tmp_path: Path
+    font: ImageFont.FreeTypeFont, font_file: Path
 ) -> None:
     """宽 emoji (旗、心) 在字号方块里居中, 不能贴左边"""
-    stub = _StubRenderer(_write_default_font(tmp_path / "center.otf"))
+    stub = _StubRenderer(font_file)
     stub.icon = Image.new("RGBA", (10, 20), BLOCK)  # 窄条, 方块宽 20
     canvas = Image.new("RGBA", (80, 40), _WHITE)
     draw_text_line(canvas, (10, 10), "⭐", font, fill=(0, 0, 0, 255), renderer=stub)
