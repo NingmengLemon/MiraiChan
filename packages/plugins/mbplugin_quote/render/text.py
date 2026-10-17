@@ -14,6 +14,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
 from lemony_images.text import (
+    block_height,
     fit_to_square,
     line_height,
     split_clusters,
@@ -58,10 +59,7 @@ class TextBlock:
 
     @property
     def height(self) -> int:
-        n = len(self.lines)
-        if n == 0:
-            return 0
-        return n * self.line_height + (n - 1) * self.spacing
+        return block_height(len(self.lines), self.line_height, self.spacing)
 
 
 def _units(line: str) -> list[Run]:
@@ -82,10 +80,6 @@ def extract_emojis(texts: Iterable[str]) -> set[str]:
 def _unit_width(u: Run, font: ImageFont.FreeTypeFont) -> float:
     # 引用图总是按平方块排版: emoji 由图片贴上, 图片缺失时也留出同样宽度
     return unit_width(u.text, u.is_emoji, font, emoji_as_square=True)
-
-
-def _line_height(font: ImageFont.FreeTypeFont) -> int:
-    return line_height(font)
 
 
 def _merge(units: list[Run]) -> tuple[Run, ...]:
@@ -170,7 +164,7 @@ def layout_text(
         lines=tuple(lines),
         line_widths=tuple(_runs_width(line, font) for line in lines),
         font_size=int(font.size),
-        line_height=_line_height(font),
+        line_height=line_height(font),
         spacing=spacing,
     )
 

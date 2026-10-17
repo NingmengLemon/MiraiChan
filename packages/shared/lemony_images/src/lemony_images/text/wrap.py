@@ -1,15 +1,21 @@
 """断行与字号拟合。
 
-这里的测量全部走 ``lemony_images.text.metrics``: 一行有多高、emoji 簇占多宽都只在
-那里定义一次, 绘制层用同一套数值, 所以"算出来放得下"与"画出来放得下"是一回事。
+测量全部走 ``lemony_images.text.metrics``: 一行有多高、emoji 簇占多宽只在那里
+定义一次, 绘制层用同一套数值。拟合用的块高也来自那里 (``block_height``), 所以
+"算出来放得下"与"画出来放得下"是同一件事。
 """
 
 from PIL import ImageFont
 
 from .font import FontCache
-from .metrics import line_height, line_width, split_clusters, unit_width
+from .metrics import block_height, line_height, line_width, split_clusters, unit_width
 
-__all__ = ["calc_font_size", "wrap_text_by_length", "wrap_text_by_width"]
+__all__ = [
+    "calc_font_size",
+    "measure_lines",
+    "wrap_text_by_length",
+    "wrap_text_by_width",
+]
 
 
 def wrap_text_by_length(s: str, line_length: int) -> list[str]:
@@ -35,7 +41,8 @@ def wrap_text_by_width(
     """
     result: list[str] = []
     limit = int(line_width_limit)
-    for line in s.splitlines():
+    # 按 \n 切而不是 splitlines(): 尾随空行要保住, 否则绘制层会少算一行
+    for line in s.split("\n"):
         if not line:
             result.append("")
             continue
@@ -61,6 +68,16 @@ def wrap_text_by_width(
     return result
 
 
+def measure_lines(
+    text: str, font: ImageFont.FreeTypeFont, *, emoji_as_square: bool
+) -> list[float]:
+    """多行文本每行的宽度"""
+    return [
+        line_width(line, font, emoji_as_square=emoji_as_square)
+        for line in text.split("\n")
+    ]
+
+
 def calc_font_size(
     text: str,
     max_font_size: int,
@@ -75,29 +92,15 @@ def calc_font_size(
     """算出能塞进 bbox 的最大字号, 返回字号和断行后的文本
 
     到最小字号还塞不下时返回最小字号, 此时按返回的字号绘制会超出 bbox 高度。
-    高度用的是 ``metrics.line_height``, 与绘制层同一个定义。
+    高度用 ``metrics.block_height``, 与绘制层同一个定义, 不多算一个 spacing。
     """
-    fsize = max_font_size
-    while fsize > min_font_size:
+    for fsize in range(max_font_size, min_font_size, -1):
         font = fontcache.use(fsize)
         lines = wrap_text_by_width(
             text, box_width, font, emoji_as_square=emoji_as_square
         )
-        if (line_height(font) + spacing) * len(lines) <= box_height:
-            break
-        fsize -= 1
-    return fsize, "\n".join(
-        wrap_text_by_width(
-            text, box_width, fontcache.use(fsize), emoji_as_square=emoji_as_square
-        )
-    )
-
-
-def measure_lines(
-    text: str, font: ImageFont.FreeTypeFont, *, emoji_as_square: bool = False
-) -> list[float]:
-    """多行文本每行的宽度"""
-    return [
-        line_width(line, font, emoji_as_square=emoji_as_square)
-        for line in text.split("\n")
-    ]
+        if block_height(len(lines), line_height(font), spacing) <= box_height:
+            return fsize, "\n".join(lines)
+    font = fontcache.use(min_font_size)
+    lines = wrap_text_by_width(text, box_width, font, emoji_as_square=emoji_as_square)
+    return min_font_size, "\n".join(lines)
