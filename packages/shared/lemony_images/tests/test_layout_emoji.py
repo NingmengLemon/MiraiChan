@@ -11,7 +11,11 @@ import numpy as np
 import pytest
 from lemony_images.emoji import ColorFontEmoji, draw_emoji_line, emoji_line_width
 from lemony_images.font import FontCache
-from lemony_images.layout import draw_multiline_text_auto
+from lemony_images.layout import (
+    calc_font_size,
+    draw_multiline_text_auto,
+    wrap_text_by_width,
+)
 from PIL import Image, ImageDraw, ImageFont
 
 BLOCK = (255, 0, 0, 255)  # 用一个纯红方块代替字形
@@ -146,3 +150,48 @@ def test_right_alignment_lines_share_right_edge(
     edges = [int(np.nonzero(mask[band].any(axis=0))[0].max()) for band in bands]
     assert edges[0] == edges[1]
     assert edges[0] < 200
+
+
+def test_wrap_keeps_emoji_cluster_whole(font: ImageFont.FreeTypeFont) -> None:
+    """按方块算宽度时, 一个簇占一格, 不能被拆到两行"""
+    family = "👨‍👩‍👧‍👦"
+    assert wrap_text_by_width(family, 25, font, emoji_as_square=True) == [family]
+    # 逐字符断行 (不按方块) 会把这个簇切碎, 说明这条测试确实测到了差别
+    naive = wrap_text_by_width(family, 25, font)
+    assert len(naive) > 1
+    assert "".join(naive) == family
+
+
+def test_fit_reserves_the_height_the_emoji_mode_draws(
+    font_file: Path,
+) -> None:
+    """fit 用 ascent+descent, 和 emoji 模式绘制时的行距一致, 块才不会溢出"""
+    cache = FontCache(font_file=font_file)
+    box_height = 60
+    size, _ = calc_font_size(
+        "A⭐\nB⭐",
+        40,
+        400,
+        box_height,
+        fontcache=cache,
+        min_font_size=10,
+        spacing=4,
+        emoji_as_square=True,
+    )
+    line_height = sum(cache.use(size).getmetrics())
+    assert 2 * line_height + 4 <= box_height
+
+
+def test_nonsquare_icon_is_centered_in_its_square(
+    font: ImageFont.FreeTypeFont, tmp_path: Path
+) -> None:
+    """宽 emoji (旗、心) 在字号方块里居中, 不能贴左边"""
+    stub = _StubRenderer(_write_default_font(tmp_path / "center.otf"))
+    stub.icon = Image.new("RGBA", (10, 20), BLOCK)  # 窄条, 方块宽 20
+    canvas = Image.new("RGBA", (80, 40), _WHITE)
+    draw_emoji_line(canvas, (10, 10), "⭐", font, stub, (0, 0, 0, 255))
+    columns = np.nonzero(_red_mask(canvas).any(axis=0))[0]
+    assert columns.size, "没有贴上色块"
+    # 方块从 x=10 起、宽 20, 10 宽的图标应当落在 15..25
+    assert int(columns.min()) >= 15
+    assert int(columns.max()) <= 25

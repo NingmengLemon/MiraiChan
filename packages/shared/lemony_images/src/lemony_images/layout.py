@@ -5,9 +5,22 @@ from typing import Any, Literal
 from PIL import Image, ImageDraw, ImageFont
 
 from .color.convert import ensure_4inttuple
-from .emoji import ColorFontEmoji, draw_emoji_line, emoji_line_width
+from .emoji import (
+    ColorFontEmoji,
+    draw_emoji_line,
+    emoji_line_width,
+    split_clusters,
+)
 from .font import FontCache, get_default_font_cache
 from .typedef import _BboxT, _ColorT, _FontFileT
+
+
+def _image_of(draw: ImageDraw.ImageDraw) -> Image.Image:
+    """取 draw 底下的 Image。
+
+    Pillow 没给公开访问器: ``draw.im`` 是 ImagingCore 而不是 Image, ``draw._image``
+    才是。集中在这里一处, Pillow 以后变了只改这里。"""
+    return draw._image
 
 
 def wrap_text_by_length(s: str, line_length: int):
@@ -24,24 +37,39 @@ def wrap_text_by_width(
     s: str,
     line_width: float,
     font: ImageFont.FreeTypeFont,
+    *,
+    emoji_as_square: bool = False,
 ):
-    """根据像素宽度断行"""
+    """根据像素宽度断行
+
+    emoji_as_square=True 时 emoji 簇占一个字号宽的方块并且整体不拆开, 与
+    ``draw_multiline_text_auto`` 的 emoji 模式用同一套测量规则。
+    """
     result: list[str] = []
     line_width = int(line_width)
     for line in s.splitlines():
         if not line:
             result.append("")
             continue
-        char_widths = [font.getlength(c) for c in line]
-        start = 0
-        while start < len(line):
-            current_width = 0
-            end = start
-            while end < len(line) and current_width + char_widths[end] <= line_width:
-                current_width += char_widths[end]
-                end += 1
-            result.append(line[start:end])
-            start = end
+        if emoji_as_square:
+            units = [
+                (chunk, float(font.size) if is_emoji else font.getlength(chunk))
+                for chunk, is_emoji in split_clusters(line)
+            ]
+        else:
+            units = [(c, font.getlength(c)) for c in line]
+        current: list[str] = []
+        current_width = 0.0
+        for chunk, width in units:
+            # 单个单元比整行还宽时也会被放到下一行开头, 不会死循环
+            if current and current_width + width > line_width:
+                result.append("".join(current))
+                current = []
+                current_width = 0.0
+            current.append(chunk)
+            current_width += width
+        if current:
+            result.append("".join(current))
     return result
 
 
@@ -53,21 +81,40 @@ def calc_font_size(
     fontcache: FontCache,
     min_font_size: int = 20,
     spacing: int = 4,
+    *,
+    emoji_as_square: bool = False,
 ):
     """计算出尽可能适合指定bbox的文本的字体大小，返回字号和断行后的文本内容
 
     当已经达到给定的最小字号但仍不能适合bbox高度时，返回最小字号，
-    此时直接使用返回的字号和断行文本绘制文本将会超出bbox的高度"""
+    此时直接使用返回的字号和断行文本绘制文本将会超出bbox的高度。
+
+    emoji_as_square=True 时按 emoji 模式的度量算高度 (ascent+descent),
+    必须与 ``draw_multiline_text_auto`` 的 emoji 模式一致, 否则算出来的字号
+    会偏大、画出来溢出。
+    """
     fsize = max_font_size
+
+    def line_height(font: ImageFont.FreeTypeFont) -> int:
+        if emoji_as_square:
+            return sum(font.getmetrics())
+        bbox = font.getbbox("意义是无意识")  # 这里要的是字体高度所以填什么都好x
+        return int(bbox[3] - bbox[1])
+
     while fsize > min_font_size:
         font = fontcache.use(fsize)
-        wrapped_lines = wrap_text_by_width(text, box_width, font)
-        bbox = font.getbbox("意义是无意识")  # 这里要的是字体高度所以填什么都好x
+        wrapped_lines = wrap_text_by_width(
+            text, box_width, font, emoji_as_square=emoji_as_square
+        )
         # getbbox 不认换行符所以像这样
-        if (bbox[3] - bbox[1] + spacing) * len(wrapped_lines) <= box_height:
+        if (line_height(font) + spacing) * len(wrapped_lines) <= box_height:
             break
         fsize -= 1
-    return fsize, "\n".join(wrap_text_by_width(text, box_width, fontcache.use(fsize)))
+    return fsize, "\n".join(
+        wrap_text_by_width(
+            text, box_width, fontcache.use(fsize), emoji_as_square=emoji_as_square
+        )
+    )
 
 
 def calc_bbox(
@@ -131,6 +178,7 @@ def draw_multiline_text_auto(
         fontcache=fontcache,
         min_font_size=min_font_size,
         spacing=spacing,
+        emoji_as_square=emoji_renderer is not None,
     )
     use_font = fontcache.use(font_size)
     for kw in (
@@ -191,7 +239,7 @@ def draw_multiline_text_auto(
             case _:
                 x = xy[0]
         draw_emoji_line(
-            draw._image,
+            _image_of(draw),
             (x, xy[1] + i * (line_height + spacing)),
             line,
             use_font,
