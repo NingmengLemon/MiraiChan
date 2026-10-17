@@ -1,0 +1,296 @@
+"""
+权限检查器的配置模型.
+
+使用 lemony_settings 进行配置管理.
+"""
+
+import dataclasses
+import textwrap
+from collections.abc import Callable
+from dataclasses import dataclass, make_dataclass
+from functools import lru_cache
+from typing import Annotated, Any, Literal, Self, cast, get_args, get_origin
+
+from lemony_settings import BaseSettings
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    SerializeAsAny,
+    field_validator,
+)
+from pydantic.fields import FieldInfo
+
+from .exceptions import LemonyInternalImplError, LemonyProgrammingError
+
+type Constraint = dict[str, list[Any]]
+
+#: Constraint 值列表中的通配符, 表示"该字段存在且不为 None".
+#: 例如 {"group_id": [ANY_VALUE]} 匹配任意群聊中的用户, 但不匹配私聊 (私聊的 group_id 为 None).
+#: 旧配置的 group_rules 用 ids=None 表示"所有群聊", 迁移时需要它来保持"不涉及私聊"的语义.
+ANY_VALUE = "*"
+
+_UNIQUE_USER_MODEL_REGISTRY: list[
+    tuple[type["UniqueUserDataclassBase"], type["UniqueUserBase"]]
+] = []
+_UNIQUE_USER_PROTOCOL_REGISTRY: dict[str, type["UniqueUserBase"]] = {}
+
+
+def _extract_literal_protocol(protocol_annotation: Any) -> str | None:
+    """从 UniqueUserBase 子类的 protocol 注解中提取唯一协议字符串."""
+    origin = get_origin(protocol_annotation)
+    if origin is Literal:
+        args = get_args(protocol_annotation)
+        if len(args) == 1 and isinstance(args[0], str):
+            return args[0]
+    if origin is not None:
+        for arg in get_args(protocol_annotation):
+            if (protocol := _extract_literal_protocol(arg)) is not None:
+                return protocol
+    return None
+
+
+def _validate_unique_user_config(value: Any) -> "UniqueUserBase":
+    """按 protocol 字段将配置数据恢复为具体 UniqueUserBase 子类."""
+    if isinstance(value, UniqueUserBase):
+        data = value.model_dump()
+    elif isinstance(value, dict):
+        data = value
+    else:
+        raise TypeError(f"Invalid unique user config item: {value!r}")
+
+    protocol = data.get("protocol")
+    if not isinstance(protocol, str):
+        # BeforeValidator 里只有 ValueError 会被 pydantic 包成 ValidationError, 不能改成 TypeError
+        raise ValueError(  # noqa: TRY004
+            "Unique user config item must contain string field 'protocol'"
+        )
+
+    model = _UNIQUE_USER_PROTOCOL_REGISTRY.get(protocol)
+    if model is None:
+        raise ValueError(f"No UniqueUser model registered for protocol {protocol!r}")
+    return model.model_validate(data)
+
+
+UniqueUserConfig = Annotated[
+    SerializeAsAny["UniqueUserBase"],
+    BeforeValidator(_validate_unique_user_config),
+]
+
+# 寻思是这样的
+# 因为 pydantic model 太大坨了不适合高频使用 (真的吗?)
+# 于是用 frozen slotted dataclass 当作轻量级替代
+# pydantic model 只用于配置中
+
+# 协议适配器的典型实现方法参见
+# .adapters.ob11
+
+
+@dataclass(slots=True, weakref_slot=True, frozen=True)
+class UniqueUserDataclassBase[PCT: str]:
+    @classmethod
+    @lru_cache(1)
+    def get_pydantic_model(cls) -> type["UniqueUserBase[PCT]"]:
+        for dataclass_type, pydantic_type in _UNIQUE_USER_MODEL_REGISTRY:
+            if dataclass_type is cls:
+                return pydantic_type
+        raise LemonyInternalImplError(f"No pydantic model found for {cls}")
+
+    @classmethod
+    def from_kwargs(cls, **data: Any) -> Self:
+        return cls(**data)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {field: getattr(self, field) for field in self.__dataclass_fields__}
+
+    def to_tuple(self) -> tuple[Any, ...]:
+        return tuple(getattr(self, field) for field in self.__dataclass_fields__)
+
+
+class UniqueUserBase[PCT: str](BaseModel):
+    model_config = ConfigDict(frozen=True)
+    protocol: PCT
+
+    @classmethod
+    def __pydantic_on_complete__(cls) -> None:
+        super().__pydantic_on_complete__()
+        # 跳过参数化的基类自身 (如 UniqueUserBase[Literal[...]]), 只处理具体子类
+        if cls is globals().get("UniqueUserBase"):
+            return
+        if cls.__module__ == __name__ and cls.__name__.startswith("UniqueUserBase["):
+            return
+        if len(getattr(cls, "__parameters__", ())) > 0:
+            return
+        cls._register_unique_user_model()
+
+    @classmethod
+    def _register_unique_user_model(cls) -> None:
+        inherited_fields: set[str] = set()
+        for base in cls.__mro__[1:]:
+            inherited_fields.update(getattr(base, "model_fields", {}))
+
+        extra_fields = set(cls.model_fields) - inherited_fields
+        if not extra_fields:
+            raise LemonyProgrammingError(
+                f"{cls.__name__} must declare at least 1 field more than its parent"
+            )
+
+        dataclass_type = cls.get_dataclass()
+        if (dataclass_type, cls) not in _UNIQUE_USER_MODEL_REGISTRY:
+            _UNIQUE_USER_MODEL_REGISTRY.append((dataclass_type, cls))
+        protocol = _extract_literal_protocol(cls.model_fields["protocol"].annotation)
+        if protocol is not None:
+            existing = _UNIQUE_USER_PROTOCOL_REGISTRY.get(protocol)
+            if existing is not None and existing is not cls:
+                raise LemonyProgrammingError(
+                    f"Duplicate UniqueUser model for protocol {protocol!r}: "
+                    f"{existing} and {cls}"
+                )
+            _UNIQUE_USER_PROTOCOL_REGISTRY[protocol] = cls
+
+    @classmethod
+    def _dataclass_default(cls, field: FieldInfo) -> Any:
+        """把 pydantic 字段的默认值转成对应 dataclass 字段的默认值.
+
+        没有默认值的字段返回 ``MISSING`` (保持必填)。不能直接把 ``FieldInfo`` 对象当默认值:
+        那样"省略该字段"会构造出一个字段值是 FieldInfo 的身份对象, 是个静默的脏值。
+        """
+        if field.is_required():
+            return dataclasses.MISSING
+        if field.default_factory is not None:
+            # 让 dataclass 自己调用工厂, 避免把同一个可变默认值共享给所有实例
+            factory = cast("Callable[[], Any]", field.default_factory)
+            return dataclasses.field(default_factory=factory)
+        return field.default
+
+    @classmethod
+    @lru_cache(1)
+    def get_dataclass(cls) -> type[UniqueUserDataclassBase[PCT]]:
+        return cast(
+            "type[UniqueUserDataclassBase[PCT]]",
+            make_dataclass(
+                cls_name=cls.__name__,
+                fields=[
+                    (name, field.annotation, cls._dataclass_default(field))
+                    for name, field in cls.model_fields.items()
+                ],
+                bases=(UniqueUserDataclassBase,),
+                slots=True,
+                weakref_slot=True,
+                frozen=True,
+            ),
+        )
+
+
+class Rule(BaseModel):
+    """
+    权限规则.
+
+    规则按顺序应用, 直到匹配为止.
+    """
+
+    action: Literal["allow", "deny"] = Field(
+        description="规则的动作, 允许或拒绝.",
+    )
+    # None -> 无条件匹配
+    # 不为 None 时, 外层列表中任意一个 constraint 匹配即可；单个 constraint 内各字段为 AND 关系。
+    # 值列表里可以写 ANY_VALUE, 表示该字段任意非 None 取值 (见 ANY_VALUE 的定义)。
+    constrains: list[Constraint] | None = None
+    protocol: str = Field(
+        description="适用此规则的协议. 需要先在 adapter 中注册 extractor. "
+        "通常可以从 protocol.const 中找到, 比如 "
+        "melobot.protocols.onebot.v11.const.PROTOCOL_IDENTIFIER",
+    )
+
+    @field_validator("constrains", mode="before")
+    @classmethod
+    def _migrate_single_constraint(cls, value: Any) -> Any:
+        # 兼容本次改动前的 {field: [values]} 形态。
+        if value is None:
+            return None
+        if isinstance(value, dict):
+            return [value]
+        return value
+
+
+class CheckerGlobalSettings(BaseSettings):
+    """
+    权限检查器的全局配置.
+
+    保存在 configs/lemony_checkers/global.{format} 中.
+    """
+
+    mode: Literal["whitelist", "blacklist"] = Field(
+        default="blacklist",
+        description=textwrap.dedent(
+            """
+            全局配置的模式, 决定未在规则中明确指定时的默认行为.
+            - whitelist: 默认拒绝, 仅允许在规则中明确允许的操作.
+            - blacklist: 默认允许, 仅禁止在规则中明确禁止的操作.
+            """
+        ).strip(),
+    )
+    owner: list[UniqueUserConfig] = Field(
+        default_factory=list,
+        description="机器人所有者的ID列表. 无视所有权限检查, 始终通过.",
+    )
+    admins: list[UniqueUserConfig] = Field(
+        default_factory=list,
+        description=textwrap.dedent(
+            """
+            机器人的管理员ID列表. 拥有较高权限, 可在插件中自定义处理.
+            """
+        ).strip(),
+    )
+    rules: list[Rule] = Field(
+        default_factory=list,
+        description=textwrap.dedent(
+            """
+            全局权限规则. 优先于插件特定规则.
+            规则按顺序应用, 直到匹配为止.
+            """
+        ).strip(),
+    )
+
+
+class CheckerPluginSettings(BaseSettings):
+    """
+    插件特定的权限配置.
+
+    每个插件可以有自己的配置文件, 保存在 configs/lemony_checkers/{plugin_name}.{format} 中.
+    """
+
+    enabled: bool = Field(
+        default=True,
+        description="插件是否启用. 禁用后所有请求都会被拒绝.",
+    )
+    mode: Literal["whitelist", "blacklist"] | None = Field(
+        default=None,
+        description=textwrap.dedent(
+            """
+            插件的权限模式. 为 None 时使用全局配置的模式.
+            - whitelist: 默认拒绝, 仅允许在规则中明确允许的操作.
+            - blacklist: 默认允许, 仅禁止在规则中明确禁止的操作.
+            """
+        ).strip(),
+    )
+    rules: list[Rule] = Field(
+        default_factory=list,
+        description=textwrap.dedent(
+            """
+            插件特定的权限规则.
+            在全局规则之后应用, 用于细粒度的权限控制.
+            """
+        ).strip(),
+    )
+    commands: dict[str, bool] = Field(
+        default_factory=dict,
+        description=textwrap.dedent(
+            """
+            插件内各命令的启用状态映射.
+            键为命令名称, 值为布尔值表示是否启用该命令.
+            未列出的命令默认启用.
+            """
+        ).strip(),
+    )

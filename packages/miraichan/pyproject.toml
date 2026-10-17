@@ -1,0 +1,39 @@
+[project]
+name = "miraichan"
+version = "0.1.0"
+description = "MiraiChan bot core: entrypoint, config and melobot patches"
+authors = [
+    { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
+]
+dependencies = [
+    "json5>=0.13.0",
+    "melobot[onebot]>=3.5.0",
+    "packaging>=26.2",
+    "pydantic>=2.10.3",
+    "typer>=0.24.1",
+    "uvloop>=0.21.0; sys_platform != 'win32'",
+]
+requires-python = "==3.12.*"
+readme = "README.md"
+license = { text = "AGPL3" }
+
+[project.scripts]
+miraichan = "miraichan.main:miraichan_cli_app"
+
+[tool.uv.sources]
+
+[dependency-groups]
+dev = [
+    "watchfiles>=0.24.0",
+    "types-qrcode>=8.0.0.20241004",
+    "types-lxml>=2024.11.8",
+    "types-aiofiles>=24.1.0.20240626",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-sqlalchemy>=0.3.0",
+    "pytest-sqlalchemy-mock>=0.1.7",
+]
+
+[tool.uv]
+package = true

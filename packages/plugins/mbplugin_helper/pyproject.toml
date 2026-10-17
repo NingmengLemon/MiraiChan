@@ -1,0 +1,21 @@
+[project]
+name = "mbplugin_helper"
+version = "1.0.0"
+description = "Show the help registered by other plugins as merged-forward messages."
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = [
+    "lemony_onebot_utils",
+    "lemony_utils",
+    "melobot[onebot]>=3.5.0",
+]
+
+[tool.setuptools]
+packages = ["mbplugin_helper"]
+
+[tool.setuptools.package-dir]
+mbplugin_helper = "."
+
+[tool.uv.sources]
+lemony_onebot_utils = { workspace = true }
+lemony_utils = { workspace = true }

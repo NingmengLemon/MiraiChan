@@ -1,0 +1,20 @@
+[project]
+name = "lemony_settings"
+version = "0.1.0"
+description = "Lemoneko's config management library for MiraiChan"
+authors = [
+    { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
+]
+dependencies = [
+    "filelock>=3.25.2",
+    "json5>=0.13.0",
+    "pydantic>=2.12.5",
+    "pyyaml>=6.0.3",
+    "tomli>=2.4.0",
+    "tomli-w>=1.2.0",
+    "watchfiles>=1.1.1",
+]
+
+requires-python = ">=3.12,<3.14"
+readme = "README.md"
+license = { text = "AGPL3" }

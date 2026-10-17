@@ -1,0 +1,19 @@
+[project]
+name = "lemony_images"
+version = "0.1.0"
+description = "Lemoneko's image utils library for MiraiChan"
+authors = [
+    { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
+]
+dependencies = [
+    "pillow>=13.0.0",
+    "emoji>=2.14",
+    "material-color-utilities>=0.2.6",
+    "numpy>=2.2.6",
+    "coloraide>=8.6",
+    "coloraide-extras>=1.12.2",
+]
+
+requires-python = ">=3.12,<3.14"
+readme = "README.md"
+license = { text = "AGPL3" }

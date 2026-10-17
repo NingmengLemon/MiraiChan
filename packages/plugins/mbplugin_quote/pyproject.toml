@@ -1,0 +1,38 @@
+[project]
+name = "mbplugin_quote"
+version = "2.0.0"
+description = "Quote messages as images: card (.q) and chat log (.mq) styles."
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = [
+    "lemony_utils",
+    "aiohttp",
+    "lemony_checkers",
+    "lemony_images",
+    "lemony_mface",
+    "lemony_network",
+    "lemony_onebot_utils",
+    "lemony_settings",
+    "lemony_storage_helper[sqlite]",
+    "pillow>=13.0.0",
+    "uuid-utils>=0.14.1",
+]
+
+[tool.setuptools]
+packages = ["mbplugin_quote", "mbplugin_quote.render"]
+
+[tool.setuptools.package-dir]
+mbplugin_quote = "."
+
+[tool.setuptools.package-data]
+mbplugin_quote = ["resources/*.png"]
+
+[tool.uv.sources]
+lemony_utils = { workspace = true }
+lemony_checkers = { workspace = true }
+lemony_images = { workspace = true }
+lemony_mface = { workspace = true }
+lemony_network = { workspace = true }
+lemony_onebot_utils = { workspace = true }
+lemony_settings = { workspace = true }
+lemony_storage_helper = { workspace = true }

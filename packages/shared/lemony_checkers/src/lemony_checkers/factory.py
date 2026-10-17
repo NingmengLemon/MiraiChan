@@ -1,0 +1,508 @@
+"""
+配置管理模块.
+
+使用 lemony_settings 进行配置的加载和管理.
+"""
+
+import warnings
+from contextvars import ContextVar
+from enum import Enum, auto
+from typing import TYPE_CHECKING, Literal
+
+from lemony_settings import LemonySettings, get_global_settings, require
+from lemony_settings.utils import resolve_config_path
+from melobot.adapter.model import Event
+from melobot.log import get_logger
+
+from .core import is_admin, is_owner
+from .models import (
+    CheckerGlobalSettings,
+    CheckerPluginSettings,
+    UniqueUserConfig,
+    UniqueUserDataclassBase,
+)
+
+if TYPE_CHECKING:
+    from .checkers import AdminChecker, FailCallback, LemonyChecker, OwnerChecker
+
+logger = get_logger()
+
+# 模块标识符
+MODULE_IDENTIFIER = "lemony_checkers"
+
+
+class LemonyCheckerFactory:
+    """
+    权限检查器工厂类. 提供获取和管理权限配置的接口.
+    """
+
+    def __init__(self):
+        # 全局配置实例
+        self._global_checker_settings: LemonySettings[CheckerGlobalSettings] | None = (
+            None
+        )
+        # 插件配置缓存
+        self._plugin_settings_cache: dict[
+            str, LemonySettings[CheckerPluginSettings]
+        ] = {}
+        # 旧全局配置的规则优先级: post_init 迁移全局配置前读取, 供插件配置继承
+        self._legacy_default_rule_priority: str | None = None
+
+    def _migrate_settings_file_if_needed(self, namespace: str) -> None:
+        global_settings = get_global_settings()
+        config_file = resolve_config_path(
+            global_settings.config_path,
+            global_settings.preference,
+            id_ns=(MODULE_IDENTIFIER, namespace),
+        )
+        kind = "global" if namespace == "global" else "plugin"
+
+        from .migration import (
+            DEFAULT_LEGACY_RULE_PRIORITY,
+            backup_path_of,
+            migrate_config_file,
+            read_legacy_rule_priority,
+        )
+
+        if kind == "global":
+            # 旧插件配置里的 rule_priority=null 表示继承全局取值, 迁移插件配置时要用它.
+            # 迁移会删掉该字段, 所以在迁移前读; 若之前的启动已经迁移过全局文件,
+            # read_legacy_rule_priority 会改从 .bak 备份读取
+            self._legacy_default_rule_priority = read_legacy_rule_priority(
+                config_file, global_settings.preference
+            )
+
+        if migrate_config_file(
+            config_file,
+            global_settings.preference,
+            kind,
+            default_rule_priority=(
+                self._legacy_default_rule_priority or DEFAULT_LEGACY_RULE_PRIORITY
+            ),
+        ):
+            logger.info(
+                f"Migrated legacy checker config {MODULE_IDENTIFIER}:{namespace}; "
+                f"backup saved as {str(backup_path_of(config_file))!r}."
+            )
+
+    def post_init(self):
+        if self._global_checker_settings is None:
+            self._migrate_settings_file_if_needed("global")
+            self._global_checker_settings = require(
+                identifier=MODULE_IDENTIFIER,
+                namespace="global",
+                model=CheckerGlobalSettings,
+            )
+            logger.info("Loaded checker global settings")
+        else:
+            warnings.warn(
+                "LemonyCheckerFactory post_init called but global settings already initialized.",
+                stacklevel=2,
+            )
+
+    def new_factory_wrapper(
+        self,
+        plugin_name: str | None = None,
+        command_name: str | None = None,
+        *,
+        fail_cb: "FailCallback | None" = None,
+        allow_admin: bool = True,
+    ) -> "_CheckerFactoryWrapper":
+        """
+        创建一个预填充 plugin_name 和 command_name 的检查器工厂包装类.
+        """
+        return _CheckerFactoryWrapper(
+            plugin_name=plugin_name,
+            command_name=command_name,
+            fail_cb=fail_cb,
+            allow_admin=allow_admin,
+            factory=self,
+        )
+
+    def new_checker(
+        self,
+        plugin_name: str | None = None,
+        command_name: str | None = None,
+        *,
+        fail_cb: "FailCallback | None" = None,
+        allow_admin: bool = True,
+    ) -> "LemonyChecker":
+        """创建一个新的 LemonyChecker 实例."""
+        from .checkers import LemonyChecker
+
+        return LemonyChecker(
+            plugin_name=plugin_name,
+            command_name=command_name,
+            fail_cb=fail_cb,
+            allow_admin=allow_admin,
+            factory=self,
+        )
+
+    def new_owner_checker(
+        self, fail_cb: "FailCallback | None" = None
+    ) -> "OwnerChecker":
+        """创建一个只允许 Owner 的检查器."""
+        from .checkers import OwnerChecker
+
+        return OwnerChecker(factory=self, fail_cb=fail_cb)
+
+    def new_admin_checker(
+        self, fail_cb: "FailCallback | None" = None
+    ) -> "AdminChecker":
+        """创建一个允许 Owner 和 Admin 的检查器."""
+        from .checkers import AdminChecker
+
+        return AdminChecker(factory=self, fail_cb=fail_cb)
+
+    @property
+    def global_settings(self) -> CheckerGlobalSettings:
+        """
+        获取权限检查器的全局配置.
+
+        Returns:
+            CheckerGlobalSettings: 全局配置实例
+
+        Raises:
+            RuntimeError: 如果配置尚未初始化
+        """
+        if self._global_checker_settings is None:
+            raise RuntimeError(
+                "LemonyCheckerFactory global settings not initialized. "
+                "Call post_init() first or use init_checker_factory()."
+            )
+        return self._global_checker_settings.value
+
+    def get_plugin_settings(self, plugin_name: str) -> CheckerPluginSettings:
+        """
+        获取指定插件的权限配置.
+
+        Args:
+            plugin_name: 插件名称
+
+        Returns:
+            CheckerPluginSettings: 插件配置实例
+        """
+        if plugin_name not in self._plugin_settings_cache:
+            self._migrate_settings_file_if_needed(plugin_name)
+            settings = require(
+                identifier=MODULE_IDENTIFIER,
+                namespace=plugin_name,
+                model=CheckerPluginSettings,
+            )
+            self._plugin_settings_cache[plugin_name] = settings
+            logger.info(f"Loaded checker settings for plugin: {plugin_name}")
+
+        return self._plugin_settings_cache[plugin_name].value
+
+    # edit / save / reload methods
+
+    def save_global_settings(self) -> None:
+        """
+        保存全局配置到文件.
+
+        在使用编程式 API 修改全局配置后调用此函数来持久化更改.
+        """
+        if self._global_checker_settings is not None:
+            self._global_checker_settings.save()
+            logger.info("Global checker settings saved")
+        else:
+            logger.warning("Global checker settings not initialized, nothing to save")
+
+    def is_plugin_settings_loaded(self, plugin_name: str) -> bool:
+        """该插件的检查器配置是否已经加载.
+
+        没有加载过时 reload / save 都是空操作, 调用方需要据此给出诚实的回复,
+        而不是一律报"已保存"。
+        """
+        return plugin_name in self._plugin_settings_cache
+
+    def save_plugin_settings(self, plugin_name: str) -> None:
+        """
+        保存指定插件的配置到文件.
+
+        在使用编程式 API 修改插件配置后调用此函数来持久化更改.
+
+        Args:
+            plugin_name: 插件名称
+        """
+        if plugin_name in self._plugin_settings_cache:
+            self._plugin_settings_cache[plugin_name].save()
+            logger.info(f"Plugin '{plugin_name}' checker settings saved")
+        else:
+            logger.warning(
+                f"Plugin '{plugin_name}' settings not loaded, nothing to save"
+            )
+
+    def reload_global_settings(self) -> CheckerGlobalSettings:
+        """
+        重新加载全局配置.
+
+        Returns:
+            CheckerGlobalSettings: 重新加载后的全局配置
+        """
+        if self._global_checker_settings is not None:
+            self._global_checker_settings.load()
+            logger.info("Reloaded checker global settings")
+
+        return self.global_settings
+
+    def reload_plugin_settings(self, plugin_name: str) -> CheckerPluginSettings:
+        """
+        重新加载指定插件的配置.
+
+        Args:
+            plugin_name: 插件名称
+
+        Returns:
+            CheckerPluginSettings: 重新加载后的插件配置
+        """
+        if plugin_name in self._plugin_settings_cache:
+            self._plugin_settings_cache[plugin_name].load()
+            logger.info(f"Reloaded checker settings for plugin: {plugin_name}")
+
+        return self.get_plugin_settings(plugin_name)
+
+    # 权限检查相关方法
+
+    def is_owner(self, user: UniqueUserDataclassBase) -> bool:
+        """
+        检查用户是否是机器人所有者.
+
+        Args:
+            user: 从事件中提取出的用户标识
+
+        Returns:
+            bool: 是否是所有者
+        """
+        return is_owner(self.global_settings, user)
+
+    def is_admin(self, user: UniqueUserDataclassBase) -> bool:
+        """
+        检查用户是否是机器人管理员.
+
+        Args:
+            user: 从事件中提取出的用户标识
+
+        Returns:
+            bool: 是否是管理员
+        """
+        return is_admin(self.global_settings, user)
+
+    def extract_user(self, event: Event) -> UniqueUserDataclassBase | None:
+        """
+        从事件中提取用户身份标识.
+
+        委托给注册的协议适配器 ID 提取器.
+
+        Args:
+            event: melobot 事件对象
+
+        Returns:
+            UniqueUserDataclassBase | None: 提取出的用户标识, 无法提取时返回 None
+        """
+        from .adapters.register import registry
+
+        return registry.extract_uniid_any(event)
+
+    def get_owner(self) -> list[UniqueUserConfig]:
+        """
+        获取机器人所有者列表.
+
+        Returns:
+            list[UniqueUserConfig]: 所有者列表
+        """
+        return self.global_settings.owner.copy()
+
+    def get_admins(self) -> list[UniqueUserConfig]:
+        """
+        获取机器人管理员列表.
+
+        Returns:
+            list[UniqueUserConfig]: 管理员列表
+        """
+        return self.global_settings.admins.copy()
+
+
+_lemony_checker_factory: ContextVar[LemonyCheckerFactory | None] = ContextVar(
+    "lemony_checker_factory", default=None
+)
+
+
+def get_checker_factory() -> LemonyCheckerFactory:
+    """
+    获取全局的 LemonyCheckerFactory 实例.
+    """
+    instance = _lemony_checker_factory.get()
+    if instance is None:
+        raise RuntimeError(
+            "LemonyCheckerFactory has not been initialized. Please call init_checker_factory() first."
+        )
+    return instance
+
+
+def get_checker_factory_wrapper(
+    plugin_name: str | None = None,
+    command_name: str | None = None,
+    *,
+    fail_cb: "FailCallback | None" = None,
+    allow_admin: bool = True,
+) -> "_CheckerFactoryWrapper":
+    """
+    一步到位, 获取一个预填充 plugin_name 和 command_name 的检查器工厂包装类
+
+    而且 factory 是懒加载好耶 (TODO: 个鬼, 这是个 future feature)
+
+    Args:
+        plugin_name: 插件名称
+        command_name: 命令名称
+        fail_cb: 失败回调函数 (可选)
+        allow_admin: 是否允许管理员通过检查 (默认为 True)
+
+    Returns:
+        CheckerFactoryWrapper: 预填充检查器工厂包装类实例
+    """
+    factory = get_checker_factory()
+    return factory.new_factory_wrapper(
+        plugin_name=plugin_name,
+        command_name=command_name,
+        fail_cb=fail_cb,
+        allow_admin=allow_admin,
+    )
+
+
+def init_checker_factory() -> LemonyCheckerFactory:
+    """
+    初始化全局的 LemonyCheckerFactory 实例.
+
+    Returns:
+        LemonyCheckerFactory: 全局 factory 实例 (已初始化或已存在的).
+    """
+    existing = _lemony_checker_factory.get()
+    if existing is not None:
+        warnings.warn(
+            "LemonyCheckerFactory has already been initialized. Returning the existing instance.",
+            stacklevel=2,
+        )
+        return existing
+    instance = LemonyCheckerFactory()
+    instance.post_init()
+    _lemony_checker_factory.set(instance)
+    return instance
+
+
+class _Sentinel(Enum):
+    NOT_MODIFIED = auto()
+
+
+class _CheckerFactoryWrapper:
+    """
+    预填充 plugin_name 和 command_name 的检查器工厂包装类.
+    这样就不需要在每个检查器实例上重复指定 plugin_name 和 command_name 了.
+    """
+
+    __slots__ = (
+        "_allow_admin",
+        "_command_name",
+        "_factory",
+        "_fail_cb",
+        "_plugin_name",
+    )
+
+    def __init__(
+        self,
+        plugin_name: str | None,
+        command_name: str | None,
+        fail_cb: "FailCallback | None" = None,
+        allow_admin: bool = True,
+        *,
+        factory: LemonyCheckerFactory,
+    ):
+        self._factory = factory
+        self._plugin_name = plugin_name
+        self._command_name = command_name
+        self._fail_cb = fail_cb
+        self._allow_admin = allow_admin
+
+    def __call__(
+        self,
+        *,
+        plugin_name: str | Literal[_Sentinel.NOT_MODIFIED] = _Sentinel.NOT_MODIFIED,
+        command_name: str | Literal[_Sentinel.NOT_MODIFIED] = _Sentinel.NOT_MODIFIED,
+        fail_cb: "FailCallback | Literal[_Sentinel.NOT_MODIFIED] | None" = _Sentinel.NOT_MODIFIED,
+        allow_admin: "bool | Literal[_Sentinel.NOT_MODIFIED]" = _Sentinel.NOT_MODIFIED,
+    ) -> "LemonyChecker":
+
+        # TODO: 思索着应该让 checker_factory 完全惰加载,
+        # 这样的话加载应该延迟到 checker 的 check 方法被调用的时候
+        # 不过理论上插件被加载之前 miraichan 主程序就应该已经初始化好了 checker_factory 了, 所以现在这样也没什么问题
+        # 只是觉得有点不够优雅x
+
+        # 此处的函数签名应该尽量保持与 new_checker 方法一致
+        # 因为算是有 proxy 链:
+        # LemonyChecker.__init__ -> LemonyCheckerFactory.new_checker -> _CheckerFactoryWrapper.__call__
+        # 感觉这样一层一层的 proxy 还是挺麻烦的, 以后可能需要重构一下设计
+
+        return self._factory.new_checker(
+            plugin_name=(
+                plugin_name
+                if plugin_name is not _Sentinel.NOT_MODIFIED
+                else self._plugin_name
+            ),
+            command_name=(
+                command_name
+                if command_name is not _Sentinel.NOT_MODIFIED
+                else self._command_name
+            ),
+            # 这里需要处理, 因为 None 是合法的 fail_cb 值
+            # 传入 None 时应该是清空 fail_cb 的意思, 于是用哨兵值
+            fail_cb=fail_cb if fail_cb is not _Sentinel.NOT_MODIFIED else self._fail_cb,
+            allow_admin=(
+                allow_admin
+                if allow_admin is not _Sentinel.NOT_MODIFIED
+                else self._allow_admin
+            ),
+        )
+
+    def get_owner_checker(
+        self,
+        fail_cb: "FailCallback | Literal[_Sentinel.NOT_MODIFIED] | None" = _Sentinel.NOT_MODIFIED,
+    ) -> "OwnerChecker":
+        """获取一个只允许 Owner 的检查器."""
+        return self._factory.new_owner_checker(
+            fail_cb=fail_cb if fail_cb is not _Sentinel.NOT_MODIFIED else self._fail_cb
+        )
+
+    def get_admin_checker(
+        self,
+        fail_cb: "FailCallback | Literal[_Sentinel.NOT_MODIFIED] | None" = _Sentinel.NOT_MODIFIED,
+    ) -> "AdminChecker":
+        """获取一个允许 Owner 和 Admin 的检查器."""
+        return self._factory.new_admin_checker(
+            fail_cb=fail_cb if fail_cb is not _Sentinel.NOT_MODIFIED else self._fail_cb
+        )
+
+    def is_owner(self, user: UniqueUserDataclassBase) -> bool:
+        return self._factory.is_owner(user)
+
+    def is_admin(self, user: UniqueUserDataclassBase) -> bool:
+        return self._factory.is_admin(user)
+
+    @property
+    def real_factory(self) -> LemonyCheckerFactory:
+        """获取底层的 LemonyCheckerFactory 实例."""
+        return self._factory
+
+
+def _reset_for_testing() -> None:
+    """将全局 factory 实例重置为 None.
+
+    **仅供测试使用.** 在每个需要重新初始化的测试用例前调用.
+    生产代码中禁止调用此函数.
+
+    Example::
+
+        def setup_function():
+            lemony_checkers.factory._reset_for_testing()
+            lemony_settings.manager._reset_for_testing()
+    """
+    _lemony_checker_factory.set(None)

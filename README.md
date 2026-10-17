@@ -4,36 +4,54 @@
 
 一个简单的 Bot, 使用 [melobot](https://github.com/Meloland/melobot) 作为框架
 
-> melobot 是一个小巧可爱而强大的机器人开发框架，快去给她点点 star 吧！
+> melobot 是一个小巧可爱而强大的机器人开发框架，快去给*她*点点 star 吧！
 
-名字来自于最初基于的实现端 mirai ~~, 不会起名导致的~~, 现在已经是第四次重写惹qwq
+> 名字来自于最初使用的实现端 [mirai](https://github.com/mamoe/mirai) ~~, 不会起名导致的~~,  
+> 准确地说是 [Ariadne](https://github.com/GraiaProject/Ariadne) 及其系列生态库. 不过都是过去的事了uwu
 
 在 Python 3.12 下编写/测试/运行, 其他版本尚未经测试
 
 ## 功能
 
-目前规划了下面的功能，勾选的是已经基本完成的：
+> 绝赞重构中, plz wait...
 
-- [ ] 复读机 ~~，计划中是贴近 [`Pallas-Bot`](https://github.com/MistEO/Pallas-Bot) 中的那种?~~
-- [ ] `Executor` 交互式 shell 和 Python 代码执行
-- [ ] `Pooooke` 戳！（戳一戳相关玩法）
-- [x] `EroMoncak` 不许涩涩！（特化的关键字回复）
-- [ ] `BiliLinkPurify` B站分享链接脱敏与预览
-- [x] `WhatToListenToday` 今天听什么（关联仓库见 [miraichan-music-lottery](https://github.com/NingmengLemon/miraichan-music-lottery)） ~~已经变成点歌台了~~
-- [ ] `WhatToEatToday` 今天吃什么
-- [ ] 自动群管理员
-- [ ] 通用的关键字/正则回复
-- [ ] 交互式权限系统
-- [x] `JustQuote` 群U骚话存档
-- [x] `MomoQuote` 产出图像更美观的群U骚话存档 ~~用pillow嗯拼的, 是史, 别看源码~~
-- [ ] `DailyWaifu` 每日群U老婆
-- [ ] `ArknightsUtils` 明日方舟相关小工具
+## 写给自己看的
 
-\* 计划仍在绝赞追加中，但是进度嘛，就……（逃
+### 仓库结构
+
+目前仓库采用 monorepo 组织形式:
+
+- Mirai酱 主包: [`packages/miraichan`](packages/miraichan)
+- 共享库: [`packages/shared/*`](packages/shared)
+- 插件: [`packages/plugins/*`](packages/plugins)
+
+### 开发说明
+
+请使用 [uv](https://docs.astral.sh/uv/) 作为项目管理工具
+
+最好不要将Mirai酱的主包作为依赖包安装, 推荐直接 clone 整个仓库使用
+
+要单独使用某个共享包作为其他项目依赖的话可以:
+
+```bash
+uv add "git+https://github.com/NingmengLemon/MiraiChan.git#subdirectory=packages/shared/<package_name>"
+```
+
+(把 `<package_name>` 替换为实际的包名)
+
+这个写法是通用的, 理论上用 pip 也能行. 但是谁会拒绝 uv 呢 uwu
+
+或者在 `pyproject.toml` 中:
+
+```toml
+# 也记得在 project.dependencies 里加上
+[tool.uv.sources]
+"<package_name>" = { git = "https://github.com/NingmengLemon/MiraiChan.git", subdirectory = "packages/shared/<package_name>" }
+```
 
 ## 开源相关
 
-此项目自 [`d0be68b`](https://github.com/NingmengLemon/MiraiChan/commit/d0be68bebc31db318d62b7a59e995d9a8fbe0f3e) 及以后在 `AGPL3` 协议下开源发行
+此项目自 [`d0be68b`](https://github.com/NingmengLemon/MiraiChan/commit/d0be68bebc31db318d62b7a59e995d9a8fbe0f3e) 及以后在 `AGPL3` 协议下开源
 
 借鉴/参考/修改了以下项目的部分/全部源代码, 许可证与其均兼容.
 

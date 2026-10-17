@@ -161,13 +161,35 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-samples/
+# 个人用来放一些非正式测试文件的文件夹
+/samples/
+
+# 忽略配置文件和日志文件
 /config.json
-plugin_config/
+/credentials.json
 melobot.log*
+# 旧的插件配置文件夹
+/plugin_config/
+# 忽略数据文件和数据库文件
 *.db
-data/record/
-data/avatars/
-data/reboot_info.json
-pdm.lock
-uv.lock
+/data/record/
+/data/avatars/
+/data/reboot_info.json
+/data/emergency_alerts/
+/data/resources/
+
+# 这个文件夹是用户的配置文件所在的地方
+# 不要把用户的配置文件纳入版本控制
+/configs/
+# 这个文件夹是正在迁移中的插件们所在的地方
+# 暂不纳入版本控制
+/packages/plugins/_to_be_migrated/*
+# 这个文件夹是用户自己添加的插件们所在的地方
+# 而不是项目自带的插件们: packages/plugins/*
+/plugins/
+
+# 临时文件夹, 大概测试用
+# 不要把临时文件纳入版本控制
+/tmp/
+/references/
+/docs/discussions/

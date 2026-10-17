@@ -1,0 +1,15 @@
+[project]
+name = "lemony_utils"
+version = "0.1.0"
+description = "Lemoneko's utility library for MiraiChan"
+authors = [
+    { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
+]
+dependencies = []
+
+requires-python = ">=3.12,<3.14"
+readme = "README.md"
+license = { text = "AGPL3" }
+
+[dependency-groups]
+dev = []

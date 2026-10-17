@@ -1,0 +1,223 @@
+import asyncio
+import functools
+import time
+import traceback
+from collections.abc import Awaitable
+from pathlib import Path
+
+import aiofiles
+from aiohttp import ClientSession, ClientTimeout
+from lemony_images import bytes_to_b64_url, text_to_image
+from lemony_network.request import HTTP_HEADERS, async_http
+from lemony_storage_helper.files import atomic_write_bytes, data_path
+from lemony_utils.misc import to_ordinal
+from melobot import get_bot
+from melobot.adapter.base import Adapter as BaseAdapter
+from melobot.adapter.generic import send_image
+from melobot.bot.base import Bot
+from melobot.ctx import EventOrigin
+from melobot.handle import get_event
+from melobot.protocols.onebot.v11 import GetMsgEcho
+from melobot.protocols.onebot.v11.adapter import Adapter
+from melobot.protocols.onebot.v11.adapter.event import MessageEvent
+from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, ReplySegment
+from melobot.utils import singleton
+from melobot.utils.parse.cmd import CmdArgFormatInfo, CmdArgFormatter
+from tenacity import retry, stop_after_attempt, wait_exponential
+from yarl import URL
+
+from .qq import avatar_url_to_uid, uid_to_avatar_url
+
+
+async def text_to_image_segment(text: str, /, **kwargs):
+    return ImageSegment(
+        file=await asyncio.to_thread(
+            lambda: bytes_to_b64_url(text_to_image(text, **kwargs)),
+        )
+    )
+
+
+async def get_reply(adapter: Adapter, event: MessageEvent) -> GetMsgEcho | None:
+    if _ := event.get_segments(ReplySegment):
+        msg_id = _[0].data["id"]
+    else:
+        return None
+    msg = (await (await adapter.get_msg(msg_id)))[0]
+    if msg is None:
+        return None
+    return msg
+
+
+#: 单次头像请求的超时。get_from_remote 会重试 3 次, 不设超时的话最坏要等
+#: 3 × aiohttp 默认的 300s, 调用方 (签到、引用渲染) 会一直挂在那里
+AVATAR_REQUEST_TIMEOUT = 10.0
+
+
+@singleton
+class AvatarCache:
+    """头像的本地文件缓存, 位于 data root 下的 ``avatars/``。
+
+    新鲜度看文件 mtime, 所以重启后已有的缓存仍然有效; 写入走临时文件 + replace,
+    并发读不会读到写了一半的文件。
+    """
+
+    #: 缓存目录; None 表示 data root 下的 CACHE_SUBDIR (测试可以直接指定目录)
+    CACHE_DIR: str | None = None
+    CACHE_SUBDIR = "avatars"
+    EXPIRES = 24 * 60 * 60
+    FILENAME_TEMPLATE = "{uid}.png"
+    HEADERS = HTTP_HEADERS.copy()
+
+    def __init__(self, *, auto_close: bool = True):
+        # auto_close 依赖 bot 的 stopped 事件关闭 session。
+        # 模块导入时就会实例化, 那时 data root 可能还没设定, 所以目录在第一次用到时才解析
+        self._session: ClientSession | None = None
+        self._auto_close = auto_close
+        self._bot: Bot | None = None
+
+    def cache_dir(self) -> Path:
+        if self.CACHE_DIR is not None:
+            return Path(self.CACHE_DIR)
+        return data_path(self.CACHE_SUBDIR)
+
+    def __getitem__(self, val: int) -> Awaitable[bytes]:
+        return self.get(val)
+
+    def __call__(self, uid: int) -> Awaitable[bytes]:
+        return self.get(uid)
+
+    def _ensure_session(self) -> ClientSession:
+        """懒创建共享 session.
+
+        必须显式设超时: aiohttp 默认 total 是 300s, 配上 3 次重试后一个连不上的
+        头像地址能让调用方等上十几分钟。
+        """
+        if self._session is None:
+            self._session = ClientSession(
+                timeout=ClientTimeout(total=AVATAR_REQUEST_TIMEOUT)
+            )
+        return self._session
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+    )
+    async def get_from_remote(self, uid: int):
+        session = self._ensure_session()
+        url = uid_to_avatar_url(uid)
+        async with async_http(session, "get", url, headers=self.HEADERS) as resp:
+            resp.raise_for_status()
+            return await resp.read()
+
+    def get_url(self, uid: int):
+        return uid_to_avatar_url(uid)
+
+    async def get_by_url(self, url: URL | str):
+        uid = avatar_url_to_uid(url)
+        if uid is not None:
+            return await self.get(int(uid))
+        return None
+
+    async def get(self, uid: int):
+        if not self._bot and self._auto_close:
+            self._bot = get_bot()
+            self._bot.on_stopped(self.close)
+        path = self.cache_dir() / self.FILENAME_TEMPLATE.format(uid=uid)
+        if await asyncio.to_thread(self._is_fresh, path):
+            async with aiofiles.open(path, "rb") as fp:
+                return await fp.read()
+        data = await self.get_from_remote(uid)
+        await asyncio.to_thread(atomic_write_bytes, path, data, fsync=False)
+        return data
+
+    def _is_fresh(self, path: Path) -> bool:
+        try:
+            mtime = path.stat().st_mtime
+        except FileNotFoundError:
+            return False
+        return time.time() - mtime <= self.EXPIRES
+
+    async def close(self):
+        if self._session:
+            await self._session.close()
+            self._session = None
+
+
+cached_avatar_source = AvatarCache()
+
+
+def get_adapter() -> BaseAdapter:
+    event = get_event()
+    return EventOrigin.get_origin(event).adapter
+
+
+async def _report_by_image(text: str) -> None:
+    await send_image(
+        "Error Report",
+        raw=await asyncio.to_thread(text_to_image, text),
+        mimetype="image/png",
+    )
+
+
+def auto_report_traceback(func):
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except Exception:
+            tbfmt = traceback.format_exc()
+            await _report_by_image("///// 出现了错误, 请联系Bot管理员 ///// \n" + tbfmt)
+            raise
+
+    return wrapper
+
+
+# reference:
+# https://github.com/aicorein/meloinf/blob/631f28bc7e75d1b297524d03ed9a69e67c0a4881/src/platform/onebot.py#L72
+# 试着用 traceback 的样子写了 (x)
+class DefaultCmdFailCallbacks:
+    @staticmethod
+    async def convert_fail(info: CmdArgFormatInfo) -> None:
+        e_class = f"{info.exc.__class__.__module__}.{info.exc.__class__.__qualname__}"
+        src = repr(info.src) if isinstance(info.src, str) else info.src
+
+        tip = (
+            f"Command <{info.name}>\n"
+            + f"    {to_ordinal(info.idx + 1)} argument "
+            + (f"({info.src_desc}) " if info.src_desc else "")
+            + f"cannot be processed with value {src} given"
+            + (f", {info.src_expect} expected." if info.src_expect else ".")
+            + f"\n{e_class}: {info.exc}"
+        )
+        await _report_by_image(tip)
+
+    @staticmethod
+    async def validate_fail(info: CmdArgFormatInfo) -> None:
+        src = repr(info.src) if isinstance(info.src, str) else info.src
+
+        tip = (
+            f"Command <{info.name}>\n"
+            + f"    {to_ordinal(info.idx + 1)} argument "
+            + (f"({info.src_desc}) " if info.src_desc else "")
+            + f"does not meet the requirement with value {src} given"
+            + (f", {info.src_expect} expected." if info.src_expect else ".")
+        )
+        await _report_by_image(tip)
+
+    @staticmethod
+    async def arg_lack(info: CmdArgFormatInfo) -> None:
+        tip = (
+            f"Command <{info.name}>\n"
+            + f"    {to_ordinal(info.idx + 1)} argument "
+            + (f"({info.src_desc}) " if info.src_desc else "")
+            + (f"is missing. {info.src_expect} expected." if info.src_expect else ".")
+        )
+        await _report_by_image(tip)
+
+
+PrefilledCmdArgFmtter = functools.partial(
+    CmdArgFormatter,
+    convert_fail=DefaultCmdFailCallbacks.convert_fail,
+    validate_fail=DefaultCmdFailCallbacks.validate_fail,
+    arg_lack=DefaultCmdFailCallbacks.arg_lack,
+)

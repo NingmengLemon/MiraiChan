@@ -1,0 +1,177 @@
+import asyncio
+import contextlib
+import json
+import random
+import time
+from pathlib import Path
+from typing import TypedDict
+
+from lemony_checkers import get_checker_factory_wrapper
+from lemony_settings import BaseSettings, require
+from lemony_storage_helper.files import atomic_write_text, configured_data_path
+from lemony_utils.help import Command, register_help
+from melobot import PluginInfo, PluginPlanner, on_command
+from melobot.bot import Bot, BotLifeSpan, get_bot
+from melobot.protocols.onebot.v11.adapter import Adapter
+from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
+
+from .state import StateSnapshot, diff, find_repo_root, read_commit, snapshot
+
+
+class RebootablePluginConfig(BaseSettings):
+    # 于是默认是只有 owner 能够操作
+    allow_admins: bool = False
+    reboot_command: str = "重启"
+    poweroff_command: str = "关机"
+    # pydantic 会为每个实例复制默认值, 可变默认值在这里是安全的
+    sayings_on_poweroff: list[str] = [  # noqa: RUF012
+        "下班啦~",
+        "拜拜~",
+        "再见~",
+    ]
+    sayings_on_reboot: list[str] = [  # noqa: RUF012
+        "待会儿见w",
+        "正在重启, 请坐和放宽...",
+    ]
+    # 相对 data root; 旧配置里写的 "data/reboot_info.json" 也指向同一个文件
+    reboot_info_path: str = "reboot_info.json"
+
+
+bot = get_bot()
+plugin = PluginPlanner(
+    "0.1.0",
+    info=PluginInfo(desc="让Bot可通过指令重启. 需要整个bot通过mb-cli启动."),
+)
+
+
+PLUGIN_IDENTIFIER = "mbplugin_rebootable"
+
+cfgloader = require(
+    model=RebootablePluginConfig,
+    identifier=PLUGIN_IDENTIFIER,
+)
+cfgloader.load()
+
+_who = "owner 与 bot 管理员" if cfgloader.value.allow_admins else "owner"
+register_help(
+    PLUGIN_IDENTIFIER,
+    title="重启",
+    summary=f"重启 / 关闭 bot, 仅 {_who} 可用",
+    aliases=["rebootable"],
+    commands=[
+        Command(
+            f".{cfgloader.value.reboot_command}",
+            "重启 bot, 完成后在原会话报告耗时与状态变化",
+            admin_only=True,
+        ),
+        Command(f".{cfgloader.value.poweroff_command}", "关闭 bot", admin_only=True),
+    ],
+)
+checker_factory = get_checker_factory_wrapper(
+    plugin_name=PLUGIN_IDENTIFIER,
+)
+
+
+def _privileged_checker():
+    """重启/关机这类操作默认只有 owner 能触发, allow_admins 打开后管理员也可以."""
+    if cfgloader.value.allow_admins:
+        return checker_factory.get_admin_checker()
+    return checker_factory.get_owner_checker()
+
+
+@plugin.use
+@on_command(
+    ".",
+    " ",
+    [cfgloader.value.poweroff_command],
+    checker=_privileged_checker(),
+)
+async def stop_bot(adapter: Adapter, bot: Bot) -> None:
+    await (await adapter.send(random.choice(cfgloader.value.sayings_on_poweroff)))[0]
+    await bot.close()
+
+
+class RebootInfo(TypedDict):
+    time: float
+    uid: int
+    gid: int | None
+    # 重启前的状态快照; 旧版本写下的文件里没有这一项
+    state: StateSnapshot | None
+
+
+def _repo_root() -> Path | None:
+    """仓库根目录: 先看进程工作目录, 再看本文件所在的位置"""
+    return find_repo_root(Path.cwd()) or find_repo_root(Path(__file__).parent)
+
+
+# 进程启动时的代码提交. 升级流程是 "git pull 之后再 .重启", 那时现场 HEAD 已经是新提交,
+# 拿它当"重启前"就永远看不到提交变化, 所以这里留一份启动时的
+_START_COMMIT: str | None = read_commit(_repo_root())
+
+
+def _snapshot_now() -> StateSnapshot:
+    """重启后的快照: 现场读提交 (跨过了进程, 这里读到的就是新提交)"""
+    return snapshot(bot, commit=read_commit(_repo_root()))
+
+
+@plugin.use
+@on_command(
+    ".",
+    " ",
+    [cfgloader.value.reboot_command],
+    checker=_privileged_checker(),
+)
+async def restart_bot(event: MessageEvent, adapter: Adapter, bot: Bot):
+    if not bot.is_restartable():
+        await adapter.send_reply("当前启动方式不支持重启w")
+        return
+    await (await adapter.send(random.choice(cfgloader.value.sayings_on_reboot)))[0]
+    state = await asyncio.to_thread(snapshot, bot, commit=_START_COMMIT)
+    reboot_info: RebootInfo = {
+        "gid": event.group_id if isinstance(event, GroupMessageEvent) else None,
+        "uid": event.user_id,
+        "time": time.time(),
+        "state": state,
+    }
+    await asyncio.to_thread(_write_reboot_info, reboot_info)
+    await bot.restart()
+
+
+def _reboot_info_path() -> Path:
+    return configured_data_path(cfgloader.value.reboot_info_path, mkdir_parent=True)
+
+
+def _write_reboot_info(info: RebootInfo) -> None:
+    # 原子写: 写一半崩溃时下一个进程读到的仍是完整的旧内容或新内容
+    atomic_write_text(_reboot_info_path(), json.dumps(info, ensure_ascii=False))
+
+
+def _read_reboot_info() -> RebootInfo | None:
+    path = _reboot_info_path()
+    if not path.is_file():
+        return None
+    with open(path, encoding="utf-8") as fp:
+        return json.load(fp)
+
+
+@bot.on_started
+async def startup_check(adapter: Adapter):
+    path = _reboot_info_path()
+    if not await asyncio.to_thread(path.is_file):
+        return
+    try:
+        info = await asyncio.to_thread(_read_reboot_info)
+        if info is None:
+            return
+        start_time = bot.get_hook_evoke_time(BotLifeSpan.STARTED)
+        interval = (start_time if start_time > 0 else time.time()) - info["time"]
+        after = await asyncio.to_thread(_snapshot_now)
+        changes = diff(info.get("state"), after)
+        await adapter.send_custom(
+            f"重启已完成, 耗时 {interval:.3f}s\n" + "\n".join(changes),
+            user_id=info["uid"],
+            group_id=info["gid"],
+        )
+    finally:
+        with contextlib.suppress(OSError):
+            path.unlink()

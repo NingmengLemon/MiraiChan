@@ -1,48 +1,177 @@
 [project]
-name = "MiraiChan"
+name = "MiraiChan_workspace"
 version = "0.1.0"
-description = "Default template for PDM package"
+description = "workspace for MiraiChan bot and plugins"
 authors = [
     { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
 ]
 dependencies = [
-    "melobot[onebot]>=3.2.0",
-    "pypinyin>=0.53.0",
-    "aiofiles>=24.1.0",
-    "aiohttp>=3.10.10",
-    "pillow>=11.0.0",
-    "qrcode>=8.0",
-    "uvloop>=0.21.0; sys_platform != 'win32'",
-    "pilmoji @ git+https://github.com/jay3332/pilmoji.git@2.0",
-    "sqlmodel>=0.0.22",
-    "graphviz>=0.20.3",
-    "lxml>=5.3.0",
-    "pydantic>=2.10.3",
-    "romajitable>=0.0.1",
-    "aiosqlite>=0.21.0",
-    "apscheduler>=3.11.0",
-    "PyYAML>=6.0.2",
+    "miraichan",
+    # protocol adapters
+    "melobot_telegram_protocol",
+    # shared libs
+    "lemony_utils",
+    "lemony_settings",
+    "lemony_checkers",
+    "lemony_llm_provider",
+    "lemony_storage_helper[all]",
+    "lemony_images",
+    "lemony_network",
+    "lemony_media",
+    "lemony_onebot_utils",
+    "lemony_mface",
+    # plugins
+    "mbplugin_checker_manager",
+    "mbplugin_deeeer",
+    "mbplugin_moelottery",
+    "mbplugin_recorder",
+    "mbplugin_emergency_alerts",
+    "mbplugin_rebootable",
+    "mbplugin_quote",
+    "mbplugin_helper",
+    "mbplugin_toolbox",
+    # workspace members above
+    "melobot[onebot]>=3.5.0",
 ]
 requires-python = "==3.12.*"
 readme = "README.md"
 license = { text = "AGPL3" }
 
+[tool.uv.workspace]
+members = [
+    "packages/miraichan",
+    "packages/shared/*",
+    "packages/plugins/mbplugin_checker_manager",
+    "packages/plugins/mbplugin_deeeer",
+    "packages/plugins/mbplugin_moelottery",
+    "packages/plugins/mbplugin_recorder",
+    "packages/plugins/mbplugin_emergency_alerts",
+    "packages/plugins/mbplugin_rebootable",
+    "packages/plugins/mbplugin_quote",
+    "packages/plugins/mbplugin_helper",
+    "packages/plugins/mbplugin_toolbox",
+    # "packages/plugins/*",
+]
 
-[tool.pdm.scripts]
-deploy = { cmd = ["python", "-m", "melobot", "run", "src/bot.py"] }
-dev = { cmd = ["src/bot.py", "--debug"] }
-melobot = { cmd = ["python", "-m", "melobot"] }
-pinit = { cmd = ["melobot", "pinit"] }
-
-
-[tool.pdm]
-distribution = false
+[tool.uv.sources]
+miraichan = { workspace = true }
+# protocol adapters
+melobot_telegram_protocol = { workspace = true }
+# shared libs
+lemony_utils = { workspace = true }
+lemony_settings = { workspace = true }
+lemony_checkers = { workspace = true }
+lemony_llm_provider = { workspace = true }
+lemony_storage_helper = { workspace = true }
+lemony_images = { workspace = true }
+lemony_network = { workspace = true }
+lemony_media = { workspace = true }
+lemony_onebot_utils = { workspace = true }
+lemony_mface = { workspace = true }
+# plugins
+mbplugin_checker_manager = { workspace = true }
+mbplugin_deeeer = { workspace = true }
+mbplugin_moelottery = { workspace = true }
+mbplugin_recorder = { workspace = true }
+mbplugin_emergency_alerts = { workspace = true }
+mbplugin_rebootable = { workspace = true }
+mbplugin_quote = { workspace = true }
+mbplugin_helper = { workspace = true }
+mbplugin_toolbox = { workspace = true }
 
 [dependency-groups]
 dev = [
-    "ipykernel>=6.29.5",
     "watchfiles>=0.24.0",
     "types-qrcode>=8.0.0.20241004",
     "types-lxml>=2024.11.8",
     "types-aiofiles>=24.1.0.20240626",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-sqlalchemy>=0.3.0",
+    "pytest-sqlalchemy-mock>=0.1.7",
+    "ty>=0.0.86",
+    "ruff>=0.17.0",
 ]
+
+[tool.pytest.ini_options]
+# references/ 下是外部仓库, 不能被收集; 各包的测试目录在这里显式列出
+testpaths = [
+    "tests",
+    "packages/shared/lemony_checkers/tests",
+    "packages/shared/lemony_images/tests",
+    "packages/shared/lemony_onebot_utils/tests",
+    "packages/shared/lemony_settings/tests",
+    "packages/shared/lemony_storage_helper/tests",
+    "packages/shared/lemony_utils/tests",
+]
+norecursedirs = ["references", "tmp", "data", ".venv", "_to_be_migrated"]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+# references/ 是外部仓库, _to_be_migrated 是 gitignored 的待迁移旧插件,
+# 插件顶层的 __init__.py / __init__.pyi 由 melobot cli 生成, 不手改
+extend-exclude = [
+    "references",
+    "packages/plugins/_to_be_migrated",
+    "data",
+    "tmp",
+    "packages/plugins/*/__init__.pyi",
+    "packages/plugins/*/__init__.py",
+]
+
+[tool.ruff.format]
+# 文档里的代码块常带对齐注释等刻意排版, 不交给格式化器
+exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = [
+    "E4", "E7", "E9", "F", "W", # pycodestyle / pyflakes 的非格式类规则
+    "I",                        # import 排序
+    "UP",                       # pyupgrade
+    "B",                        # bugbear
+    "ASYNC",                    # asyncio 阻塞调用等
+    "BLE",                      # 裸 except Exception
+    "C4",                       # 推导式
+    "SIM",
+    "PIE",
+    "RET",
+    "PERF",
+    "LOG",
+    "TRY",
+    "DTZ",                      # 无时区 datetime
+    "RUF",
+]
+ignore = [
+    # 注释与文档用中文, 全角标点是正常的
+    "RUF001", "RUF002", "RUF003",
+    # 异常消息直接写在 raise 处是本仓库的习惯
+    "TRY003",
+    # 在 try 里 raise / return 是常见的控制流写法, 拆函数或挪进 else 收益很低
+    "TRY300", "TRY301",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# typer 的参数声明必须写在默认值位置
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
+[tool.ruff.lint.per-file-ignores]
+# 插件测试需要先把 packages/plugins 插进 sys.path 再导入, 原因见 docs/development/testing.md
+"tests/plugins/**" = ["E402"]
+# 字符画与提示词里的行尾空格是内容的一部分 (对齐 / Markdown 硬换行)
+"packages/miraichan/src/miraichan/utils.py" = ["W291"]
+"packages/shared/lemony_llm_provider/src/lemony_llm_provider/prompts/catgirl_assistant.py" = ["W291"]
+
+[tool.ty.environment]
+python-version = "3.12"
+# 与 tests/plugins 里的 sys.path 插入保持一致, 让插件测试的导入能被解析
+extra-paths = ["packages/plugins"]
+
+[tool.ty.src]
+exclude = ["references", "packages/plugins/_to_be_migrated", "data", "tmp"]
+
+[tool.ty.rules]
+# SQLModel 的元类 ty 尚不支持, 每个表模型都会报一条, 不是代码问题
+unsupported-base = "ignore"

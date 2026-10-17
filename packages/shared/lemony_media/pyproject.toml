@@ -1,0 +1,18 @@
+[project]
+name = "lemony_media"
+version = "0.1.0"
+description = "Lemoneko's media utils library for MiraiChan"
+authors = [
+    { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
+]
+dependencies = []
+
+requires-python = ">=3.12,<3.14"
+readme = "README.md"
+license = { text = "AGPL3" }
+
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
