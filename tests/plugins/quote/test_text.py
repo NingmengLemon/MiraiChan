@@ -80,3 +80,19 @@ def test_draw_uses_provided_emoji_image() -> None:
     top = 10 + (block.line_height - 28) // 2
     assert canvas.getpixel((10 + 14, top + 14)) == (255, 0, 0, 255)
     assert canvas.getpixel((150, 50)) == (255, 255, 255, 255)
+
+
+def test_emoji_image_keeps_its_aspect_ratio() -> None:
+    """非方形的 emoji 图片按长边缩到字号, 不拉伸成正方形"""
+    canvas = Image.new("RGBA", (200, 60), (255, 255, 255, 255))
+    wide = Image.new("RGBA", (64, 32), (255, 0, 0, 255))
+    block = layout_text("😀", font(28))
+    draw_text_block(
+        canvas, (10, 10), block, font(28), fill=(0, 0, 0, 255), emojis={"😀": wide}
+    )
+    top = 10 + (block.line_height - 28) // 2
+    # 长边 28, 短边 14, 水平居中占满一格 28 宽
+    assert canvas.getpixel((10 + 14, top + 7)) == (255, 0, 0, 255)
+    # 方块上下缘之外应当是背景 (纵向没有被拉伸)
+    assert canvas.getpixel((10 + 14, top - 2)) == (255, 255, 255, 255)
+    assert canvas.getpixel((10 + 14, top + 27)) == (255, 255, 255, 255)

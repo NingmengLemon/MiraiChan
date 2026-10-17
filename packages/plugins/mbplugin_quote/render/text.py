@@ -218,6 +218,18 @@ def fit_text(
     return font, _truncate(block, font, max_lines, box_width)
 
 
+def _fit_emoji(img: Image.Image, size: int) -> Image.Image:
+    """把 emoji 图片按长边缩到字号大小, 保持长宽比 (不拉伸)"""
+    img = img.convert("RGBA")
+    if max(img.size) == size:
+        return img
+    scale = size / max(img.size)
+    return img.resize(
+        (max(1, round(img.width * scale)), max(1, round(img.height * scale))),
+        Image.Resampling.LANCZOS,
+    )
+
+
 def draw_text_block(
     canvas: Image.Image,
     xy: tuple[int, int],
@@ -244,10 +256,14 @@ def draw_text_block(
                 img = emojis.get(run.text)
                 top = y + (block.line_height - size) // 2
                 if img is not None:
-                    icon = img.convert("RGBA").resize(
-                        (size, size), Image.Resampling.LANCZOS
+                    icon = _fit_emoji(img, size)
+                    canvas.alpha_composite(
+                        icon,
+                        (
+                            round(x + (size - icon.width) / 2),
+                            top + (size - icon.height) // 2,
+                        ),
                     )
-                    canvas.alpha_composite(icon, (round(x), top))
                 else:
                     draw.text((x, y), run.text, font=font, fill=fill, anchor="la")
                 x += size
