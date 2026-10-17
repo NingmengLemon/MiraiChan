@@ -1,12 +1,11 @@
-from contextlib import nullcontext
+import math
 from io import BytesIO
 from typing import Any, Literal
 
 from PIL import Image, ImageDraw, ImageFont
-from pilmoji import Pilmoji
-from pilmoji.source import BaseSource
 
 from .color.convert import ensure_4inttuple
+from .emoji import ColorFontEmoji, draw_emoji_line, emoji_line_width
 from .font import FontCache, get_default_font_cache
 from .typedef import _BboxT, _ColorT, _FontFileT
 
@@ -114,14 +113,15 @@ def draw_multiline_text_auto(
     align: Literal["left", "right", "center"] = "left",
     spacing: int = 4,
     sticky: str | None = None,
-    emoji_source: BaseSource | type[BaseSource] | None = None,
+    emoji_renderer: ColorFontEmoji | None = None,
     **kwargs: Any,
 ):
     """尽可能地在给定的bbox中绘制横向文本框，若达到最小字号后仍无法满足，绘制高度会超出预期高度
 
     `sticky` 参数的含义参考 tkinter 的 grid 布局中的 `sticky` 参数，指定为 `None` 时横纵居中
 
-    多余的 kwargs 参数们会被递交给 `draw.text` 或 `Pilmoji.text`"""
+    给了 `emoji_renderer` 时 emoji 簇用彩色字体画成图片贴上, 占一个字号宽的方块;
+    没给时全部交给字体绘制。多余的 kwargs 参数们会被递交给 `draw.text`"""
     fontcache = font if isinstance(font, FontCache) else FontCache(font_file=font)
     font_size, wrapped_text = calc_font_size(
         text,
@@ -132,19 +132,9 @@ def draw_multiline_text_auto(
         min_font_size=min_font_size,
         spacing=spacing,
     )
-    finalbbox = draw.multiline_textbbox(
-        bbox[0:2],
-        text=wrapped_text,
-        font=fontcache.use(font_size),
-        spacing=spacing,
-        align=align,
-    )
-    xy = calc_bbox(
-        actual_bbox=ensure_4inttuple(finalbbox), expected_bbox=bbox, sticky=sticky
-    )
-
+    use_font = fontcache.use(font_size)
     for kw in (
-        # 这些参数会导致计算错误, Pilmoji 也不支持
+        # 这些参数会导致计算错误, 绘制时也不支持
         "width",
         "anchor",
         "direction",
@@ -152,22 +142,61 @@ def draw_multiline_text_auto(
         "font",
     ):
         kwargs.pop(kw, None)
-    with (
-        Pilmoji(
-            image=draw._image,
-            source=emoji_source,
-            draw=draw,
+
+    if emoji_renderer is None:
+        finalbbox = draw.multiline_textbbox(
+            bbox[0:2],
+            text=wrapped_text,
+            font=use_font,
+            spacing=spacing,
+            align=align,
         )
-        if emoji_source
-        else nullcontext(draw)
-    ) as finaldraw:
-        finaldraw.text(
+        xy = calc_bbox(
+            actual_bbox=ensure_4inttuple(finalbbox), expected_bbox=bbox, sticky=sticky
+        )
+        draw.multiline_text(
             xy=xy,
             text=wrapped_text,
             fill=fill,
-            font=fontcache.use(font_size),
+            font=use_font,
             align=align,
             spacing=spacing,
+            **kwargs,
+        )
+        return
+
+    # emoji 模式: 自己量宽度, 让测量、对齐与绘制用同一套规则
+    lines = wrapped_text.split("\n")
+    widths = [emoji_line_width(line, use_font) for line in lines]
+    ascent, descent = use_font.getmetrics()
+    line_height = ascent + descent
+    block_width = max(widths, default=0)
+    block_height = len(lines) * line_height + (len(lines) - 1) * spacing
+    xy = calc_bbox(
+        actual_bbox=(
+            bbox[0],
+            bbox[1],
+            bbox[0] + math.ceil(block_width),
+            bbox[1] + block_height,
+        ),
+        expected_bbox=bbox,
+        sticky=sticky,
+    )
+    for i, (line, width) in enumerate(zip(lines, widths, strict=True)):
+        match align:
+            case "center":
+                x = xy[0] + (block_width - width) / 2
+            case "right":
+                x = xy[0] + block_width - width
+            case _:
+                x = xy[0]
+        draw_emoji_line(
+            draw._image,
+            (x, xy[1] + i * (line_height + spacing)),
+            line,
+            use_font,
+            emoji_renderer,
+            fill,
             **kwargs,
         )
 
