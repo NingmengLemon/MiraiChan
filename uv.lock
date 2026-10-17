@@ -470,7 +470,7 @@ requires-dist = [
     { name = "emoji", specifier = ">=2.14" },
     { name = "material-color-utilities", specifier = ">=0.2.6" },
     { name = "numpy", specifier = ">=2.2.6" },
-    { name = "pillow", specifier = ">=11.0.0" },
+    { name = "pillow", specifier = ">=13.0.0" },
 ]
 
 [[package]]
@@ -704,6 +704,7 @@ dependencies = [
     { name = "lemony-checkers" },
     { name = "lemony-storage-helper" },
     { name = "lemony-utils" },
+    { name = "pillow" },
     { name = "uuid-utils" },
 ]
 
@@ -712,6 +713,7 @@ requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "pillow", specifier = ">=13.0.0" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
 ]
 
@@ -815,7 +817,7 @@ requires-dist = [
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", extras = ["sqlite"], editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
-    { name = "pillow" },
+    { name = "pillow", specifier = ">=13.0.0" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
 ]
 

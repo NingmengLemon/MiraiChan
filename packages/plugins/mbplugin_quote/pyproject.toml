@@ -15,7 +15,7 @@ dependencies = [
     "lemony_onebot_utils",
     "lemony_settings",
     "lemony_storage_helper[sqlite]",
-    "pillow",
+    "pillow>=13.0.0",
     "uuid-utils>=0.14.1",
 ]
 
