@@ -17,6 +17,13 @@
 - LLM 接入: 纯异步 OpenAI 兼容层的可行性分析见 `packages/shared/lemony_llm_provider/planning.md`。
 - B 站内容自动解析: 群里出现 B 站链接 / 小程序卡片 / BV 号时自动解析出标题、UP 主、简介等,
   并去掉分享链接里的跟踪参数 (旧实例的 BiliLinkPurify 插件做的就是后者)。
+- AI 生成内容核验: 引用一条消息, 把消息里的图片发给 OpenAI 的
+  `POST /v1/content_provenance_checks` (文档:
+  https://developers.openai.com/api/docs/guides/content-provenance) 检查是否带 C2PA 清单
+  或 SynthID 水印, 把 `c2pa` / `synthid` 两项的 outcome 与 issuer / model 回给用户。
+  要点: 请求同步返回, 不需要轮询或先上传到 Files API; 图片返回 c2pa 与 synthid, 音频只有
+  synthid; `not_detected` 只说明没找到 OpenAI 支持的信号, 不代表一定不是 AI 生成。需要 OpenAI
+  API key, 按凭据分离的方案单独存放。
 - "手性碳验证码": 新成员入群时出题验证 (给出分子结构, 找出手性碳), 可以和群聊管理的入群审核放在一起。
 - 待定的旧插件: gitignored 的 `packages/plugins/_to_be_migrated/` 下还有 VVTTS (语音合成) 与
   WhatToListenToday, 以及 VVTTS 依赖的 `lemony_utils_legacy` (拼音转片假名)。
