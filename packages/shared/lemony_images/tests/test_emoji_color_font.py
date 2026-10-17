@@ -92,6 +92,41 @@ def test_render_returns_none_for_glyphless_input(monochrome_font: Path) -> None:
     assert renderer.render(" ", target=32) is None
 
 
+def test_missing_glyph_returns_none_not_a_tofu_box(monochrome_font: Path) -> None:
+    """字体里没有的字形画出来是 .notdef, 要当成"没有"而不是一张图
+
+    否则"字体里没有就走下一级来源"的兜底永远触发不了, 用户会看到黑框。
+    """
+    renderer = ColorFontEmoji(monochrome_font)
+    assert renderer.render("\U0001fae0", target=32) is None
+    assert renderer.render("\ufdd0", target=32) is None
+
+
+def test_known_glyph_still_renders(monochrome_font: Path) -> None:
+    """修掉 .notdef 误判之后, 真的字形不能跟着一起变成 None"""
+    renderer = ColorFontEmoji(monochrome_font)
+    assert renderer.render("A", target=32) is not None
+
+
+def test_wide_cluster_is_not_clipped(monochrome_font: Path) -> None:
+    """画布按簇的实际 advance 定宽, 宽簇不能被切掉
+
+    未成合字的 ZWJ 序列 (旧字体常见) 会占好几个字号的宽度。
+    """
+    renderer = ColorFontEmoji(monochrome_font)
+    size = 40
+    text = "WO" * 8  # 一串宽字, 足够超出"两倍字号"宽
+    image = renderer._paint(text, size)
+    font = ImageFont.truetype(str(monochrome_font), size)
+    advance = font.getlength(text)
+    pad = max(4, size // 3)
+    assert image is not None
+    # 老实现只给 2*字号 + 2*pad 的画布, 这里必须比那个宽
+    assert image.width > 2 * size + 2 * pad
+    # 宽度跟着实际 advance 走 (取整与字距调整留几像素余量)
+    assert abs(image.width - advance) <= 4
+
+
 def test_render_caches_by_cluster_and_target(monochrome_font: Path) -> None:
     renderer = ColorFontEmoji(monochrome_font)
     first = renderer.render("A", target=32)
@@ -157,7 +192,7 @@ def test_svg_table_counts_as_color_but_not_rasterizable(
         renderer = ColorFontEmoji(path)
     assert renderer.is_color is True
     assert renderer.can_rasterize_color is False
-    assert caplog.text, "画不出的彩色字体应当告警"
+    assert "Pillow 画不出" in caplog.text
 
 
 def test_rendered_image_fits_target(monochrome_font: Path) -> None:

@@ -6,6 +6,7 @@
 """
 
 import logging
+import math
 import struct
 from collections import OrderedDict
 from pathlib import Path
@@ -14,9 +15,18 @@ from typing import Any
 import emoji as emoji_lib
 from PIL import Image, ImageDraw, ImageFont
 
-__all__ = ["ColorFontEmoji", "draw_emoji_line", "emoji_line_width"]
+__all__ = [
+    "ColorFontEmoji",
+    "draw_emoji_line",
+    "emoji_line_width",
+    "fit_to_square",
+    "split_clusters",
+]
 
 logger = logging.getLogger(__name__)
+
+# 取 .notdef 用的非字符: Unicode 规定 U+FDD0..U+FDEF 永不分配给任何字符
+_NOTDEF_PROBE = "\ufdd0"
 
 # 带颜色的字表: 有任意一个就说明这个字体带彩色字形
 # (表名读出来时去掉了尾随空格, 所以这里写 SVG 而不是 "SVG ")
@@ -92,6 +102,14 @@ def _scale_to_fit(size: tuple[int, int], target: int) -> tuple[int, int]:
     return max(1, round(size[0] * scale)), max(1, round(size[1] * scale))
 
 
+def fit_to_square(image: Image.Image, size: int) -> Image.Image:
+    """把图片按长边缩到 size, 保持长宽比 (不拉伸); 本来就是这么大时原样返回"""
+    image = image.convert("RGBA")
+    if max(image.size) == size:
+        return image
+    return image.resize(_scale_to_fit(image.size, size), Image.Resampling.LANCZOS)
+
+
 class ColorFontEmoji:
     """用彩色字体把 emoji 簇画成图片。
 
@@ -111,6 +129,8 @@ class ColorFontEmoji:
         self._colr_version = _colr_version(self._path, colr[0]) if colr else None
         self._cache: OrderedDict[tuple[str, int], Image.Image | None] = OrderedDict()
         self._cache_size = cache_size
+        # 各字号下 .notdef 的样子, 用来认"字体里没有这个字形"
+        self._notdef: dict[int, Image.Image | None] = {}
         if self.is_color and not self.can_rasterize_color:
             logger.warning(
                 "emoji 字体 %s 是 COLRv1/SVG 彩色字体, Pillow 画不出这类字形, "
@@ -158,6 +178,7 @@ class ColorFontEmoji:
 
     def clear(self) -> None:
         self._cache.clear()
+        self._notdef.clear()
 
     def _render_size(self, want: int) -> int:
         if not self._strikes:
@@ -167,27 +188,66 @@ class ColorFontEmoji:
 
     def _render(self, cluster: str, target: int) -> Image.Image | None:
         size = self._render_size(max(target, 16))
-        font = ImageFont.truetype(str(self._path), size)
-        # 字形可能带负的 bearing, 留出边距, 画完再按实际墨迹裁剪
-        pad = max(4, size // 3)
-        canvas = Image.new(
-            "RGBA", (size * 2 + pad * 2, size * 2 + pad * 2), (0, 0, 0, 0)
-        )
-        ImageDraw.Draw(canvas).text(
-            (pad, pad), cluster, font=font, fill=(0, 0, 0, 255), embedded_color=True
-        )
-        ink = canvas.getbbox()
-        if ink is None:
+        image = self._paint(cluster, size)
+        # 字体里没有这个字形时画出来的就是 .notdef (方框), 要当成"没有"而不是一张图;
+        # 否则调用方永远等不到 None, "字体里没有就走下一级来源"的兜底就成了摆设
+        if image is None or _same_image(image, self._notdef_image(size)):
             return None
-        image = canvas.crop(ink)
         if max(image.size) > target:
             image = image.resize(
                 _scale_to_fit(image.size, target), Image.Resampling.LANCZOS
             )
         return image
 
+    def _notdef_image(self, size: int) -> Image.Image | None:
+        """该字号下 .notdef 的墨迹, 用非字符取 (Unicode 保证非字符永不分配)"""
+        if size not in self._notdef:
+            self._notdef[size] = self._paint(_NOTDEF_PROBE, size)
+        return self._notdef[size]
 
-def _clusters(text: str) -> list[tuple[str, bool]]:
+    def _paint(
+        self, cluster: str, size: int, *, attempt: int = 0
+    ) -> Image.Image | None:
+        """把簇画到画布上再裁到墨迹; 字体里没有字形时会得到 .notdef 的样子。
+
+        画布按簇的实际 advance 定宽: 未成合字的 ZWJ 序列 (旧字体常见) 会占
+        好几个字号的宽度, 按字号方块开画布会把它切掉。墨迹顶到画布右边或下边
+        说明还是估小了, 放大一倍重画一次。
+        """
+        font = ImageFont.truetype(str(self._path), size)
+        # 字形可能带负的 bearing, 留出边距并把原点往右下挪, 画完再裁到墨迹
+        pad = max(4, size // 3)
+        advance = font.getlength(cluster)
+        ink = font.getbbox(cluster)
+        scale = 2**attempt
+        width = math.ceil(max(advance, ink[2] - ink[0], size)) * scale + 2 * pad
+        height = math.ceil(max(ink[3], sum(font.getmetrics()), size)) * scale + 2 * pad
+        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        ImageDraw.Draw(canvas).text(
+            (pad - min(0, ink[0]), pad - min(0, ink[1])),
+            cluster,
+            font=font,
+            fill=(0, 0, 0, 255),
+            embedded_color=True,
+        )
+        box = canvas.getbbox()
+        if box is None:
+            return None
+        if (box[2] >= width or box[3] >= height) and attempt < 1:
+            retried = self._paint(cluster, size, attempt=attempt + 1)
+            if retried is not None:
+                return retried
+        return canvas.crop(box)
+
+
+def _same_image(a: Image.Image | None, b: Image.Image | None) -> bool:
+    """两张图是否像素级相同 (Pillow 的 Image 没有像素相等的 ==)"""
+    if a is None or b is None:
+        return a is b
+    return a.size == b.size and a.tobytes() == b.tobytes()
+
+
+def split_clusters(text: str) -> list[tuple[str, bool]]:
     """把一段文本切成 (片段, 是否 emoji 簇); emoji 簇整体算一块"""
     out: list[tuple[str, bool]] = []
     pos = 0
@@ -205,7 +265,7 @@ def emoji_line_width(text: str, font: ImageFont.FreeTypeFont) -> float:
     """一行文本的宽度: emoji 簇占一个字号宽的方块, 其余按字体实测"""
     return sum(
         float(font.size) if is_emoji else font.getlength(chunk)
-        for chunk, is_emoji in _clusters(text)
+        for chunk, is_emoji in split_clusters(text)
     )
 
 
@@ -220,8 +280,8 @@ def draw_emoji_line(
 ) -> float:
     """在 image 上画一行 (不含换行) 带 emoji 的文本, 返回这行的宽度。
 
-    emoji 簇用彩色字体画成图片贴上去, 垂直居中到字号框; 字体里没有的字形
-    退回字体绘制 (普通中文字体没有 emoji 字形, 会画成方框)。
+    emoji 簇用彩色字体画成图片贴上去, 在字号方块里横纵居中; 字体里没有的
+    字形退回字体绘制 (普通中文字体没有 emoji 字形, 会画成方框)。
     调用方负责换行、行距与横向对齐。
     """
     x, y = xy
@@ -229,7 +289,7 @@ def draw_emoji_line(
     line_height = ascent + descent
     draw = ImageDraw.Draw(image)
     started = x
-    for chunk, is_emoji in _clusters(text):
+    for chunk, is_emoji in split_clusters(text):
         if not is_emoji:
             draw.text((x, y), chunk, font=font, fill=fill, **text_kwargs)
             x += font.getlength(chunk)
@@ -239,10 +299,12 @@ def draw_emoji_line(
         if icon is None:
             draw.text((x, y), chunk, font=font, fill=fill, **text_kwargs)
         else:
+            # 非方形的 emoji (旗、心) 在方块里居中, 不能贴左边
+            left = round(x + (size - icon.width) / 2)
             top = round(y + (line_height - icon.height) / 2)
             if image.mode == "RGBA":
-                image.alpha_composite(icon, (round(x), top))
+                image.alpha_composite(icon, (left, top))
             else:
-                image.paste(icon, (round(x), top), icon)
+                image.paste(icon, (left, top), icon)
         x += size
     return x - started
