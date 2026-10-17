@@ -7,9 +7,12 @@ from pathlib import Path
 import pytest
 from lemony_settings.credentials import set_credentials_path
 from miraichan.config import (
+    CREDENTIALS_PATH_ENV,
+    DEFAULT_CREDENTIALS_PATH,
     GlobalConfigModel,
     apply_credential_overrides,
     plaintext_token_present,
+    resolve_credentials_path,
 )
 
 KEY = "websocket.access_token"
@@ -55,6 +58,16 @@ def test_env_var_wins_over_the_file(
     assert _token(cfg) == "from-env"
 
 
+def test_credentials_file_beats_the_plaintext_config_token(tmp_path: Path) -> None:
+    """迁移期最容易搞反的顺序: 凭据文件优先于 config.json 里的旧明文 token"""
+    path = tmp_path / "credentials.json"
+    path.write_text(json.dumps({KEY: "from-file"}), encoding="utf-8")
+    set_credentials_path(path)
+    raw = {"websocket": {"type": "forward", "access_token": "legacy"}}
+    cfg = GlobalConfigModel.model_validate(apply_credential_overrides(raw))
+    assert _token(cfg) == "from-file"
+
+
 def test_plaintext_config_token_still_works(tmp_path: Path) -> None:
     """迁移期: 没配凭据时照旧读 config.json 里的 token, 只是会提示挪走"""
     set_credentials_path(tmp_path / "none.json")
@@ -70,3 +83,14 @@ def test_no_token_at_all_is_fine(tmp_path: Path) -> None:
     assert not plaintext_token_present(raw)
     cfg = GlobalConfigModel.model_validate(apply_credential_overrides(raw))
     assert _token(cfg) is None
+
+
+def test_credentials_path_resolution_prefers_cli_then_env_then_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(CREDENTIALS_PATH_ENV, raising=False)
+    assert resolve_credentials_path() == DEFAULT_CREDENTIALS_PATH
+
+    monkeypatch.setenv(CREDENTIALS_PATH_ENV, "from-env.json")
+    assert resolve_credentials_path() == Path("from-env.json")
+    assert resolve_credentials_path("cli.json") == Path("cli.json")

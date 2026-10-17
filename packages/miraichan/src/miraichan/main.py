@@ -22,12 +22,12 @@ from typer import Option, Typer
 
 from .config import (
     DEFAULT_CONFIG_PATH,
-    DEFAULT_CREDENTIALS_PATH,
     ForwardWebsocketIOConfigModel,
     GlobalConfigModel,
     ReverseWebsocketIOConfigModel,
     apply_credential_overrides,
     plaintext_token_present,
+    resolve_credentials_path,
 )
 from .loader import Loadable, resolve_plugin_path
 from .logging_bridge import install_logging_bridge
@@ -161,7 +161,7 @@ def _main(
     from .validation_patches.ob11 import patch_all
 
     config_path = Path(config_path or DEFAULT_CONFIG_PATH)
-    set_credentials_path(credentials_path or DEFAULT_CREDENTIALS_PATH)
+    set_credentials_path(resolve_credentials_path(credentials_path))
     set_global_logger(logger)
 
     logger.info("少女祈祷中... plz wait...")

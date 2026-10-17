@@ -1,4 +1,5 @@
 import copy
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
@@ -10,10 +11,26 @@ from .utils import get_project_root
 
 DEFAULT_CONFIG_PATH = get_project_root() / "config.json"
 DEFAULT_CREDENTIALS_PATH = get_project_root() / "credentials.json"
+# 线上用 `mb run` 启动时只透传入口文件, 没法把 CLI 参数转给 miraichan, 改位置走这个环境变量
+CREDENTIALS_PATH_ENV = "MIRAICHAN_CREDENTIALS_PATH"
 
 # 允许从凭据文件 / 环境变量覆盖到根配置里的键。凭据只用于这些查找,
 # 不参与配置校验, 所以不会把别的配置项(比如插件列表)意外覆盖掉
 CREDENTIAL_KEYS = ("websocket.access_token",)
+
+
+def resolve_credentials_path(
+    explicit: str | Path | None = None,
+    *,
+    environ: Mapping[str, str] | None = None,
+) -> Path:
+    """凭据文件位置: 命令行参数 > 环境变量 > 项目根下的 ``credentials.json``
+
+    相对路径按进程工作目录解析 (启动时会先切到项目根)。
+    """
+    env = os.environ if environ is None else environ
+    raw = explicit or env.get(CREDENTIALS_PATH_ENV) or DEFAULT_CREDENTIALS_PATH
+    return Path(raw)
 
 
 def apply_credential_overrides(raw: Mapping[str, Any]) -> dict[str, Any]:
