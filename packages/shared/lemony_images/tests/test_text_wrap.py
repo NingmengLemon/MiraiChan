@@ -121,6 +121,29 @@ def test_a_stalled_input_does_not_spin(font: ImageFont.FreeTypeFont) -> None:
     assert max(_widths(lines, font, emoji_as_square=False)) <= 100
 
 
+def test_a_url_that_fits_is_moved_whole(font: ImageFont.FreeTypeFont) -> None:
+    """半角冒号后面不是断点, 否则会把 https://... 拆成两行"""
+    url = "https://example.com/very/long/path/that/fits"
+    limit = math.ceil(font.getlength(url)) + 2
+    assert wrap_text_by_width("see " + url, limit, font) == ["see", url]
+
+
+def test_a_time_is_not_split_at_the_colon(font: ImageFont.FreeTypeFont) -> None:
+    limit = math.ceil(font.getlength("12:30"))
+    lines = wrap_text_by_width("12:30 开会", limit, font)
+    assert lines[0] == "12:30"
+
+
+def test_curly_quotes_respect_kinsoku(font: ImageFont.FreeTypeFont) -> None:
+    text = "他说：“你好”然后走了很久很远"
+    # 这一步的宽度只够放"他说：“你好", 不守禁则就会把 ” 顶到行首
+    limit = math.ceil(font.getlength("他说：“你好"))
+    lines = wrap_text_by_width(text, limit, font)
+    assert len(lines) > 1
+    assert not any(line.startswith("”") for line in lines)
+    assert not any(line.endswith("“") for line in lines)
+
+
 def test_soft_break_drops_the_whitespace(font: ImageFont.FreeTypeFont) -> None:
     limit = max(font.getlength("alpha"), font.getlength("omega")) + 2
     assert wrap_text_by_width("alpha    omega", limit, font) == ["alpha", "omega"]

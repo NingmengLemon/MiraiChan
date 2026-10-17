@@ -45,14 +45,19 @@ __all__ = [
 ]
 
 # 行首禁则: 这些字符不放在行首, 断点不能落在它们前面
-_NO_LINE_START = frozenset(
-    "。，、；：？！）」』】》〉〕｝｣"  # 全角收尾标点
-    "ー々ゝゞヽヾ"  # 日文长音与叠字, 不能出现在行首
-    "ぁぃぅぇぉっゃゅょゎゕゖァィゥェォッャュョヮヵヶ"  # 小写假名同理
-    "!?;:)]}"  # 半角收尾; 不含 . 与 , 免得把 3.5 这种数拆开
+# 全角收尾标点与日文符号: 它们之后处处可断 (CJK 本来就没有空格), 但它们自己不放行首
+_CJK_CLOSERS = frozenset(
+    "。，、；：？！）」』】》〉〕｝｣”’"  # 全角收尾标点与弯引号
+    "ー々ゝゞヽヾ"  # 日文长音与叠字
+    "ぁぃぅぇぉっゃゅょゎゕゖァィゥェォッャュョヮヵヶ"  # 小写假名
 )
-# 行尾禁则: 这些字符不放在行尾, 断点不能落在它们后面
-_NO_LINE_END = frozenset("（「『【《〈〔｛｢([{")
+# 半角收尾标点: 同样不放行首, 但不断在它们后面。
+# 一断就会把 "12:30" 和 "https://..." 拆开; 西文里断点本来就落在空格上。
+_ASCII_CLOSERS = frozenset("!?;:)]}")
+# 行首禁则: 这些字符不放行首, 断点不能落在它们前面
+_NO_LINE_START = _CJK_CLOSERS | _ASCII_CLOSERS
+# 行尾禁则: 这些字符不放行尾, 断点不能落在它们后面
+_NO_LINE_END = frozenset("（「『【《〈〔｛｢“‘([{")
 # 两侧都不许断: 破折号、省略号连排时不拆, 不换行空格是真不许断
 _NO_BREAK_AROUND = frozenset("—―…\u00a0")
 
@@ -104,7 +109,7 @@ def _can_break(prev: str, nxt: str) -> bool:
     """两个字符之间能不能断行"""
     if not _kinsoku_ok(prev, nxt):
         return False
-    if prev.isspace() or prev in _NO_LINE_START:
+    if prev.isspace() or prev in _CJK_CLOSERS:
         return True
     return _is_cjk(prev) or _is_cjk(nxt)
 
