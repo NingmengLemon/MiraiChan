@@ -1,8 +1,7 @@
 """从彩色字体直接画 emoji 字形。
 
 ``ColorFontEmoji`` 把 emoji 簇渲染成 RGBA 图片, 不需要网络, 也不需要贴图。
-绘制层的用法见 ``draw_emoji_line``: emoji 簇占一个字号宽的方块, 贴图上去,
-其余文字交给字体绘制。
+emoji 簇在排版里占一个字号宽的方块, 具体怎么贴见 ``lemony_images.text.draw``。
 """
 
 import logging
@@ -10,18 +9,10 @@ import math
 import struct
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any
 
-import emoji as emoji_lib
 from PIL import Image, ImageDraw, ImageFont
 
-__all__ = [
-    "ColorFontEmoji",
-    "draw_emoji_line",
-    "emoji_line_width",
-    "fit_to_square",
-    "split_clusters",
-]
+__all__ = ["ColorFontEmoji", "fit_to_square"]
 
 logger = logging.getLogger(__name__)
 
@@ -245,66 +236,3 @@ def _same_image(a: Image.Image | None, b: Image.Image | None) -> bool:
     if a is None or b is None:
         return a is b
     return a.size == b.size and a.tobytes() == b.tobytes()
-
-
-def split_clusters(text: str) -> list[tuple[str, bool]]:
-    """把一段文本切成 (片段, 是否 emoji 簇); emoji 簇整体算一块"""
-    out: list[tuple[str, bool]] = []
-    pos = 0
-    for m in emoji_lib.emoji_list(text):
-        if m["match_start"] > pos:
-            out.append((text[pos : m["match_start"]], False))
-        out.append((m["emoji"], True))
-        pos = m["match_end"]
-    if pos < len(text):
-        out.append((text[pos:], False))
-    return out
-
-
-def emoji_line_width(text: str, font: ImageFont.FreeTypeFont) -> float:
-    """一行文本的宽度: emoji 簇占一个字号宽的方块, 其余按字体实测"""
-    return sum(
-        float(font.size) if is_emoji else font.getlength(chunk)
-        for chunk, is_emoji in split_clusters(text)
-    )
-
-
-def draw_emoji_line(
-    image: Image.Image,
-    xy: tuple[float, float],
-    text: str,
-    font: ImageFont.FreeTypeFont,
-    renderer: ColorFontEmoji,
-    fill: Any = (0, 0, 0, 255),
-    **text_kwargs: Any,
-) -> float:
-    """在 image 上画一行 (不含换行) 带 emoji 的文本, 返回这行的宽度。
-
-    emoji 簇用彩色字体画成图片贴上去, 在字号方块里横纵居中; 字体里没有的
-    字形退回字体绘制 (普通中文字体没有 emoji 字形, 会画成方框)。
-    调用方负责换行、行距与横向对齐。
-    """
-    x, y = xy
-    ascent, descent = font.getmetrics()
-    line_height = ascent + descent
-    draw = ImageDraw.Draw(image)
-    started = x
-    for chunk, is_emoji in split_clusters(text):
-        if not is_emoji:
-            draw.text((x, y), chunk, font=font, fill=fill, **text_kwargs)
-            x += font.getlength(chunk)
-            continue
-        size = int(font.size)
-        icon = renderer.render(chunk, target=size)
-        if icon is None:
-            draw.text((x, y), chunk, font=font, fill=fill, **text_kwargs)
-        else:
-            # 非方形的 emoji (旗、心) 在方块里居中, 不能贴左边
-            left = round(x + (size - icon.width) / 2)
-            top = round(y + (line_height - icon.height) / 2)
-            if image.mode == "RGBA":
-                image.alpha_composite(icon, (left, top))
-            else:
-                image.paste(icon, (left, top), icon)
-        x += size
-    return x - started

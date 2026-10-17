@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from aiohttp import ClientSession, ClientTimeout
-from lemony_images.emoji import ColorFontEmoji
+from lemony_images.text import ColorFontEmoji
 from lemony_network.qqntmedia_sslcontext import QQNTMEDIA_SSL_CONTEXT
 from lemony_network.request import HTTP_HEADERS
 from PIL import Image

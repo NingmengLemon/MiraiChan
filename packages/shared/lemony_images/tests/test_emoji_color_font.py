@@ -10,7 +10,7 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
-from lemony_images.emoji import ColorFontEmoji
+from lemony_images.text import ColorFontEmoji
 from PIL import Image, ImageFont
 
 
@@ -176,7 +176,7 @@ def test_colr_v1_font_cannot_rasterize_and_warns(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     path = _fake_colr_font(tmp_path / "v1.ttf", 1)
-    with caplog.at_level(logging.WARNING, logger="lemony_images.emoji"):
+    with caplog.at_level(logging.WARNING, logger="lemony_images.text.emoji"):
         renderer = ColorFontEmoji(path)
     assert renderer.is_color is True
     assert renderer.colr_version == 1
@@ -188,7 +188,7 @@ def test_svg_table_counts_as_color_but_not_rasterizable(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     path = _fake_svg_font(tmp_path / "svg.ttf")
-    with caplog.at_level(logging.WARNING, logger="lemony_images.emoji"):
+    with caplog.at_level(logging.WARNING, logger="lemony_images.text.emoji"):
         renderer = ColorFontEmoji(path)
     assert renderer.is_color is True
     assert renderer.can_rasterize_color is False

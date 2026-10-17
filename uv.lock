@@ -792,7 +792,6 @@ version = "2.0.0"
 source = { editable = "packages/plugins/mbplugin_quote" }
 dependencies = [
     { name = "aiohttp" },
-    { name = "emoji" },
     { name = "lemony-checkers" },
     { name = "lemony-images" },
     { name = "lemony-mface" },
@@ -808,7 +807,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp" },
-    { name = "emoji" },
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-images", editable = "packages/shared/lemony_images" },
     { name = "lemony-mface", editable = "packages/shared/lemony_mface" },

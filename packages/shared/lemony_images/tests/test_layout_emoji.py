@@ -9,11 +9,15 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from lemony_images.emoji import ColorFontEmoji, draw_emoji_line, emoji_line_width
-from lemony_images.font import FontCache
-from lemony_images.layout import (
+from lemony_images.text import (
+    ColorFontEmoji,
+    FontCache,
     calc_font_size,
     draw_multiline_text_auto,
+    draw_text_line,
+    line_height,
+    line_width,
+    text_to_image,
     wrap_text_by_width,
 )
 from PIL import Image, ImageDraw, ImageFont
@@ -76,22 +80,28 @@ def renderer(font_file: Path) -> _StubRenderer:
 
 
 def test_emoji_cluster_takes_one_square(font: ImageFont.FreeTypeFont) -> None:
-    assert emoji_line_width("⭐", font) == pytest.approx(font.size)
+    assert line_width("⭐", font) == pytest.approx(font.size)
     # ZWJ 序列整体算一块, 不是每个码位一块
-    assert emoji_line_width("👨‍👩‍👧‍👦", font) == pytest.approx(font.size)
+    assert line_width("👨‍👩‍👧‍👦", font) == pytest.approx(font.size)
 
 
 def test_plain_text_uses_measured_width(font: ImageFont.FreeTypeFont) -> None:
-    assert emoji_line_width("hello", font) == pytest.approx(font.getlength("hello"))
-    mixed = emoji_line_width("a⭐b", font)
+    assert line_width("hello", font) == pytest.approx(font.getlength("hello"))
+    mixed = line_width("a⭐b", font)
     assert mixed == pytest.approx(font.getlength("ab") + font.size)
+    # 不按方块算时完全交给字体实测 (纯文本绘制的模式)
+    assert line_width("a⭐b", font, emoji_as_square=False) == pytest.approx(
+        font.getlength("a⭐b")
+    )
 
 
-def test_draw_emoji_line_reports_width_and_composites(
+def test_draw_text_line_reports_width_and_composites(
     font: ImageFont.FreeTypeFont, renderer: _StubRenderer
 ) -> None:
     canvas = Image.new("RGBA", (120, 40), _WHITE)
-    width = draw_emoji_line(canvas, (4, 4), "a⭐b", font, renderer, (0, 0, 0, 255))
+    width = draw_text_line(
+        canvas, (4, 4), "a⭐b", font, fill=(0, 0, 0, 255), renderer=renderer
+    )
     assert width == pytest.approx(font.getlength("ab") + font.size)
     assert _red_mask(canvas).any()
 
@@ -165,7 +175,7 @@ def test_wrap_keeps_emoji_cluster_whole(font: ImageFont.FreeTypeFont) -> None:
 def test_fit_reserves_the_height_the_emoji_mode_draws(
     font_file: Path,
 ) -> None:
-    """fit 用 ascent+descent, 和 emoji 模式绘制时的行距一致, 块才不会溢出"""
+    """fit 与绘制用同一个行高, 块才不会溢出"""
     cache = FontCache(font_file=font_file)
     box_height = 60
     size, _ = calc_font_size(
@@ -178,8 +188,49 @@ def test_fit_reserves_the_height_the_emoji_mode_draws(
         spacing=4,
         emoji_as_square=True,
     )
-    line_height = sum(cache.use(size).getmetrics())
-    assert 2 * line_height + 4 <= box_height
+    assert 2 * line_height(cache.use(size)) + 4 <= box_height
+
+
+def test_plain_mode_fit_also_uses_the_shared_line_height(
+    font_file: Path,
+) -> None:
+    """纯文本模式以前用墨迹高估行数, 画出来其实更高; 现在两边同一个定义"""
+    cache = FontCache(font_file=font_file)
+    box_height = 60
+    size, _ = calc_font_size(
+        "A\nB",
+        40,
+        400,
+        box_height,
+        fontcache=cache,
+        min_font_size=10,
+        spacing=4,
+    )
+    assert 2 * line_height(cache.use(size)) + 4 <= box_height
+
+
+def test_drawn_block_stays_inside_the_box(
+    font_file: Path, renderer: _StubRenderer
+) -> None:
+    """端到端: 画出来的墨迹确实落在 bbox 里 (emoji 模式不许溢出)"""
+    canvas = Image.new("RGBA", (400, 60), _WHITE)
+    draw_multiline_text_auto(
+        (0, 0, 400, 60),
+        ImageDraw.Draw(canvas),
+        "A⭐\nB⭐",
+        FontCache(font_file=font_file),
+        max_font_size=40,
+        spacing=4,
+        sticky="n",
+        emoji_renderer=renderer,
+    )
+    mask = _red_mask(canvas) | (
+        np.array(canvas.convert("RGB")) != np.array(_WHITE[:3])
+    ).any(axis=2)
+    rows = np.nonzero(mask.any(axis=1))[0]
+    assert rows.size, "什么都没画出来"
+    assert int(rows.min()) >= 0
+    assert int(rows.max()) < 60
 
 
 def test_nonsquare_icon_is_centered_in_its_square(
@@ -189,9 +240,31 @@ def test_nonsquare_icon_is_centered_in_its_square(
     stub = _StubRenderer(_write_default_font(tmp_path / "center.otf"))
     stub.icon = Image.new("RGBA", (10, 20), BLOCK)  # 窄条, 方块宽 20
     canvas = Image.new("RGBA", (80, 40), _WHITE)
-    draw_emoji_line(canvas, (10, 10), "⭐", font, stub, (0, 0, 0, 255))
+    draw_text_line(canvas, (10, 10), "⭐", font, fill=(0, 0, 0, 255), renderer=stub)
     columns = np.nonzero(_red_mask(canvas).any(axis=0))[0]
     assert columns.size, "没有贴上色块"
     # 方块从 x=10 起、宽 20, 10 宽的图标应当落在 15..25
     assert int(columns.min()) >= 15
     assert int(columns.max()) <= 25
+
+
+def test_text_to_image_draws_emoji(font_file: Path, renderer: _StubRenderer) -> None:
+    font = ImageFont.truetype(str(font_file), 20)
+    data = text_to_image("A⭐B", font=font, emoji_renderer=renderer)
+    image = Image.open(BytesIO(data)).convert("RGBA")
+    assert _red_mask(image).any()
+
+
+def test_text_to_image_plain_does_not_draw_a_block(font_file: Path) -> None:
+    font = ImageFont.truetype(str(font_file), 20)
+    data = text_to_image("A⭐B", font=font)
+    image = Image.open(BytesIO(data)).convert("RGBA")
+    assert not _red_mask(image).any()
+
+
+def test_text_to_image_wraps_at_the_given_width(font_file: Path) -> None:
+    font = ImageFont.truetype(str(font_file), 20)
+    narrow = Image.open(BytesIO(text_to_image("ab " * 20, font=font, wrap=100)))
+    wide = Image.open(BytesIO(text_to_image("ab " * 20, font=font, wrap=10_000)))
+    assert narrow.height > wide.height
+    assert narrow.width < wide.width

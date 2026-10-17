@@ -2,7 +2,7 @@ from collections.abc import Iterable
 
 from PIL import ImageFont
 
-from .typedef import _FontFileT
+from ..typedef import _FontFileT
 
 
 class FontCache:

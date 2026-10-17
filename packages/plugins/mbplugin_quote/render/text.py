@@ -1,6 +1,9 @@
 """感知 emoji 的文本测量、断行与绘制。
 
-测量和绘制用同一套规则: 文本按字体实测宽度, emoji 一律占一个字号宽的方块。
+测量和绘制用同一套规则: 具体数值来自 ``lemony_images.text.metrics`` (行高、emoji
+方块宽度、簇切分在这里定义一次, 引用图与 ``lemony_images`` 的绘制层共用),
+本模块只负责"块"这一层: 按词断行、块内对齐、超行截断。
+
 emoji 图片由调用方事先取好放进映射里, 这里不做任何网络 IO; 映射里没有的 emoji
 退回用字体本身的字形绘制 (宽度仍按方块计, 保证排版不变)。
 """
@@ -10,8 +13,12 @@ import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
-import emoji as emoji_lib
-from lemony_images.emoji import fit_to_square
+from lemony_images.text import (
+    fit_to_square,
+    line_height,
+    split_clusters,
+    unit_width,
+)
 from PIL import Image, ImageDraw, ImageFont
 
 __all__ = [
@@ -60,26 +67,25 @@ class TextBlock:
 def _units(line: str) -> list[Run]:
     """一行文本拆成最小单元: emoji 簇整体一个, 其余逐字符"""
     out: list[Run] = []
-    pos = 0
-    for m in emoji_lib.emoji_list(line):
-        out.extend(Run(c, False) for c in line[pos : m["match_start"]])
-        out.append(Run(m["emoji"], True))
-        pos = m["match_end"]
-    out.extend(Run(c, False) for c in line[pos:])
+    for chunk, is_emoji in split_clusters(line):
+        if is_emoji:
+            out.append(Run(chunk, True))
+        else:
+            out.extend(Run(c, False) for c in chunk)
     return out
 
 
 def extract_emojis(texts: Iterable[str]) -> set[str]:
-    return {m["emoji"] for t in texts for m in emoji_lib.emoji_list(t)}
-
-
-def _line_height(font: ImageFont.FreeTypeFont) -> int:
-    ascent, descent = font.getmetrics()
-    return max(ascent + descent, int(font.size))
+    return {chunk for t in texts for chunk, is_emoji in split_clusters(t) if is_emoji}
 
 
 def _unit_width(u: Run, font: ImageFont.FreeTypeFont) -> float:
-    return float(font.size) if u.is_emoji else font.getlength(u.text)
+    # 引用图总是按平方块排版: emoji 由图片贴上, 图片缺失时也留出同样宽度
+    return unit_width(u.text, u.is_emoji, font, emoji_as_square=True)
+
+
+def _line_height(font: ImageFont.FreeTypeFont) -> int:
+    return line_height(font)
 
 
 def _merge(units: list[Run]) -> tuple[Run, ...]:
@@ -93,9 +99,7 @@ def _merge(units: list[Run]) -> tuple[Run, ...]:
 
 
 def _runs_width(runs: Iterable[Run], font: ImageFont.FreeTypeFont) -> int:
-    return math.ceil(
-        sum(float(font.size) if r.is_emoji else font.getlength(r.text) for r in runs)
-    )
+    return math.ceil(sum(_unit_width(r, font) for r in runs))
 
 
 def _tokens(units: list[Run]) -> list[list[Run]]:
@@ -219,11 +223,6 @@ def fit_text(
     return font, _truncate(block, font, max_lines, box_width)
 
 
-def _fit_emoji(img: Image.Image, size: int) -> Image.Image:
-    """把 emoji 图片按长边缩到字号大小, 保持长宽比 (不拉伸)"""
-    return fit_to_square(img, size)
-
-
 def draw_text_block(
     canvas: Image.Image,
     xy: tuple[int, int],
@@ -250,7 +249,7 @@ def draw_text_block(
                 img = emojis.get(run.text)
                 top = y + (block.line_height - size) // 2
                 if img is not None:
-                    icon = _fit_emoji(img, size)
+                    icon = fit_to_square(img, size)
                     canvas.alpha_composite(
                         icon,
                         (

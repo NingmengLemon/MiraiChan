@@ -7,7 +7,6 @@ requires-python = ">=3.12"
 dependencies = [
     "lemony_utils",
     "aiohttp",
-    "emoji",
     "lemony_checkers",
     "lemony_images",
     "lemony_mface",
