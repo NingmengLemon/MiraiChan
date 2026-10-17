@@ -8,6 +8,7 @@
 """
 
 import argparse
+import contextlib
 import json
 import os
 import shutil
@@ -131,11 +132,18 @@ def build_root(root: Path) -> None:
     )
     config = {
         "debug": False,
-        "websocket": {"type": "forward", "url": "", "access_token": TOKEN},
+        "websocket": {"type": "forward", "url": ""},
         "load_depth": 3,
         "plugins": [str(REPO / "packages" / "plugins" / p) for p in PLUGINS],
     }
     (root / "config.json").write_text(json.dumps(config), encoding="utf-8")
+    # 凭据走独立文件 (和线上一样), 权限照 0600 建
+    credentials = root / "credentials.json"
+    credentials.write_text(
+        json.dumps({"websocket.access_token": TOKEN}), encoding="utf-8"
+    )
+    with contextlib.suppress(OSError):
+        credentials.chmod(0o600)
     owner = {
         "mode": "blacklist",
         "owner": [
