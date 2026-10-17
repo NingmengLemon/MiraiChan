@@ -139,7 +139,11 @@ def ensure_credentials_file(
         return target
     target.parent.mkdir(parents=True, exist_ok=True)
     content = json.dumps(dict(template or {}), indent=4, ensure_ascii=False) + "\n"
-    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        # 另一个进程刚好抢先建好了, 用它就行, 不要覆盖
+        return target
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fp:
             fp.write(content)
