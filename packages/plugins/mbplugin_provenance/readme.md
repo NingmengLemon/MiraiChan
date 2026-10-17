@@ -19,6 +19,17 @@ API key 不进插件配置, 走凭据存储:
 
 没配置时指令会直接提示管理员补上。
 
+## 网络
+
+服务器不能直连 `api.openai.com` 时, 在 `configs/mbplugin_provenance/default.json` 里把
+`api_proxy` 指向可用的 HTTP 代理 (只影响核验请求, 不影响下载图片和 QQ 连接):
+
+```json
+{
+    "api_proxy": "http://172.16.40.20:17890"
+}
+```
+
 ## 结果怎么读
 
 - `C2PA 清单: 检测到 (签发方=..., 模型=..., 校验=trusted)`: 文件里的签名元数据可信且写着

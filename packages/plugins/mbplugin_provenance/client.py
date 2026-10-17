@@ -81,6 +81,7 @@ async def check_image(
     api_key: str,
     base_url: str = "https://api.openai.com/v1",
     total_timeout: float = 30.0,
+    proxy: str | None = None,
 ) -> tuple[ProvenanceResult, ...]:
     """发送一张图片并返回检测结果; 失败时抛 :class:`ProvenanceError`"""
     url = base_url.rstrip("/") + "/content_provenance_checks"
@@ -92,6 +93,7 @@ async def check_image(
             data=form,
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=aiohttp.ClientTimeout(total=total_timeout),
+            proxy=proxy,
         ) as response:
             body = await response.text()
             if response.status == 429:

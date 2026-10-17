@@ -40,6 +40,8 @@ class ProvenanceSettings(BaseSettings):
     timeout: float = 30.0
     user_cooldown: float = 10.0
     api_base: str = "https://api.openai.com/v1"
+    # 服务器不能直连 OpenAI 时填 HTTP 代理, 例如 http://172.16.40.20:17890
+    api_proxy: str | None = None
 
 
 bot = get_bot()
@@ -192,6 +194,7 @@ async def check_command(event: MessageEvent, adapter: Adapter) -> None:
                     api_key=api_key,
                     base_url=cfgloader.value.api_base,
                     total_timeout=cfgloader.value.timeout,
+                    proxy=cfgloader.value.api_proxy,
                 )
             except ProvenanceError as exc:
                 reports.append(f"图片 {index}/{len(images)}: {exc}")

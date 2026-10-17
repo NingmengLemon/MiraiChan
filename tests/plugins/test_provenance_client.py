@@ -75,11 +75,13 @@ async def test_check_image_sends_one_multipart_file() -> None:
         mime="image/png",
         api_key="sk-test",
         base_url="https://example.test/v1/",
+        proxy="http://proxy.test:8888",
     )
 
     call = fake.calls[0]
     assert call["url"] == "https://example.test/v1/content_provenance_checks"
     assert call["headers"]["Authorization"] == "Bearer sk-test"
+    assert call["proxy"] == "http://proxy.test:8888"
     form = call["data"]
     assert isinstance(form, aiohttp.FormData)
     field, headers, body = form._fields[0]
