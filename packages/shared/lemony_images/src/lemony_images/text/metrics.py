@@ -1,7 +1,6 @@
 """文本度量: 一行多高、一个单元多宽, 全库只在这里定义。
 
-绘制和拟合必须用同一套规则。以前引用图和 ``layout`` 各算一遍, 两边的行高定义
-就开始分叉了, 结果是一边算出放得下、另一边画出来溢出。
+绘制和拟合必须用同一套规则, 否则会出现"算出来放得下、画出来溢出"。
 """
 
 import emoji as emoji_lib
@@ -45,12 +44,15 @@ def unit_width(
     is_emoji: bool,
     font: ImageFont.FreeTypeFont,
     *,
-    emoji_as_square: bool = True,
+    emoji_as_square: bool,
 ) -> float:
     """一个排版单元的宽度
 
-    emoji_as_square=True 时 emoji 簇按一个字号方块计 (绘制层会贴一张同样大小的
-    图片上去); False 时按字体实测, 用于直接交给字体绘制的场景。
+    调用方必须说明 emoji 怎么算, 不给默认值, 免得漏传时两套规则又悄悄分叉:
+
+    - ``emoji_as_square=True``: emoji 簇按一个字号方块计, 绘制层会贴一张同样大小的
+      图片上去
+    - ``emoji_as_square=False``: 全部按字体实测, 用于直接交给字体绘制的场景
     """
     if is_emoji and emoji_as_square:
         return emoji_square_width(font)
@@ -61,9 +63,9 @@ def line_width(
     text: str,
     font: ImageFont.FreeTypeFont,
     *,
-    emoji_as_square: bool = True,
+    emoji_as_square: bool,
 ) -> float:
-    """一行文本的宽度"""
+    """一行文本的宽度; ``emoji_as_square`` 的含义见 ``unit_width``"""
     if not emoji_as_square:
         return font.getlength(text)
     return sum(
@@ -77,7 +79,7 @@ def line_height(font: ImageFont.FreeTypeFont) -> int:
 
     取 ``max(ascent + descent, 字号)``。上行与下行给出文字本身的字框, 而 emoji 是
     按字号大小的方块贴上去的: 字体框比字号小时 (有些字体就是这样) 方块会捅出行高,
-    所以把字号也算进来。引用图那边一直用的是这个定义。
+    所以把字号也算进来。
     """
     return max(sum(font.getmetrics()), int(font.size))
 

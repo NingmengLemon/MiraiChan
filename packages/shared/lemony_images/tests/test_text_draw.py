@@ -1,4 +1,4 @@
-"""带 emoji 的排版与绘制。
+"""文本度量、断行与绘制。
 
 真实彩色字体不在仓库里, 这里用 Pillow 自带字体加一个固定返回色块的渲染器,
 验证的是"测量与绘制用同一套规则"以及贴图路径本身。
@@ -12,6 +12,7 @@ import pytest
 from lemony_images.text import (
     ColorFontEmoji,
     FontCache,
+    block_height,
     calc_font_size,
     draw_multiline_text_auto,
     draw_text_line,
@@ -80,14 +81,18 @@ def renderer(font_file: Path) -> _StubRenderer:
 
 
 def test_emoji_cluster_takes_one_square(font: ImageFont.FreeTypeFont) -> None:
-    assert line_width("⭐", font) == pytest.approx(font.size)
+    assert line_width("⭐", font, emoji_as_square=True) == pytest.approx(font.size)
     # ZWJ 序列整体算一块, 不是每个码位一块
-    assert line_width("👨‍👩‍👧‍👦", font) == pytest.approx(font.size)
+    assert line_width("👨‍👩‍👧‍👦", font, emoji_as_square=True) == pytest.approx(
+        font.size
+    )
 
 
 def test_plain_text_uses_measured_width(font: ImageFont.FreeTypeFont) -> None:
-    assert line_width("hello", font) == pytest.approx(font.getlength("hello"))
-    mixed = line_width("a⭐b", font)
+    assert line_width("hello", font, emoji_as_square=True) == pytest.approx(
+        font.getlength("hello")
+    )
+    mixed = line_width("a⭐b", font, emoji_as_square=True)
     assert mixed == pytest.approx(font.getlength("ab") + font.size)
     # 不按方块算时完全交给字体实测 (纯文本绘制的模式)
     assert line_width("a⭐b", font, emoji_as_square=False) == pytest.approx(
@@ -191,22 +196,21 @@ def test_fit_reserves_the_height_the_emoji_mode_draws(
     assert 2 * line_height(cache.use(size)) + 4 <= box_height
 
 
-def test_plain_mode_fit_also_uses_the_shared_line_height(
-    font_file: Path,
-) -> None:
-    """纯文本模式以前用墨迹高估行数, 画出来其实更高; 现在两边同一个定义"""
+def test_fit_returns_the_size_that_exactly_fits(font_file: Path) -> None:
+    """盒子刚好等于该字号的块高时, fit 必须选它, 不能因为多算一个 spacing 退一档"""
     cache = FontCache(font_file=font_file)
-    box_height = 60
-    size, _ = calc_font_size(
+    size = 40
+    exact = block_height(2, line_height(cache.use(size)), 4)
+    got, _ = calc_font_size(
         "A\nB",
-        40,
+        size,
         400,
-        box_height,
+        exact,
         fontcache=cache,
         min_font_size=10,
         spacing=4,
     )
-    assert 2 * line_height(cache.use(size)) + 4 <= box_height
+    assert got == size
 
 
 def test_drawn_block_stays_inside_the_box(
@@ -268,3 +272,46 @@ def test_text_to_image_wraps_at_the_given_width(font_file: Path) -> None:
     wide = Image.open(BytesIO(text_to_image("ab " * 20, font=font, wrap=10_000)))
     assert narrow.height > wide.height
     assert narrow.width < wide.width
+
+
+def _ink_margins(image: Image.Image) -> tuple[int, int, int, int]:
+    """墨迹到四边各留了多少像素"""
+    arr = np.array(image.convert("RGBA"))
+    mask = (arr[:, :, :3] != np.array([32, 32, 32])).any(axis=2)
+    ys, xs = np.nonzero(mask)
+    assert xs.size, "图上什么也没画"
+    return (
+        int(xs.min()),
+        int(ys.min()),
+        int(image.width - 1 - xs.max()),
+        int(image.height - 1 - ys.max()),
+    )
+
+
+def test_text_to_image_keeps_stroked_ink_inside_the_canvas(
+    font_file: Path,
+) -> None:
+    """描边是往外扩的, 画布必须把它算进去, 四边都不能贴边 (等于被裁)"""
+    font = ImageFont.truetype(str(font_file), 40)
+    image = Image.open(
+        BytesIO(text_to_image("j", font=font, margin=10, stroke_width=6))
+    )
+    left, top, right, bottom = _ink_margins(image)
+    assert min(left, top, right, bottom) > 0
+
+
+def test_text_to_image_without_margin_never_produces_an_empty_canvas(
+    font_file: Path,
+) -> None:
+    font = ImageFont.truetype(str(font_file), 20)
+    image = Image.open(BytesIO(text_to_image("", font=font, margin=0)))
+    assert image.width >= 1
+    assert image.height >= 1
+
+
+def test_text_to_image_keeps_trailing_blank_lines(font_file: Path) -> None:
+    """尾随空行不能被吞掉, 否则多行文本的高度会少算一行"""
+    font = ImageFont.truetype(str(font_file), 20)
+    one = Image.open(BytesIO(text_to_image("A", font=font, wrap=10_000)))
+    two = Image.open(BytesIO(text_to_image("A\n", font=font, wrap=10_000)))
+    assert two.height > one.height
