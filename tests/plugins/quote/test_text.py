@@ -28,6 +28,18 @@ def test_hard_newlines_and_emoji_units() -> None:
     assert block.line_widths[1] == 28
 
 
+def test_inline_emoji_splits_the_line_into_three_runs() -> None:
+    block = layout_text("hello 😀 world", font(), max_width=10_000)
+    assert [r.text for r in block.lines[0]] == ["hello ", "😀", " world"]
+    assert [r.is_emoji for r in block.lines[0]] == [False, True, False]
+    # 不换行时和换行后走的是同一套 run 结构
+    assert [r.text for r in layout_text("hello 😀 world", font()).lines[0]] == [
+        "hello ",
+        "😀",
+        " world",
+    ]
+
+
 @pytest.mark.parametrize("width", [40, 90, 150, 333])
 def test_wrapped_lines_fit_width(width: int) -> None:
     text = "the quick brown fox 跳过了懒狗 😀😀 jumps over the lazy dog" * 3
@@ -68,6 +80,23 @@ def test_fit_text_shrinks_then_truncates() -> None:
     assert block.height <= 100
     assert line_texts(block)[-1].endswith("…")
     assert all(w <= 400 for w in block.line_widths)
+
+
+def test_truncation_keeps_emoji_clusters_whole() -> None:
+    """截断要么整簇保留, 要么整簇丢掉, 不能留半个 ZWJ 序列"""
+    _, block = fit_text(
+        "a" + "👨‍👩‍👧‍👦" * 40,
+        font,
+        box_width=120,
+        box_height=80,
+        max_size=28,
+        min_size=20,
+    )
+    assert line_texts(block)[-1].endswith("…")
+    for text in line_texts(block):
+        # 出现任意一个成员就说明整个簇都在, 没有被截断劈开
+        if "👨" in text:
+            assert "👨‍👩‍👧‍👦" in text
 
 
 def test_extract_emojis() -> None:

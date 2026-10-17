@@ -103,14 +103,14 @@ def layout_text(
     )
 
 
-def _merge_runs(units: Iterable[Run]) -> tuple[Run, ...]:
+def _merge_runs(runs: Iterable[Run]) -> tuple[Run, ...]:
     """相邻的普通文字并成一个 run, 绘制时少走几次分支"""
     merged: list[Run] = []
-    for u in units:
-        if merged and not u.is_emoji and not merged[-1].is_emoji:
-            merged[-1] = Run(merged[-1].text + u.text, False)
+    for run in runs:
+        if merged and not run.is_emoji and not merged[-1].is_emoji:
+            merged[-1] = Run(merged[-1].text + run.text, False)
         else:
-            merged.append(u)
+            merged.append(run)
     return tuple(merged)
 
 
