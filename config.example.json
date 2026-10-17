@@ -15,7 +15,8 @@
         "mbplugin_quote",
         "mbplugin_helper",
         "mbplugin_emergency_alerts",
-        "mbplugin_toolbox"
+        "mbplugin_toolbox",
+        "mbplugin_provenance"
     ],
     "log_levels": {},
     "settings_format": "json",

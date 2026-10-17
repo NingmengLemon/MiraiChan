@@ -109,7 +109,8 @@ bot 由 systemd 管理, 输出进 journald (不再有单独的日志文件)。`<
     "mbplugin_quote",
     "mbplugin_helper",
     "mbplugin_emergency_alerts",
-    "mbplugin_toolbox"
+    "mbplugin_toolbox",
+    "mbplugin_provenance"
 ]
 ```
 

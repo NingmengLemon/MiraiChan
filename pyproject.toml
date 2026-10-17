@@ -30,6 +30,7 @@ dependencies = [
     "mbplugin_quote",
     "mbplugin_helper",
     "mbplugin_toolbox",
+    "mbplugin_provenance",
     # workspace members above
     "melobot[onebot]>=3.5.0",
 ]
@@ -50,6 +51,7 @@ members = [
     "packages/plugins/mbplugin_quote",
     "packages/plugins/mbplugin_helper",
     "packages/plugins/mbplugin_toolbox",
+    "packages/plugins/mbplugin_provenance",
     # "packages/plugins/*",
 ]
 
@@ -78,6 +80,7 @@ mbplugin_rebootable = { workspace = true }
 mbplugin_quote = { workspace = true }
 mbplugin_helper = { workspace = true }
 mbplugin_toolbox = { workspace = true }
+mbplugin_provenance = { workspace = true }
 
 [dependency-groups]
 dev = [
