@@ -1,8 +1,11 @@
 from .core import LemonySettings, get_global_settings, require
 from .credentials import (
+    CREDENTIALS_VERSION,
     DEFAULT_ENV_PREFIX,
     CredentialsFileError,
+    InsecureCredentialsError,
     MissingCredentialError,
+    check_permissions,
     ensure_credentials_file,
     env_name,
     get_credentials_path,
@@ -17,11 +20,14 @@ from .models import BaseSettings
 from .readwriter import register_readwriter
 
 __all__ = [
+    "CREDENTIALS_VERSION",
     "DEFAULT_ENV_PREFIX",
     "BaseSettings",
     "CredentialsFileError",
+    "InsecureCredentialsError",
     "LemonySettings",
     "MissingCredentialError",
+    "check_permissions",
     "ensure_credentials_file",
     "env_name",
     "get_credentials_path",

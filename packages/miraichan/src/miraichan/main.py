@@ -8,10 +8,11 @@ import json5
 from lemony_checkers import init_checker_factory
 from lemony_images import init_default_font_cache
 from lemony_settings import (
+    InsecureCredentialsError,
+    check_permissions,
     ensure_credentials_file,
     init_settings_manager,
     set_credentials_path,
-    warn_if_insecure,
 )
 from lemony_storage_helper.files import set_data_root
 from melobot import Bot, add_import_fallback
@@ -173,7 +174,12 @@ def _main(
         logger.exception(
             "无法创建凭据文件, 本次启动只能依赖环境变量或配置里的明文 access_token"
         )
-    warn_if_insecure()
+    try:
+        # 过宽的权限 (手工 cp 出来的 644 之类) 直接拒绝启动, 而不是带着可读的密钥继续跑
+        check_permissions(strict=True)
+    except InsecureCredentialsError as exc:
+        logger.error("%s", exc)  # noqa: TRY400 - 预期内的拒绝启动, 不需要 traceback
+        sys.exit(1)
 
     if not config_path.is_file():
         try:

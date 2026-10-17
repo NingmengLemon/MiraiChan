@@ -3,13 +3,15 @@
 import json
 import os
 import stat
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 
 import pytest
 from lemony_settings.credentials import (
     CredentialsFileError,
+    InsecureCredentialsError,
     MissingCredentialError,
+    check_permissions,
     ensure_credentials_file,
     env_name,
     get_secret,
@@ -32,7 +34,7 @@ def _isolate(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.delenv(ENV, raising=False)
 
 
-def _write(path: Path, data: dict[str, str]) -> Path:
+def _write(path: Path, data: Mapping[str, object]) -> Path:
     path.write_text(json.dumps(data), encoding="utf-8")
     return path
 
@@ -89,9 +91,30 @@ def test_broken_file_reports_which_file(tmp_path: Path) -> None:
     with pytest.raises(CredentialsFileError):
         get_secret(KEY)
 
-    _write(path, {"k": 1})  # ty: ignore[invalid-argument-type]
+    _write(path, {"k": 1})
     with pytest.raises(CredentialsFileError):
         load_credentials()
+
+
+def test_the_document_carries_a_version_and_refs(tmp_path: Path) -> None:
+    path = _write(tmp_path / "credentials.json", {"version": 1, "refs": {KEY: "v1"}})
+    set_credentials_path(path)
+    assert get_secret(KEY) == "v1"
+
+    # 没有 version 的旧平铺格式仍然可读
+    legacy = _write(tmp_path / "legacy.json", {KEY: "flat"})
+    set_credentials_path(legacy)
+    assert get_secret(KEY) == "flat"
+
+    for bad in (
+        {"version": 2, "refs": {KEY: "x"}},
+        {"version": 1, "refs": {KEY: "x"}, "extra": {}},
+        {"version": 1, "refs": "not-an-object"},
+    ):
+        broken = _write(tmp_path / "bad.json", bad)
+        set_credentials_path(broken)
+        with pytest.raises(CredentialsFileError):
+            load_credentials()
 
 
 def test_ensure_creates_the_file_with_owner_only_permissions(
@@ -101,7 +124,10 @@ def test_ensure_creates_the_file_with_owner_only_permissions(
     set_credentials_path(path)
     created = ensure_credentials_file(template={KEY: ""})
     assert created == path
-    assert json.loads(path.read_text(encoding="utf-8")) == {KEY: ""}
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "version": 1,
+        "refs": {KEY: ""},
+    }
     if os.name != "nt":
         assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
@@ -133,6 +159,11 @@ def test_loose_permissions_are_reported(
         assert warn_if_insecure() is True
     assert any("chmod 600" in record.message for record in caplog.records)
 
+    # 启动阶段用的严格版本: 同样的问题直接拒绝继续
+    with pytest.raises(InsecureCredentialsError, match="chmod 600"):
+        check_permissions(strict=True)
+
     path.chmod(0o600)
     with caplog.at_level("WARNING"):
         assert warn_if_insecure() is False
+    assert check_permissions(strict=True) is False

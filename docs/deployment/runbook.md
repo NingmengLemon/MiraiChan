@@ -40,11 +40,16 @@
 
    ```json
    {
-       "websocket.access_token": "与实现端一致的值"
+       "version": 1,
+       "refs": {
+           "websocket.access_token": "与实现端一致的值"
+       }
    }
    ```
 
-   启动时如果文件不存在会自动建一份空模板, 线上建议先建好再启动。也可以不落文件, 用环境变量
+   启动时如果文件不存在会自动建一份空模板, 线上建议先建好再启动。文件对同组或其他用户可读
+   (例如手工 `cp` 出来的 644) 时启动会直接失败并提示 `chmod 600`, Windows 上没有可检查的
+   权限位所以跳过; 没有 `version` 的旧平铺写法仍然可读。也可以不落文件, 用环境变量
    (unit 里 `Environment=MIRAICHAN_WEBSOCKET_ACCESS_TOKEN=...`, 或 `EnvironmentFile=`),
    环境变量优先于凭据文件。凭据文件要换位置时用环境变量 `MIRAICHAN_CREDENTIALS_PATH`:
    `mb run` 只透传入口文件, 传不进 CLI 参数; 直接跑 `miraichan launch --credentials-path ...`

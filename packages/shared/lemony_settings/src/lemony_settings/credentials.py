@@ -1,21 +1,27 @@
 """凭据存储: 秘密值不写进普通配置。
 
 普通配置 (根 ``config.json`` 与 ``configs/`` 下的插件配置) 是给人看、进备份、可以分享的,
-凭据单独放: 一个扁平的 JSON 文件, 或者环境变量。
+凭据单独放: 一个带版本号的 JSON 文件, 或者环境变量。
 
 凭据文件长这样, 键用点号分层, 只用于查找::
 
     {
-        "websocket.access_token": "...",
-        "quote.api_key": "..."
+        "version": 1,
+        "refs": {
+            "websocket.access_token": "...",
+            "quote.api_key": "..."
+        }
     }
+
+没有 ``version`` 的旧平铺文件 (顶层直接是 键 -> 值) 仍然可读, 只是不再生成这种格式。
 
 读取顺序是 **环境变量 > 凭据文件**。环境变量名由前缀和键拼出来: 键里非字母数字的字符
 变成下划线, 大写, 前面加上 ``<前缀>_``, 例如 ``MIRAICHAN_WEBSOCKET_ACCESS_TOKEN``。
 空字符串按"没设置"处理。
 
 文件由 :func:`ensure_credentials_file` 创建, POSIX 下权限是 0600;
-:func:`warn_if_insecure` 会在文件对同组或其他用户可读时打警告。
+:func:`check_permissions` 在文件对同组或其他用户可读时给出警告, 启动阶段用
+``strict=True`` 直接拒绝继续 (Windows 上没有可检查的 mode 位, 显式跳过)。
 """
 
 import contextlib
@@ -27,9 +33,12 @@ from collections.abc import Mapping
 from pathlib import Path
 
 __all__ = [
+    "CREDENTIALS_VERSION",
     "DEFAULT_ENV_PREFIX",
     "CredentialsFileError",
+    "InsecureCredentialsError",
     "MissingCredentialError",
+    "check_permissions",
     "ensure_credentials_file",
     "env_name",
     "get_credentials_path",
@@ -41,6 +50,8 @@ __all__ = [
 ]
 
 DEFAULT_ENV_PREFIX = "MIRAICHAN"
+# 凭据文件的文档版本; 结构变化时加一, 读取端只认自己认识的那个
+CREDENTIALS_VERSION = 1
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +61,11 @@ _cache: tuple[tuple[str, int, int], dict[str, str]] | None = None
 
 
 class CredentialsFileError(ValueError):
-    """凭据文件格式不对 (不是 JSON 对象, 或者值不是字符串)"""
+    """凭据文件格式不对 (不是 JSON 对象, 版本不认, 或者值不是字符串)"""
+
+
+class InsecureCredentialsError(RuntimeError):
+    """凭据文件对同组或其他用户可读, 拒绝继续启动"""
 
 
 class MissingCredentialError(LookupError):
@@ -67,6 +82,24 @@ def get_credentials_path() -> Path | None:
     return _credentials_path
 
 
+def _document_refs(raw: dict[str, object], path: Path) -> Mapping[str, object]:
+    """从带版本号的文档里取出 refs; 没有 version 的旧平铺文件直接用顶层"""
+    if "version" not in raw and "refs" not in raw:
+        return raw
+    version = raw.get("version")
+    if version != CREDENTIALS_VERSION:
+        raise CredentialsFileError(
+            f"{path} 的 version 是 {version!r}, 本版本只认 {CREDENTIALS_VERSION}"
+        )
+    unknown = sorted(set(raw) - {"version", "refs"})
+    if unknown:
+        raise CredentialsFileError(f"{path} 有未知的顶层键: {', '.join(unknown)}")
+    refs = raw.get("refs", {})
+    if not isinstance(refs, dict):
+        raise CredentialsFileError(f"{path} 的 refs 必须是对象")
+    return refs
+
+
 def _read_file(path: Path) -> dict[str, str]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -80,7 +113,7 @@ def _read_file(path: Path) -> dict[str, str]:
     if not isinstance(raw, dict):
         raise CredentialsFileError(f"{path} 的顶层必须是对象")
     data: dict[str, str] = {}
-    for key, value in raw.items():
+    for key, value in _document_refs(raw, path).items():
         if not isinstance(value, str):
             raise CredentialsFileError(f"{path} 中 {key!r} 的值必须是字符串")
         data[str(key)] = value
@@ -140,10 +173,10 @@ def ensure_credentials_file(
     *,
     template: Mapping[str, str] | None = None,
 ) -> Path:
-    """确保凭据文件存在; 新建时写一份模板。
+    """确保凭据文件存在; 新建时写一份带版本号的模板。
 
     POSIX 下新文件的权限是 0600, Windows 上只把只读位打开 (mode 位在 Windows 上不代表 ACL)。
-    已存在时不动它 (权限问题交给 :func:`warn_if_insecure`)。
+    已存在时不动它 (权限问题交给 :func:`check_permissions`)。
     """
     target = Path(path) if path is not None else _credentials_path
     if target is None:
@@ -151,7 +184,8 @@ def ensure_credentials_file(
     if target.exists():
         return target
     target.parent.mkdir(parents=True, exist_ok=True)
-    content = json.dumps(dict(template or {}), indent=4, ensure_ascii=False) + "\n"
+    document = {"version": CREDENTIALS_VERSION, "refs": dict(template or {})}
+    content = json.dumps(document, indent=4, ensure_ascii=False) + "\n"
     try:
         fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except FileExistsError:
@@ -179,10 +213,13 @@ def ensure_credentials_file(
     return target
 
 
-def warn_if_insecure(path: str | Path | None = None) -> bool:
-    """凭据文件对同组或其他用户可读时打警告; 返回是否发现了问题。
+def check_permissions(path: str | Path | None = None, *, strict: bool = False) -> bool:
+    """检查凭据文件是否对同组或其他用户可读; 返回是否发现了问题。
 
-    只在 POSIX 上检查: Windows 的权限模型不看 mode 位。
+    ``strict=True`` 时发现问题直接抛 :class:`InsecureCredentialsError` (启动阶段用,
+    错误信息里带可照做的 chmod 命令); 否则只打警告。
+
+    只在 POSIX 上检查: Windows 的 ACL 没法用 mode 位表达, 显式跳过而不是假装检查过。
     """
     target = Path(path) if path is not None else _credentials_path
     if target is None or os.name == "nt":
@@ -191,11 +228,18 @@ def warn_if_insecure(path: str | Path | None = None) -> bool:
         mode = target.stat().st_mode
     except FileNotFoundError:
         return False
-    if mode & (stat.S_IRWXG | stat.S_IRWXO):
-        logger.warning(
-            "凭据文件 %s 的权限是 %o, 同组或其他用户也能读; 建议 chmod 600",
-            target,
-            stat.S_IMODE(mode),
-        )
-        return True
-    return False
+    if not mode & (stat.S_IRWXG | stat.S_IRWXO):
+        return False
+    message = (
+        f"凭据文件 {target} 的权限是 {stat.S_IMODE(mode):o}, 同组或其他用户也能读; "
+        f"先 chmod 600 {target} 再启动"
+    )
+    if strict:
+        raise InsecureCredentialsError(message)
+    logger.warning("%s", message)
+    return True
+
+
+def warn_if_insecure(path: str | Path | None = None) -> bool:
+    """:func:`check_permissions` 的非严格版本, 只打警告"""
+    return check_permissions(path, strict=False)
