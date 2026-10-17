@@ -69,7 +69,9 @@
 7. 演练: 在开发机上跑 `uv run python tools/rehearse_e2e.py`, 应当全部通过。
 
 8. 安装 systemd unit: 以 `deploy/miraichan.service.example` 为模板, 填好路径与用户,
-   `systemctl daemon-reload` 后 `systemctl enable --now <name>`。
+   `systemctl daemon-reload` 后 `systemctl enable --now <name>`。模板里的 `KillMode=mixed`
+   是为了避开 `mb run` 偶发的重复 SIGTERM 问题 (systemd 的 cgroup 停止加上 uv 的信号转发),
+   上游修复后可以去掉。
 
 9. 验证: `journalctl -u <name> -f` 看到各插件 `成功加载插件` 与 ws 连接成功;
    在群里试 `.q` / `.mq` / `鹿`。
