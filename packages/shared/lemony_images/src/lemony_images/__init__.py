@@ -1,4 +1,4 @@
-"""lemony_images — 图像处理工具集
+"""lemony_images: 图像处理工具集
 
 子包:
 

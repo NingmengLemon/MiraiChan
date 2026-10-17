@@ -130,10 +130,6 @@ class ColorFontEmoji:
             )
 
     @property
-    def path(self) -> Path:
-        return self._path
-
-    @property
     def colr_version(self) -> int | None:
         """COLR 表版本; 没有 COLR 表时是 None"""
         return self._colr_version

@@ -9,8 +9,7 @@
 - ``geometry``: bbox 摆位
 - ``draw``: 画一行 / 画一块 / 文本转图
 
-引用图插件自带一套块排版 (截断、按词断行), 它的度量也从 ``metrics`` 取, 不再自己
-算行高, 这样两边不会悄悄分叉。
+引用图插件自带一套块排版 (按词断行、超行截断), 度量也从 ``metrics`` 取。
 """
 
 from .draw import (
@@ -30,7 +29,12 @@ from .metrics import (
     split_clusters,
     unit_width,
 )
-from .wrap import calc_font_size, wrap_text_by_length, wrap_text_by_width
+from .wrap import (
+    calc_font_size,
+    measure_lines,
+    wrap_text_by_length,
+    wrap_text_by_width,
+)
 
 __all__ = [
     "ColorFontEmoji",
@@ -47,6 +51,7 @@ __all__ = [
     "init_default_font_cache",
     "line_height",
     "line_width",
+    "measure_lines",
     "split_clusters",
     "text_to_image",
     "unit_width",
