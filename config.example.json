@@ -15,6 +15,7 @@
         "mbplugin_rebootable",
         "mbplugin_quote",
         "mbplugin_helper",
+        "mbplugin_emergency_alerts",
         "mbplugin_toolbox"
     ],
     "log_levels": {},
