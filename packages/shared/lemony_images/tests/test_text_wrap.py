@@ -130,12 +130,19 @@ def test_whitespace_between_words_is_dropped_on_both_sides(
     font: ImageFont.FreeTypeFont,
 ) -> None:
     """断点落在空白之前时, 那串空白一样不保留"""
-    lines = wrap_text_by_width("中文    English", font.getlength("中文 Eng"), font)
-    assert len(lines) > 1
-    for line in lines[:-1]:
-        assert line == line.rstrip()
-    for line in lines[1:]:
-        assert line == line.lstrip()
+    limit = math.ceil(font.getlength("English"))
+    lines = wrap_text_by_width("中文    English", limit, font)
+    assert lines == ["中文", "English"]
+
+
+def test_trailing_whitespace_never_widens_a_line(
+    font: ImageFont.FreeTypeFont,
+) -> None:
+    """行尾空白不画, 断行判据也按剥掉之后算, 否则画布会被撑宽"""
+    assert wrap_text_by_width("abc   ", 1000, font) == ["abc"]
+    assert wrap_text_by_width("A" + " " * 200, 1920, font) == ["A"]
+    # 整行都是空白时退化成空行, 但一行都不能少
+    assert wrap_text_by_width("   ", 1000, font) == [""]
 
 
 def test_breaking_does_not_lose_characters(font: ImageFont.FreeTypeFont) -> None:
@@ -202,8 +209,8 @@ def test_emoji_mode_keeps_kinsoku_at_a_cluster_boundary(
 def test_emoji_mode_measures_each_cluster_like_the_renderer() -> None:
     """跨 emoji 簇的 kerning 不能丢: 判据得等于 ``line_width``
 
-    Pillow 自带的默认字体没有 kerning, 所以这里用一个必然会吃掉几像素的假字体,
-    否则这条测试在结构上就发现不了"整段量 vs 逐簇量"的差别。
+    默认字体在 RAQM 下也有跨簇 kerning, 但幅度随字体版本变化; 这里用假字体把幅度
+    固定下来, 测试就不会因为换了个字体而变成"刚好抓不到"。
     """
     kern = cast(ImageFont.FreeTypeFont, _KernFont())
     text = "A⭐VA"
@@ -238,6 +245,8 @@ def test_no_line_exceeds_the_limit(
         "E:\\" + "a" * 80 + "\\x.py",
         "mixed 中文 English 1234567890",
         f"a⭐b 中文{_EMOJI_FAMILY} mixed",
+        "trailing spaces here" + " " * 40,
+        "   leading and trailing   ",
     ]
     for limit in range(30, 400, 17):
         for text in texts:

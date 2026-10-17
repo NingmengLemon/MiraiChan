@@ -11,14 +11,14 @@
 - emoji 簇 (含 ZWJ 序列) 在 ``emoji_as_square=True`` 时整体不断开
 
 候选行用"将要画出来的那个串"来量: 纯文本走真实前缀测量 (``font.getlength``),
-emoji 模式逐簇求和 (与 ``metrics.line_width`` 同一个规则), 行尾会被丢掉的空白
-先剥掉。于是断行判断的宽度就是绘制层拿到的宽度, 不会因为 kerning 分叉。
+emoji 模式逐簇求和 (与 ``metrics.line_width`` 同一个规则), 行尾不画的空白先剥掉。
+于是断行判断的宽度就是绘制层拿到的宽度, 不会因为 kerning 分叉。
 
 单个单元比整行还宽 (长路径、URL) 时才退到单元级硬断; 硬断之后仍会用单元边界把
 这一行填满, 不留大片空白。
 
-软断行处的空白不保留: 断过的行不以空白结尾, 下一行也不以空白开头。没断过的行
-原样保留 (含尾随空格)。
+行尾的空白一律不保留 (整行都是空白时退化成空行), 软断行的下一行也不以空白开头。
+一行的宽度只由看得见的像素决定, 尾随空格不会把画布撑宽。
 """
 
 import bisect
@@ -56,7 +56,7 @@ _NO_LINE_END = frozenset("（「『【《〈〔｛｢([{")
 # 两侧都不许断: 破折号、省略号连排时不拆, 不换行空格是真不许断
 _NO_BREAK_AROUND = frozenset("—―…\u00a0")
 
-# 组合字符之外还有零宽连接符与变体选择符, 它们也贴在前一个字符上
+# 组合附标 (Mn/Me) 贴在基字上; 零宽连接符与变体选择符分别在 _attaches 里判断
 _ATTACHING_CATEGORIES = frozenset({"Mn", "Me"})
 
 
@@ -77,7 +77,7 @@ def _is_cjk(ch: str) -> bool:
         or 0xFE10 <= o <= 0xFE1F  # 竖排标点
         or 0xFE30 <= o <= 0xFE4F  # 兼容标点
         or 0xFF00 <= o <= 0xFFEF  # 全角
-        or 0x1B000 <= o <= 0x1B16F  # 假名补充
+        or 0x1B000 <= o <= 0x1B16F  # 假名补充、扩展 A 与小写假名扩展
         or 0x20000 <= o <= 0x3FFFF  # 扩展 B 以后
     )
 
@@ -122,6 +122,13 @@ class _Layout:
     measure: Callable[[int, int], float]
 
 
+def _strip_end(line: str, a: int, b: int) -> int:
+    """行尾空白不画, 量宽度时要先把这段排除掉"""
+    while b > a and line[b - 1].isspace():
+        b -= 1
+    return b
+
+
 def _plain_layout(line: str, font: ImageFont.FreeTypeFont) -> _Layout:
     """纯文本: 每个码位一个单元, 宽度用真实前缀测量"""
     n = len(line)
@@ -130,9 +137,7 @@ def _plain_layout(line: str, font: ImageFont.FreeTypeFont) -> _Layout:
     soft = [i for i in hard if i == n or _can_break(line[i - 1], line[i])]
 
     def measure(a: int, b: int) -> float:
-        # 行尾空白在软断行处会被丢掉, 不该算进这一行的宽度
-        while b > a and line[b - 1].isspace():
-            b -= 1
+        b = _strip_end(line, a, b)
         return font.getlength(line[a:b]) if b > a else 0.0
 
     return _Layout(soft, hard, measure)
@@ -144,7 +149,7 @@ def _emoji_layout(line: str, font: ImageFont.FreeTypeFont) -> _Layout:
     starts: list[int] = []
     ends: list[int] = []
     widths: list[float] = []
-    cumulative = [0.0]
+    width_prefix = [0.0]
     inside_emoji = [False] * (n + 1)
     emoji_boundaries: set[int] = set()
     pos = 0
@@ -153,7 +158,7 @@ def _emoji_layout(line: str, font: ImageFont.FreeTypeFont) -> _Layout:
         starts.append(pos)
         ends.append(end)
         widths.append(unit_width(chunk, is_emoji, font, emoji_as_square=True))
-        cumulative.append(cumulative[-1] + widths[-1])
+        width_prefix.append(width_prefix[-1] + widths[-1])
         if is_emoji:
             # 簇内只有首尾能断, 中间这些位置不能
             for k in range(pos + 1, end):
@@ -163,8 +168,7 @@ def _emoji_layout(line: str, font: ImageFont.FreeTypeFont) -> _Layout:
         pos = end
 
     def measure(a: int, b: int) -> float:
-        while b > a and line[b - 1].isspace():
-            b -= 1
+        b = _strip_end(line, a, b)
         if b <= a:
             return 0.0
         first = bisect.bisect_right(starts, a) - 1
@@ -183,7 +187,7 @@ def _emoji_layout(line: str, font: ImageFont.FreeTypeFont) -> _Layout:
             if a == starts[first]
             else font.getlength(line[a : ends[first]])
         )
-        total += cumulative[last] - cumulative[first + 1]
+        total += width_prefix[last] - width_prefix[first + 1]
         total += (
             widths[last] if b == ends[last] else font.getlength(line[starts[last] : b])
         )
@@ -234,7 +238,7 @@ def _fill(
 def _find_cut(start: int, layout: _Layout, limit: float) -> int:
     """本行最远能放到哪里; 结果总大于 ``start``, 保证断行循环一定前进"""
     soft = layout.soft_ends
-    n = soft[-1]
+    line_end = soft[-1]
     first = bisect.bisect_right(soft, start)
     last = len(soft) - 1
     # 指数探测找一个放得下的可断点和一个放不下的, 再二分收尾
@@ -246,7 +250,7 @@ def _find_cut(start: int, layout: _Layout, limit: float) -> int:
             break
         fit = idx
         if idx == last:
-            return n
+            return line_end
         idx = min(idx + step, last)
         step *= 2
     if fit < 0:
@@ -272,16 +276,16 @@ def _find_cut(start: int, layout: _Layout, limit: float) -> int:
 
 
 def _wrap_line(line: str, limit: float, layout: _Layout) -> list[str]:
-    """把一行按宽度切开; 软断点两侧的空白会被吃掉"""
+    """把一行按宽度切开; 每行行尾的空白都不画, 也就不用算进宽度"""
     n = len(line)
     out: list[str] = []
     start = 0
     while start < n:
         cut = _find_cut(start, layout, limit)
-        piece = line[start:cut]
+        # 判据量的是剥掉行尾空白的串, 输出也必须剥掉, 否则量出来的和画出来的又不是一回事
+        piece = line[start:cut].rstrip()
         if cut < n:
             # 软换行落点是空白时, 两侧的空白都是排版噪音, 不画
-            piece = piece.rstrip()
             while cut < n and line[cut].isspace():
                 cut += 1
             start = cut
@@ -317,7 +321,8 @@ def wrap_text_by_width(
 
     断点规则: 西文词与数字整体不拆, 只在空白后断; 汉字等 CJK 字符之间随处可断,
     并遵守行首禁则 (收尾标点不放行首) 与行尾禁则 (起首标点不放行尾)。单元自己
-    比整行还宽时 (长路径、URL) 才硬断。软断行处的空白两侧都不保留。
+    比整行还宽时 (长路径、URL) 才硬断。每行行尾的空白都不保留, 软断行的下一行
+    也不以空白开头。
     """
     result: list[str] = []
     limit = int(line_width_limit)
