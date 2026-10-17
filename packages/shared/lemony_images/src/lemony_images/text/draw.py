@@ -31,6 +31,15 @@ __all__ = [
 _UNSUPPORTED_TEXT_KWARGS = ("width", "anchor", "direction", "font_size", "font")
 
 
+def _normalize_newlines(text: str) -> str:
+    """统一换行符。
+
+    绘制与测量都按 ``\\n`` 切行, CRLF 留下来的 ``\\r`` 会被当成要画的字符,
+    既占宽度又可能画出一个方块。
+    """
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def draw_text_line(
     image: Image.Image,
     xy: tuple[float, float],
@@ -97,6 +106,7 @@ def draw_multiline_text_auto(
     """
     fontcache = font if isinstance(font, FontCache) else FontCache(font_file=font)
     emoji_as_square = emoji_renderer is not None
+    text = _normalize_newlines(text)
     font_size, wrapped_text = calc_font_size(
         text,
         max_font_size,
@@ -208,6 +218,7 @@ def text_to_image(
         font = get_default_font_cache().use(20)
     elif isinstance(font, int):
         font = get_default_font_cache().use(font)
+    text = _normalize_newlines(text)
     emoji_as_square = emoji_renderer is not None
     if wrap is not None and wrap > 0:
         text = "\n".join(

@@ -42,7 +42,9 @@ def wrap_text_by_width(
     result: list[str] = []
     limit = int(line_width_limit)
     # 按 \n 切而不是 splitlines(): 尾随空行要保住, 否则绘制层会少算一行
-    for line in s.split("\n"):
+    for raw in s.split("\n"):
+        # CRLF 的 \r 不算换行, 留着会被当成要量的字符
+        line = raw[:-1] if raw.endswith("\r") else raw
         if not line:
             result.append("")
             continue
@@ -94,6 +96,8 @@ def calc_font_size(
     到最小字号还塞不下时返回最小字号, 此时按返回的字号绘制会超出 bbox 高度。
     高度用 ``metrics.block_height``, 与绘制层同一个定义, 不多算一个 spacing。
     """
+    # 上限比下限小时按上下限相等处理, 否则会返回一个比 max_font_size 还大的字号
+    max_font_size = max(max_font_size, min_font_size)
     for fsize in range(max_font_size, min_font_size, -1):
         font = fontcache.use(fsize)
         lines = wrap_text_by_width(
