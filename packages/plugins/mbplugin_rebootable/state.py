@@ -70,9 +70,13 @@ def plugin_versions(bot: Any) -> dict[str, str]:
     return versions
 
 
-def snapshot(bot: Any, *, root: str | Path | None) -> StateSnapshot:
-    """当前状态快照: 代码提交 + 插件版本"""
-    return {"commit": read_commit(root), "plugins": plugin_versions(bot)}
+def snapshot(bot: Any, *, commit: str | None) -> StateSnapshot:
+    """状态快照: 代码提交 + 当前插件版本。
+
+    ``commit`` 由调用方决定: 重启前要用**进程启动时**记下的提交, 因为 ``git pull``
+    通常在 ``.重启`` 之前就完成了, 现场读 HEAD 读到的已经是新提交。
+    """
+    return {"commit": commit, "plugins": plugin_versions(bot)}
 
 
 def diff(before: Mapping[str, Any] | None, after: Mapping[str, Any]) -> list[str]:

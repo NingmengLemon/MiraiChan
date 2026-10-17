@@ -15,7 +15,7 @@ from melobot.bot import Bot, BotLifeSpan, get_bot
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 
-from .state import StateSnapshot, diff, find_repo_root, snapshot
+from .state import StateSnapshot, diff, find_repo_root, read_commit, snapshot
 
 
 class RebootablePluginConfig(BaseSettings):
@@ -104,6 +104,16 @@ def _repo_root() -> Path | None:
     return find_repo_root(Path.cwd()) or find_repo_root(Path(__file__).parent)
 
 
+# 进程启动时的代码提交. 升级流程是 "git pull 之后再 .重启", 那时现场 HEAD 已经是新提交,
+# 拿它当"重启前"就永远看不到提交变化, 所以这里留一份启动时的
+_START_COMMIT: str | None = read_commit(_repo_root())
+
+
+def _snapshot_now() -> StateSnapshot:
+    """重启后的快照: 现场读提交 (跨过了进程, 这里读到的就是新提交)"""
+    return snapshot(bot, commit=read_commit(_repo_root()))
+
+
 @plugin.use
 @on_command(
     ".",
@@ -116,7 +126,7 @@ async def restart_bot(event: MessageEvent, adapter: Adapter, bot: Bot):
         await adapter.send_reply("当前启动方式不支持重启w")
         return
     await (await adapter.send(random.choice(cfgloader.value.sayings_on_reboot)))[0]
-    state = await asyncio.to_thread(snapshot, bot, root=_repo_root())
+    state = await asyncio.to_thread(snapshot, bot, commit=_START_COMMIT)
     reboot_info: RebootInfo = {
         "gid": event.group_id if isinstance(event, GroupMessageEvent) else None,
         "uid": event.user_id,
@@ -155,7 +165,7 @@ async def startup_check(adapter: Adapter):
             return
         start_time = bot.get_hook_evoke_time(BotLifeSpan.STARTED)
         interval = (start_time if start_time > 0 else time.time()) - info["time"]
-        after = await asyncio.to_thread(snapshot, bot, root=_repo_root())
+        after = await asyncio.to_thread(_snapshot_now)
         changes = diff(info.get("state"), after)
         await adapter.send_custom(
             f"重启已完成, 耗时 {interval:.3f}s\n" + "\n".join(changes),

@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGINS_ROOT = REPO_ROOT / "packages" / "plugins"
 if str(PLUGINS_ROOT) not in sys.path:
@@ -82,7 +84,7 @@ def test_read_commit_on_a_real_repository(tmp_path: Path) -> None:
     try:
         git("init", "-q")
     except (OSError, subprocess.SubprocessError):
-        return  # 没装 git 就跳过
+        pytest.skip("当前环境没有可用的 git")
     (repo / "a.txt").write_text("x", encoding="utf-8")
     git("add", "a.txt")
     git("commit", "-q", "-m", "init")
@@ -118,7 +120,9 @@ def test_diff_with_an_old_reboot_info_skips_the_comparison() -> None:
     assert diff({}, after) == ["重启前的状态没有记录, 跳过对比"]
 
 
-def test_snapshot_collects_commit_and_plugins(tmp_path: Path) -> None:
-    state = snapshot(_bot({"a": "1.0.0"}), root=tmp_path)
-    assert state["plugins"] == {"a": "1.0.0"}
-    assert set(state) == {"commit", "plugins"}
+def test_snapshot_takes_the_commit_it_is_given() -> None:
+    """提交由调用方决定: 重启前传的是进程启动时记下的那个"""
+    state = snapshot(_bot({"a": "1.0.0"}), commit="abc1234")
+    assert state == {"commit": "abc1234", "plugins": {"a": "1.0.0"}}
+    # 不是 git 仓库时提交为 None, 快照仍然可用
+    assert snapshot(_bot({}), commit=None) == {"commit": None, "plugins": {}}
