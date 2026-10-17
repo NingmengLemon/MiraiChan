@@ -94,10 +94,57 @@ def test_fsync_flag_controls_the_sync_call(
     assert calls == []
 
 
+def test_replace_retries_until_it_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Windows 上并发 replace 会短暂撞共享冲突, 重试要能把它咽下去"""
+    from lemony_storage_helper import files as files_mod
+
+    monkeypatch.setattr(files_mod, "_REPLACE_BACKOFF_S", 0)
+    target = tmp_path / "a.bin"
+    target.write_bytes(b"old")
+    real_replace = os.replace
+    calls: list[int] = []
+
+    def flaky(src, dst):
+        calls.append(1)
+        if len(calls) < 3:
+            raise PermissionError("busy")
+        real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", flaky)
+    atomic_write_bytes(target, b"new")
+    assert target.read_bytes() == b"new"
+    assert len(calls) == 3
+
+
+def test_replace_gives_up_after_the_retry_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """一直失败时抛错, 原文件不动、临时文件不留下"""
+    from lemony_storage_helper import files as files_mod
+
+    monkeypatch.setattr(files_mod, "_REPLACE_BACKOFF_S", 0)
+    target = tmp_path / "a.bin"
+    target.write_bytes(b"old")
+    calls: list[int] = []
+
+    def always_busy(src, dst):
+        calls.append(1)
+        raise PermissionError("busy")
+
+    monkeypatch.setattr(os, "replace", always_busy)
+    with pytest.raises(PermissionError):
+        atomic_write_bytes(target, b"new")
+    assert target.read_bytes() == b"old"
+    assert len(calls) == files_mod._REPLACE_RETRIES
+    assert [p.name for p in tmp_path.iterdir()] == ["a.bin"]
+
+
 def test_few_concurrent_writers_all_succeed(tmp_path: Path) -> None:
     """插件里的实际并发度 (写同一个缓存文件的没几个) 不该报错"""
     target = tmp_path / "a.bin"
-    payloads = [bytes([i]) * (1024 * (i + 1)) for i in range(4)]
+    payloads = [bytes([i]) * (1024 * (i + 1)) for i in range(2)]
     errors: list[BaseException] = []
 
     def work(data: bytes) -> None:
@@ -107,9 +154,7 @@ def test_few_concurrent_writers_all_succeed(tmp_path: Path) -> None:
             except BaseException as e:  # noqa: BLE001 - 收集起来在主线程断言
                 errors.append(e)
 
-    threads = [
-        threading.Thread(target=work, args=(payload,)) for payload in payloads[:2]
-    ]
+    threads = [threading.Thread(target=work, args=(payload,)) for payload in payloads]
     for t in threads:
         t.start()
     for t in threads:

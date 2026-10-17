@@ -115,7 +115,10 @@ def atomic_write_bytes(
     并发写同一个路径时, Windows 的 replace 会撞共享冲突, 这里做了短暂重试,
     少量并发 (插件的实际用法) 不会报错; 同一路径被十几个线程同时抢时会仍然抛
     PermissionError, 那种场景应由调用方自己串行化或者各写各的文件名。
-    fsync=False 可跳过刷盘, 缓存类文件不需要, 但落盘保证也就弱了 (断电可能得到空文件)。
+    fsync=True 只保证把文件内容刷下去, 目录项本身的持久化没保证 (真断电时可能丢
+    掉这次 replace); fsync=False 连内容都不刷, 缓存类文件不需要, 断电可能得到空文件。
+    POSIX 上新文件的权限是 0600 (``tempfile.mkstemp`` 的语义), 需要别人也能读时
+    调用方自己 chmod。
     """
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
