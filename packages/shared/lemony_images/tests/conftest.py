@@ -25,3 +25,9 @@ def font_file(tmp_path_factory: pytest.TempPathFactory) -> Path:
         return path
     assert isinstance(embedded, str)
     return Path(embedded)
+
+
+@pytest.fixture
+def font(font_file: Path) -> ImageFont.FreeTypeFont:
+    """按路径打开的字体, 字号 20"""
+    return ImageFont.truetype(str(font_file), 20)

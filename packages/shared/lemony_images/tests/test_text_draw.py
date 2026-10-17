@@ -48,11 +48,6 @@ def _red_mask(canvas: Image.Image) -> np.ndarray:
 
 
 @pytest.fixture
-def font(font_file: Path) -> ImageFont.FreeTypeFont:
-    return ImageFont.truetype(str(font_file), 20)
-
-
-@pytest.fixture
 def renderer(font_file: Path) -> _StubRenderer:
     stub = _StubRenderer(font_file)
     stub.icon = Image.new("RGBA", (20, 20), BLOCK)
