@@ -851,7 +851,7 @@ dependencies = [
     { name = "aiofiles" },
     { name = "lemony-checkers" },
     { name = "lemony-network" },
-    { name = "lemony-storage-helper" },
+    { name = "lemony-storage-helper", extra = ["files"] },
     { name = "lemony-utils" },
     { name = "uuid-utils" },
 ]
@@ -861,7 +861,7 @@ requires-dist = [
     { name = "aiofiles" },
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
-    { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
+    { name = "lemony-storage-helper", extras = ["files"], editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
 ]

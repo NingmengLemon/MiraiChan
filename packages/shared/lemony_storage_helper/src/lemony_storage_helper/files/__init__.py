@@ -16,16 +16,19 @@
 文件命名与资源解析:
 
 - ``safe_suffix`` / ``suffix_from_content`` / ``mime_from_content``: 来源不可信的
-  后缀按白名单清洗, 或者直接按魔数判断
+  后缀先按黑名单剔掉可执行类型, 或者直接按魔数判断
 - ``content_path``: 内容寻址命名 (sha256 摘要 + 安全后缀)
 - ``resource_path``: 可覆盖资源, 用户目录优先, 包内资源兜底
 """
 
 import contextlib
+import logging
 import os
 import tempfile
 import time
 from pathlib import Path, PurePath
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "DataRootNotSetError",
@@ -48,15 +51,23 @@ _data_root: Path | None = None
 # 这些扩展名即使魔数是它也绝不写出去: 缓存目录不该变成可执行文件目录
 _UNTRUSTED_SUFFIXES = frozenset(
     {
-        ".suf",
         ".exe",
         ".dll",
+        ".sys",
         ".bat",
         ".cmd",
         ".ps1",
+        ".psm1",
         ".sh",
         ".vbs",
+        ".vbe",
+        ".wsf",
         ".js",
+        ".jar",
+        ".lnk",
+        ".url",
+        ".reg",
+        ".hta",
         ".msi",
         ".scr",
         ".com",
@@ -155,7 +166,10 @@ def safe_suffix(value: str | None) -> str:
     """
     if not value:
         return ""
-    raw = value.split("?", 1)[0].split("#", 1)[0].rstrip().replace("\\", "/")
+    raw = value.split("?", 1)[0].rstrip().replace("\\", "/")
+    # url 里的 # 之后是片段, 文件名里的 # 是普通字符
+    if "://" in raw:
+        raw = raw.split("#", 1)[0]
     if raw.startswith(".") and "/" not in raw:
         suffix = raw.lower()
     else:
@@ -178,7 +192,9 @@ def suffix_from_content(data: bytes) -> str:
 
     try:
         guessed = puremagic.from_string(data)
-    except puremagic.PureError:
+    except (LookupError, ValueError):
+        # PureError 是 LookupError, 空输入抛的 PureValueError 是 ValueError:
+        # 一个侦探库认不出内容不该让调用方 (例如媒体下载) 整个失败
         return ""
     return safe_suffix(guessed)
 
@@ -189,7 +205,7 @@ def mime_from_content(data: bytes) -> str | None:
 
     try:
         guessed = puremagic.from_string(data, mime=True)
-    except puremagic.PureError:
+    except (LookupError, ValueError):
         return None
     return guessed or None
 
@@ -223,8 +239,12 @@ def resource_path(
     (例如单元测试只导入包) 不去找覆盖目录, 直接用包内资源。
 
     ``relative`` 必须是相对路径且不能越界, ``identifier`` 不能带路径分隔符。
+    覆盖目录里的文件可以是符号链接 (指到自己维护的共享图片是正常用法), 这里不做
+    真实路径的越界检查, 因为覆盖目录本身是用户自己的数据。
     """
     rel = PurePath(relative)
+    if not rel.parts:
+        raise ValueError("resource path must not be empty")
     if rel.is_absolute() or rel.anchor or ".." in rel.parts:
         raise ValueError(f"resource path must stay inside its root: {rel}")
     if not identifier or set(identifier) & set("/\\") or identifier in {".", ".."}:
@@ -232,13 +252,15 @@ def resource_path(
 
     if override_root is not None:
         base: Path | None = Path(override_root)
+    elif is_data_root_set():
+        base = get_data_root() / "resources"
     else:
-        base = get_data_root() / "resources" if is_data_root_set() else None
+        # data root 还没设定 (模块导入早于启动初始化) 时只能给包内资源;
+        # 记一笔, 免得覆盖不生效时毫无线索
+        logger.debug("data root 未设定, 资源 %s 不查覆盖目录", rel)
+        base = None
     if base is not None:
-        candidate = (base / identifier / rel).resolve()
-        root = base.resolve()
-        if candidate != root and not candidate.is_relative_to(root):
-            raise ValueError(f"resource path escapes the override root: {rel}")
+        candidate = base / identifier / rel
         if candidate.is_file():
             return candidate
     return Path(bundled_root) / rel

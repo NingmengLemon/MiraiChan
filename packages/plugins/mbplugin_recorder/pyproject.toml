@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "aiofiles",
     "lemony_checkers",
-    "lemony_storage_helper",
+    "lemony_storage_helper[files]",
     "lemony_utils",
     "lemony_network",
     "uuid-utils>=0.14.1",

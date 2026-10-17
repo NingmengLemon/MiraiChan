@@ -1,5 +1,6 @@
 """文件名清洗、内容寻址命名与可覆盖资源解析。"""
 
+import os
 import struct
 import zlib
 from collections.abc import Iterator
@@ -66,6 +67,9 @@ def test_suffix_and_mime_from_content() -> None:
     assert mime_from_content(png) == "image/png"
     assert suffix_from_content(b"not a known format at all") == ""
     assert mime_from_content(b"not a known format at all") is None
+    # 空输入抛的是 PureValueError 而不是 PureError, 同样要当成"认不出来"
+    assert suffix_from_content(b"") == ""
+    assert mime_from_content(b"") is None
 
 
 def test_suffix_from_content_drops_executable_magic() -> None:
@@ -122,6 +126,31 @@ def test_resource_path_without_a_data_root_only_uses_the_bundled_copy(
     bundled = tmp_path / "bundled"
     assert (
         resource_path(bundled, "mask.png", identifier="quote") == bundled / "mask.png"
+    )
+
+
+def test_resource_path_allows_a_symlinked_override(tmp_path: Path) -> None:
+    """覆盖目录里的符号链接指到别处是正常用法, 不该被当成越界"""
+
+    external = tmp_path / "shared" / "real_mask.png"
+    external.parent.mkdir()
+    external.write_bytes(b"user")
+    override_root = tmp_path / "user"
+    (override_root / "quote").mkdir(parents=True)
+    link = override_root / "quote" / "mask.png"
+    try:
+        os.symlink(external, link)
+    except (OSError, NotImplementedError):
+        pytest.skip("当前环境不允许创建符号链接")
+
+    assert (
+        resource_path(
+            tmp_path / "bundled",
+            "mask.png",
+            identifier="quote",
+            override_root=override_root,
+        )
+        == link
     )
 
 
