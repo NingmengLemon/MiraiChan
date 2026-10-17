@@ -9,10 +9,11 @@
 - 一个已经登录、开启正向 ws 的 OneBot v11 实现端。`reportSelfMessage` 关闭即可;
   引用图插件默认忽略 bot 自己的消息, 不依赖这个开关。
 - 字体文件 (不在仓库里): `data/fonts/NotoSansSC-Medium.ttf` 与 `data/fonts/sarasa-mono-sc-semibold.ttf`。
-- 可选: 彩色 emoji 字体 (推荐, 引用图就不必再下载 emoji 图片) 或 EmojiServer。
+- 可选: 彩色 emoji 字体 (推荐, 绝大多数 emoji 就不必再下载图片) 或 EmojiServer。
   Debian 装 `fonts-noto-color-emoji` 后把 `/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf`
-  拷进 `data/fonts/` 即可; 它是 CBDT 位图字体 (只有 109px 一档), Pillow 能画。
-  COLRv1 的彩色字体 Pillow 画不出来, 放进去会在启动时告警。
+  拷进 `data/fonts/` 即可 (trixie 的 2.051 版实测是 CBDT 位图字体, 只有 109px 一档,
+  Pillow 能画)。COLRv1 的彩色字体 Pillow 画不出来, 放进去会在启动时告警。
+  字体里缺的字形仍然会去 `emoji_cdn` 取, 两边都配也可以。
 
 ## 步骤
 

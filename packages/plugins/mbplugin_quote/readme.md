@@ -19,9 +19,16 @@ emoji 有两种来源, 按顺序取: 配置了 `emoji_font` (彩色 emoji 字体
 字体里没有的字形再走 `emoji_cdn` (EmojiServer) 下载图片; 两者都没配时退回正文字体的字形,
 普通中文字体没有 emoji 字形, 会画成方框。
 
+"字体里没有"是按字形判定的: 渲染结果与 `.notdef` (方框) 逐像素相同就算没有,
+所以缺字形不会贴一个黑框上去, 而是照常去 CDN 取。
+
+字体自己的覆盖范围也有限: 旧字体可能没有较新 ZWJ 序列的合字, 会把一个簇画成并排的
+几个字形 (Windows 10 的 Segoe UI Emoji 画 🧑‍🦳 就是人 + 白发两块)。这属于字体覆盖问题,
+换一个 emoji 字集更新的字体即可。
+
 `emoji_font` 得是 Pillow 能光栅化的彩色字体: CBDT/CBLC 位图字体 (Debian 的
 `fonts-noto-color-emoji`, 只有一个 109px 档) 或 COLRv0 矢量字体 (Windows 的 Segoe UI Emoji)。
-COLRv1 的字体 (例如 Windows 自带的 `NotoColorEmoji-Regular.ttf`) Pillow 画不出来,
+COLRv1 的字体 (例如 Windows 10 上那个 `NotoColorEmoji-Regular.ttf`) Pillow 画不出来,
 配上去会在启动时告警, 所有 emoji 都退化成下一级来源。
 `ColorFontEmoji(font).can_rasterize_color` 可以先验一下字体能不能用。
 

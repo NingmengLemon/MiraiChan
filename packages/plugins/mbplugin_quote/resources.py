@@ -169,7 +169,13 @@ class ResourceResolver:
         """彩色字体优先, 字体里没有这个字形时才去下载; 都没有时返回 None"""
         if self._emoji_renderer is not None:
             # 字体渲染是纯 CPU 的, 放线程里免得卡住事件循环
-            img = await asyncio.to_thread(self._emoji_renderer.render, em, target=160)
+            try:
+                img = await asyncio.to_thread(
+                    self._emoji_renderer.render, em, target=160
+                )
+            except Exception as e:  # noqa: BLE001 - 字体画不出来时还有 CDN 这条退路
+                logger.warning("emoji 字体画 %r 失败: %s", em, type(e).__name__)
+                img = None
             if img is not None:
                 return img
         if self._emoji_cdn is None:

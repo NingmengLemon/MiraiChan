@@ -45,8 +45,8 @@ class QuoteSettings(BaseSettings):
     )
     emoji_font: str | None = Field(
         default=None,
-        description="彩色 emoji 字体文件 (COLR 或 CBDT 字体, 如 NotoColorEmoji.ttf), "
-        "相对 data 根目录; 配了就不必再下载 emoji 图片",
+        description="彩色 emoji 字体文件 (COLRv0 或 CBDT 字体, 如 NotoColorEmoji.ttf), "
+        "相对 data 根目录; 字体里缺的字形仍会去 emoji_cdn 取",
     )
     allow_quote_self: bool = Field(default=False, description="能否引用 bot 自己的消息")
     show_timing: bool = Field(default=False, description="回复里附带耗时")

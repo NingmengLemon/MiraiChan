@@ -11,6 +11,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
 import emoji as emoji_lib
+from lemony_images.emoji import fit_to_square
 from PIL import Image, ImageDraw, ImageFont
 
 __all__ = [
@@ -220,14 +221,7 @@ def fit_text(
 
 def _fit_emoji(img: Image.Image, size: int) -> Image.Image:
     """把 emoji 图片按长边缩到字号大小, 保持长宽比 (不拉伸)"""
-    img = img.convert("RGBA")
-    if max(img.size) == size:
-        return img
-    scale = size / max(img.size)
-    return img.resize(
-        (max(1, round(img.width * scale)), max(1, round(img.height * scale))),
-        Image.Resampling.LANCZOS,
-    )
+    return fit_to_square(img, size)
 
 
 def draw_text_block(
