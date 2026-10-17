@@ -73,7 +73,16 @@ class ResourceResolver:
         self._data_root = data_root
         self._avatar_source = avatar_source
         self._emoji_cdn = emoji_cdn.rstrip("/") + "/" if emoji_cdn else None
-        self._emoji_renderer = ColorFontEmoji(emoji_font) if emoji_font else None
+        self._emoji_renderer: ColorFontEmoji | None = None
+        if emoji_font is not None:
+            try:
+                self._emoji_renderer = ColorFontEmoji(emoji_font)
+            except Exception as e:  # 字体配错只是没有字体可用, 不该让整个插件不可用
+                logger.exception(
+                    "emoji_font %s 打不开 (%s), 改用 emoji_cdn 或正文字体的字形",
+                    emoji_font,
+                    type(e).__name__,
+                )
         if self._emoji_renderer is not None and not self._emoji_renderer.is_color:
             logger.warning("emoji_font %s 没有彩色字形表, emoji 会画成单色", emoji_font)
         self._limits = limits

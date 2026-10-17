@@ -338,3 +338,31 @@ async def test_resolver_does_not_touch_cdn_when_the_font_covers_everything(
     finally:
         await r.close()
     assert set(bundle.emojis) == {"©"}
+
+
+@pytest.mark.asyncio
+async def test_broken_emoji_font_degrades_to_the_cdn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """emoji_font 配错时不该让整个插件不可用, 只是没有字体这一级来源"""
+
+    async def fake_download(url: str) -> bytes:
+        return _png_bytes()
+
+    async def avatars(uid: int) -> bytes:
+        raise ConnectionError
+
+    r = ResourceResolver(
+        data_root=tmp_path,
+        avatar_source=avatars,
+        emoji_cdn="https://emoji.example",
+        emoji_font=tmp_path / "no-such-font.ttf",
+        limits=FetchLimits(timeout=0.2),
+    )
+    monkeypatch.setattr(r, "_download", fake_download)
+    try:
+        bundle = await r.resolve(emojis=["©"])
+    finally:
+        await r.close()
+    assert set(bundle.emojis) == {"©"}
+    assert bundle.missing == []
