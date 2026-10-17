@@ -10,11 +10,15 @@
 - 汉字、假名、谚文之间随处可断, 但要遵守行首禁则与行尾禁则
 - emoji 簇 (含 ZWJ 序列) 在 ``emoji_as_square=True`` 时整体不断开
 
-宽度用真实前缀测量 (``font.getlength``), 与最终画出来的那一行是同一个数, 所以
-断行判断和绘制不会因为 kerning 分叉。单个单元比整行还宽 (长路径、URL) 时才退到
-单元级硬断; 硬断之后仍会用单元边界把这一行填满, 不留大片空白。
+候选行用"将要画出来的那个串"来量: 纯文本走真实前缀测量 (``font.getlength``),
+emoji 模式逐簇求和 (与 ``metrics.line_width`` 同一个规则), 行尾会被丢掉的空白
+先剥掉。于是断行判断的宽度就是绘制层拿到的宽度, 不会因为 kerning 分叉。
 
-软断行落在空白处时, 断点两侧的空白都不保留 (落在断点上的缩进也会被吃掉)。
+单个单元比整行还宽 (长路径、URL) 时才退到单元级硬断; 硬断之后仍会用单元边界把
+这一行填满, 不留大片空白。
+
+软断行处的空白不保留: 断过的行不以空白结尾, 下一行也不以空白开头。没断过的行
+原样保留 (含尾随空格)。
 """
 
 import bisect
@@ -27,10 +31,10 @@ from PIL import ImageFont
 from .font import FontCache
 from .metrics import (
     block_height,
-    emoji_square_width,
     line_height,
     line_width,
     split_clusters,
+    unit_width,
 )
 
 __all__ = [
@@ -42,13 +46,18 @@ __all__ = [
 
 # 行首禁则: 这些字符不放在行首, 断点不能落在它们前面
 _NO_LINE_START = frozenset(
-    "。，、；：？！）」』】》〉〕｝"  # 全角收尾标点
+    "。，、；：？！）」』】》〉〕｝｣"  # 全角收尾标点
+    "ー々ゝゞヽヾ"  # 日文长音与叠字, 不能出现在行首
+    "ぁぃぅぇぉっゃゅょゎゕゖァィゥェォッャュョヮヵヶ"  # 小写假名同理
     "!?;:)]}"  # 半角收尾; 不含 . 与 , 免得把 3.5 这种数拆开
 )
 # 行尾禁则: 这些字符不放在行尾, 断点不能落在它们后面
-_NO_LINE_END = frozenset("（「『【《〈〔｛([{")
+_NO_LINE_END = frozenset("（「『【《〈〔｛｢([{")
 # 两侧都不许断: 破折号、省略号连排时不拆, 不换行空格是真不许断
 _NO_BREAK_AROUND = frozenset("—―…\u00a0")
+
+# 组合字符之外还有零宽连接符与变体选择符, 它们也贴在前一个字符上
+_ATTACHING_CATEGORIES = frozenset({"Mn", "Me"})
 
 
 def _is_cjk(ch: str) -> bool:
@@ -63,16 +72,14 @@ def _is_cjk(ch: str) -> bool:
         or 0x4E00 <= o <= 0x9FFF  # 基本区
         or 0xA960 <= o <= 0xA97F
         or 0xAC00 <= o <= 0xD7AF  # 谚文音节
+        or 0xD7B0 <= o <= 0xD7FF  # 谚文字母扩展 B
         or 0xF900 <= o <= 0xFAFF  # 兼容汉字
         or 0xFE10 <= o <= 0xFE1F  # 竖排标点
         or 0xFE30 <= o <= 0xFE4F  # 兼容标点
         or 0xFF00 <= o <= 0xFFEF  # 全角
+        or 0x1B000 <= o <= 0x1B16F  # 假名补充
         or 0x20000 <= o <= 0x3FFFF  # 扩展 B 以后
     )
-
-
-# 组合字符之外还有零宽连接符与变体选择符, 它们也贴在前一个字符上
-_ATTACHING_CATEGORIES = frozenset({"Mn", "Me"})
 
 
 def _attaches(ch: str) -> bool:
@@ -84,17 +91,20 @@ def _attaches(ch: str) -> bool:
     )
 
 
-def _can_break(prev: str, nxt: str) -> bool:
-    """两个字符之间能不能断行"""
+def _kinsoku_ok(prev: str, nxt: str) -> bool:
+    """禁则: 这个位置允许断开吗 (不看两侧能不能组成词)"""
     if prev in _NO_BREAK_AROUND or nxt in _NO_BREAK_AROUND:
         return False
     if nxt in _NO_LINE_START:
         return False
-    if prev in _NO_LINE_END:
+    return prev not in _NO_LINE_END
+
+
+def _can_break(prev: str, nxt: str) -> bool:
+    """两个字符之间能不能断行"""
+    if not _kinsoku_ok(prev, nxt):
         return False
-    if prev.isspace():
-        return True
-    if prev in _NO_LINE_START:
+    if prev.isspace() or prev in _NO_LINE_START:
         return True
     return _is_cjk(prev) or _is_cjk(nxt)
 
@@ -104,7 +114,7 @@ class _Layout:
     """一行文本的断点与测量方式
 
     ``soft_ends`` 是允许断行的位置 (可直接断), ``hard_ends`` 是可能断开的全部位置
-    (单元边界, 只在单元超宽时用到), 都以字符下标表示, 且都包含行尾。
+    (单元边界, 只在单元超宽时用到), 都以字符下标表示, 最后一个元素都是行尾。
     """
 
     soft_ends: list[int]
@@ -118,42 +128,66 @@ def _plain_layout(line: str, font: ImageFont.FreeTypeFont) -> _Layout:
     hard = [i for i in range(1, n) if not _attaches(line[i])]
     hard.append(n)
     soft = [i for i in hard if i == n or _can_break(line[i - 1], line[i])]
-    return _Layout(soft, hard, lambda a, b: font.getlength(line[a:b]))
+
+    def measure(a: int, b: int) -> float:
+        # 行尾空白在软断行处会被丢掉, 不该算进这一行的宽度
+        while b > a and line[b - 1].isspace():
+            b -= 1
+        return font.getlength(line[a:b]) if b > a else 0.0
+
+    return _Layout(soft, hard, measure)
 
 
 def _emoji_layout(line: str, font: ImageFont.FreeTypeFont) -> _Layout:
-    """emoji 模式: 簇内不断, 簇外按纯文本规则, 宽度按字号方块加文字实测"""
+    """emoji 模式: 簇内不断, 宽度按簇求和 (与 ``line_width`` 同一规则)"""
     n = len(line)
-    size = emoji_square_width(font)
-    plain_chars: list[str] = []
-    plain_before = [0] * (n + 1)
-    emoji_before = [0] * (n + 1)
+    starts: list[int] = []
+    ends: list[int] = []
+    widths: list[float] = []
+    cumulative = [0.0]
     inside_emoji = [False] * (n + 1)
-    cluster_starts: set[int] = set()
-    cluster_ends: set[int] = set()
+    emoji_boundaries: set[int] = set()
     pos = 0
     for chunk, is_emoji in split_clusters(line):
         end = pos + len(chunk)
-        for k, ch in enumerate(chunk):
-            plain_before[pos + k + 1] = plain_before[pos + k] + (0 if is_emoji else 1)
-            emoji_before[pos + k + 1] = emoji_before[pos + k]
-            if not is_emoji:
-                plain_chars.append(ch)
+        starts.append(pos)
+        ends.append(end)
+        widths.append(unit_width(chunk, is_emoji, font, emoji_as_square=True))
+        cumulative.append(cumulative[-1] + widths[-1])
         if is_emoji:
             # 簇内只有首尾能断, 中间这些位置不能
             for k in range(pos + 1, end):
                 inside_emoji[k] = True
-            emoji_before[end] = emoji_before[pos] + 1
-            cluster_starts.add(pos)
-            cluster_ends.add(end)
+            emoji_boundaries.add(pos)
+            emoji_boundaries.add(end)
         pos = end
-    plain_text = "".join(plain_chars)
 
     def measure(a: int, b: int) -> float:
-        return (
-            font.getlength(plain_text[plain_before[a] : plain_before[b]])
-            + (emoji_before[b] - emoji_before[a]) * size
+        while b > a and line[b - 1].isspace():
+            b -= 1
+        if b <= a:
+            return 0.0
+        first = bisect.bisect_right(starts, a) - 1
+        last = bisect.bisect_right(starts, b - 1) - 1
+        if first == last:
+            # 落在同一个簇里: 只可能是 emoji 簇本身, 或者簇内的一段文字
+            return (
+                widths[first]
+                if a == starts[first] and b == ends[first]
+                else (font.getlength(line[a:b]))
+            )
+        total = 0.0
+        # 首尾两个簇可能是被切开的半段, 只量实际画出来的那部分
+        total += (
+            widths[first]
+            if a == starts[first]
+            else font.getlength(line[a : ends[first]])
         )
+        total += cumulative[last] - cumulative[first + 1]
+        total += (
+            widths[last] if b == ends[last] else font.getlength(line[starts[last] : b])
+        )
+        return total
 
     hard = [i for i in range(1, n) if not inside_emoji[i] and not _attaches(line[i])]
     hard.append(n)
@@ -161,9 +195,12 @@ def _emoji_layout(line: str, font: ImageFont.FreeTypeFont) -> _Layout:
         i
         for i in hard
         if i == n
-        or i in cluster_ends
-        or i in cluster_starts
-        or _can_break(line[i - 1], line[i])
+        or (
+            # 簇边界可以断, 但仍然要守禁则; 簇内位置不在 hard 里, 到不了这里
+            _kinsoku_ok(line[i - 1], line[i])
+            if i in emoji_boundaries
+            else _can_break(line[i - 1], line[i])
+        )
     ]
     return _Layout(soft, hard, measure)
 
@@ -172,8 +209,7 @@ def _fill(
     start: int,
     floor: int,
     ceiling: int,
-    hard: list[int],
-    measure: Callable[[int, int], float],
+    layout: _Layout,
     limit: float,
 ) -> int:
     """在 ``floor`` 到 ``ceiling`` 之间的单元边界里找最远的、放得下的位置
@@ -181,12 +217,13 @@ def _fill(
     找不到比 ``floor`` 更远的就原样返回 ``floor``: 这一步只负责"还能不能再塞",
     不负责保证前进, 前进由调用方保证。
     """
+    hard = layout.hard_ends
     lo = bisect.bisect_right(hard, floor)
     hi = bisect.bisect_right(hard, ceiling) - 1
     best = floor
     while lo <= hi:
         mid = (lo + hi) // 2
-        if measure(start, hard[mid]) <= limit:
+        if layout.measure(start, hard[mid]) <= limit:
             best = hard[mid]
             lo = mid + 1
         else:
@@ -194,25 +231,18 @@ def _fill(
     return best
 
 
-def _find_cut(
-    start: int,
-    n: int,
-    soft: list[int],
-    hard: list[int],
-    measure: Callable[[int, int], float],
-    limit: float,
-) -> int:
+def _find_cut(start: int, layout: _Layout, limit: float) -> int:
     """本行最远能放到哪里; 结果总大于 ``start``, 保证断行循环一定前进"""
+    soft = layout.soft_ends
+    n = soft[-1]
     first = bisect.bisect_right(soft, start)
-    if first >= len(soft):
-        return n
     last = len(soft) - 1
     # 指数探测找一个放得下的可断点和一个放不下的, 再二分收尾
     fit = -1
     idx = first
     step = 1
     while idx <= last:
-        if measure(start, soft[idx]) > limit:
+        if layout.measure(start, soft[idx]) > limit:
             break
         fit = idx
         if idx == last:
@@ -221,22 +251,23 @@ def _find_cut(
         step *= 2
     if fit < 0:
         # 第一个可断点就放不下: 这个单元自己比整行还宽, 退到单元级硬断
-        cut = _fill(start, start, soft[first], hard, measure, limit)
+        cut = _fill(start, start, soft[first], layout, limit)
         if cut > start:
             return cut
         # 一个单元都放不下, 也要让它单独占一行, 否则断行循环原地打转
+        hard = layout.hard_ends
         j = bisect.bisect_right(hard, start)
         return hard[j] if j < len(hard) else soft[first]
     lo, hi = fit, idx
     while hi - lo > 1:
         mid = (lo + hi) // 2
-        if measure(start, soft[mid]) <= limit:
+        if layout.measure(start, soft[mid]) <= limit:
             lo = mid
         else:
             hi = mid
     # 只有"下一个词自己就比整行宽"时才在它内部硬断; 否则整词挪到下一行, 不劈开词
-    if measure(soft[lo], soft[hi]) > limit:
-        return _fill(start, soft[lo], soft[hi], hard, measure, limit)
+    if layout.measure(soft[lo], soft[hi]) > limit:
+        return _fill(start, soft[lo], soft[hi], layout, limit)
     return soft[lo]
 
 
@@ -246,9 +277,7 @@ def _wrap_line(line: str, limit: float, layout: _Layout) -> list[str]:
     out: list[str] = []
     start = 0
     while start < n:
-        cut = _find_cut(
-            start, n, layout.soft_ends, layout.hard_ends, layout.measure, limit
-        )
+        cut = _find_cut(start, layout, limit)
         piece = line[start:cut]
         if cut < n:
             # 软换行落点是空白时, 两侧的空白都是排版噪音, 不画
@@ -288,7 +317,7 @@ def wrap_text_by_width(
 
     断点规则: 西文词与数字整体不拆, 只在空白后断; 汉字等 CJK 字符之间随处可断,
     并遵守行首禁则 (收尾标点不放行首) 与行尾禁则 (起首标点不放行尾)。单元自己
-    比整行还宽时 (长路径、URL) 才硬断。软断行处的空白不保留。
+    比整行还宽时 (长路径、URL) 才硬断。软断行处的空白两侧都不保留。
     """
     result: list[str] = []
     limit = int(line_width_limit)
