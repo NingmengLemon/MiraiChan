@@ -17,7 +17,7 @@ from ..typedef import _BboxT, _ColorT, _FontFileT
 from .emoji import ColorFontEmoji
 from .font import FontCache, get_default_font_cache
 from .geometry import calc_bbox, image_of
-from .metrics import block_height, line_height, split_clusters
+from .metrics import block_height, line_height, line_width, split_clusters
 from .wrap import calc_font_size, measure_lines, wrap_text_by_width
 
 __all__ = [
@@ -166,6 +166,28 @@ def draw_outline(
                 draw.text((x + dx, y + dy), text, fill=outline_color, **kwargs)
 
 
+def _line_extent(
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    *,
+    emoji_as_square: bool,
+    stroke_width: float,
+) -> tuple[float, float, float, float]:
+    """一行画出来之后实际占的范围 (left, top, right, bottom), 相对锚点 (0, 0)
+
+    宽度取 advance 与墨迹右缘的较大值: 斜体、花体这些字形会伸出 advance,
+    只按 advance 开画布会把右边裁掉。左侧与上方可能为负 (负 bearing), 交给
+    调用方整体平移。描边是向外扩的, 四个方向都要留出来。
+    """
+    ink = font.getbbox(text)
+    advance = line_width(text, font, emoji_as_square=emoji_as_square)
+    left = min(0.0, ink[0]) - stroke_width
+    top = min(0.0, ink[1]) - stroke_width
+    right = max(advance, ink[2]) + stroke_width
+    bottom = max(line_height(font), ink[3]) + stroke_width
+    return left, top, right, bottom
+
+
 def text_to_image(
     text: str,
     font: ImageFont.FreeTypeFont | int | None = None,
@@ -179,7 +201,8 @@ def text_to_image(
 ) -> bytes:
     """把一段文本画成 PNG, 返回图片字节
 
-    给了 ``emoji_renderer`` 时 emoji 会被画成彩色字形, 否则交给正文字体。
+    画布按实际墨迹 (含斜体出框与描边) 开, 不会裁掉字。给了 ``emoji_renderer``
+    时 emoji 会被画成彩色字形, 否则交给正文字体。
     """
     if font is None:
         font = get_default_font_cache().use(20)
@@ -192,17 +215,26 @@ def text_to_image(
         )
 
     lines = text.split("\n")
-    widths = measure_lines(text, font, emoji_as_square=emoji_as_square)
     row_height = line_height(font)
+    stroke = float(kwargs.get("stroke_width") or 0)
+    extents = [
+        _line_extent(line, font, emoji_as_square=emoji_as_square, stroke_width=stroke)
+        for line in lines
+    ]
+    left = min(e[0] for e in extents)
+    top = min(e[1] for e in extents)
+    right = max(e[2] for e in extents)
+    step = row_height + spacing
+    bottom = (len(lines) - 1) * step + max(e[3] for e in extents)
     size = (
-        math.ceil(max(widths, default=0.0)) + 2 * margin,
-        block_height(len(lines), row_height, spacing) + 2 * margin,
+        max(1, math.ceil(right - left) + 2 * margin),
+        max(1, math.ceil(bottom - top) + 2 * margin),
     )
     img = Image.new("RGBA", size, color=bg_color)
     for i, line in enumerate(lines):
         draw_text_line(
             img,
-            (margin, margin + i * (row_height + spacing)),
+            (margin - left, margin - top + i * step),
             line,
             font,
             fill=color,
