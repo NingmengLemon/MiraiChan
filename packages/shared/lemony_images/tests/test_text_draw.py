@@ -4,6 +4,7 @@
 验证的是"测量与绘制用同一套规则"以及贴图路径本身。
 """
 
+import math
 from io import BytesIO
 from pathlib import Path
 
@@ -213,11 +214,18 @@ def test_fit_returns_the_size_that_exactly_fits(font_file: Path) -> None:
     assert got == size
 
 
+def _ink_rows(canvas: Image.Image) -> np.ndarray:
+    """非背景色的行号; 画布要比 bbox 大, 否则溢出会被裁掉、断言就成了摆设"""
+    arr = np.array(canvas.convert("RGB"))
+    return np.nonzero((arr != np.array(_WHITE[:3])).any(axis=2).any(axis=1))[0]
+
+
 def test_drawn_block_stays_inside_the_box(
     font_file: Path, renderer: _StubRenderer
 ) -> None:
     """端到端: 画出来的墨迹确实落在 bbox 里 (emoji 模式不许溢出)"""
-    canvas = Image.new("RGBA", (400, 60), _WHITE)
+    # 画布高 200 而 bbox 只到 60: 真溢出会画到 60 以下, 才看得出来
+    canvas = Image.new("RGBA", (400, 200), _WHITE)
     draw_multiline_text_auto(
         (0, 0, 400, 60),
         ImageDraw.Draw(canvas),
@@ -228,12 +236,25 @@ def test_drawn_block_stays_inside_the_box(
         sticky="n",
         emoji_renderer=renderer,
     )
-    mask = _red_mask(canvas) | (
-        np.array(canvas.convert("RGB")) != np.array(_WHITE[:3])
-    ).any(axis=2)
-    rows = np.nonzero(mask.any(axis=1))[0]
+    rows = _ink_rows(canvas)
     assert rows.size, "什么都没画出来"
-    assert int(rows.min()) >= 0
+    assert int(rows.max()) < 60
+
+
+def test_plain_drawn_block_stays_inside_the_box(font_file: Path) -> None:
+    """纯文本路径同样不许溢出 bbox"""
+    canvas = Image.new("RGBA", (400, 200), _WHITE)
+    draw_multiline_text_auto(
+        (0, 0, 400, 60),
+        ImageDraw.Draw(canvas),
+        "A\nB",
+        FontCache(font_file=font_file),
+        max_font_size=40,
+        spacing=4,
+        sticky="n",
+    )
+    rows = _ink_rows(canvas)
+    assert rows.size, "什么都没画出来"
     assert int(rows.max()) < 60
 
 
@@ -288,16 +309,35 @@ def _ink_margins(image: Image.Image) -> tuple[int, int, int, int]:
     )
 
 
+def test_text_to_image_canvas_covers_ink_wider_than_the_advance(
+    font_file: Path,
+) -> None:
+    """宽度不能只按 advance 开: 墨迹会伸出 advance, 只按 advance 就裁字
+
+    这条用例要能区分新旧实现, 所以先确认这个字形真的出框。
+    """
+    font = ImageFont.truetype(str(font_file), 100)
+    ink = font.getbbox("K")
+    advance = font.getlength("K")
+    assert ink[2] > advance, "这个字体里 K 没有出框, 换一个字形或字号"
+    image = Image.open(BytesIO(text_to_image("K", font=font, margin=0)))
+    assert image.width >= math.ceil(ink[2] - min(0.0, ink[0]))
+    # 只按 advance 开画布会比墨迹窄
+    assert image.width > math.ceil(advance)
+
+
 def test_text_to_image_keeps_stroked_ink_inside_the_canvas(
     font_file: Path,
 ) -> None:
-    """描边是往外扩的, 画布必须把它算进去, 四边都不能贴边 (等于被裁)"""
+    """描边往外扩得比留白还宽时, 画布必须把描边算进去, 否则四边都会被裁"""
     font = ImageFont.truetype(str(font_file), 40)
+    # 描边比 margin 宽, 忽略描边的实现会贴到边上 (余量 0)
     image = Image.open(
-        BytesIO(text_to_image("j", font=font, margin=10, stroke_width=6))
+        BytesIO(text_to_image("j", font=font, margin=2, stroke_width=12))
     )
-    left, top, right, bottom = _ink_margins(image)
-    assert min(left, top, right, bottom) > 0
+    margins = _ink_margins(image)
+    assert min(margins) > 0
+    assert min(margins) >= 2
 
 
 def test_text_to_image_without_margin_never_produces_an_empty_canvas(
@@ -315,3 +355,11 @@ def test_text_to_image_keeps_trailing_blank_lines(font_file: Path) -> None:
     one = Image.open(BytesIO(text_to_image("A", font=font, wrap=10_000)))
     two = Image.open(BytesIO(text_to_image("A\n", font=font, wrap=10_000)))
     assert two.height > one.height
+
+
+def test_text_to_image_treats_crlf_like_lf(font_file: Path) -> None:
+    """CRLF 的 \\r 不能被当成要画的字符, 否则宽度与行数都会变"""
+    font = ImageFont.truetype(str(font_file), 20)
+    lf = Image.open(BytesIO(text_to_image("ab\ncd", font=font, wrap=10_000)))
+    crlf = Image.open(BytesIO(text_to_image("ab\r\ncd", font=font, wrap=10_000)))
+    assert crlf.size == lf.size
