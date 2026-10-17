@@ -16,8 +16,8 @@ from .color import (
     tone_of,
 )
 
-# --- emoji 源 ---
-from .emoji import SelfHostSource
+# --- emoji 绘制 ---
+from .emoji import ColorFontEmoji
 
 # --- 字体缓存 ---
 from .font import (
@@ -46,10 +46,10 @@ from .misc import (
 )
 
 __all__ = [
+    "ColorFontEmoji",
     "ColorScheme",
     "FontCache",
     "SchemeVariant",
-    "SelfHostSource",
     "bytes_to_b64_url",
     "calc_bbox",
     "calc_eudist",
