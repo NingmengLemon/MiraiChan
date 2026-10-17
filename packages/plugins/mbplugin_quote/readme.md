@@ -15,8 +15,15 @@
 
 区间需要 recorder 插件的记录; 没有记录时只能引用被回复的那一条。
 
-emoji 图片来自配置的 `emoji_cdn` (EmojiServer)。未配置或取不到时退回字体字形,
+emoji 有两种来源, 按顺序取: 配置了 `emoji_font` (彩色 emoji 字体) 就用字体画字形,
+字体里没有的字形再走 `emoji_cdn` (EmojiServer) 下载图片; 两者都没配时退回正文字体的字形,
 普通中文字体没有 emoji 字形, 会画成方框。
+
+`emoji_font` 得是 Pillow 能光栅化的彩色字体: CBDT/CBLC 位图字体 (Debian 的
+`fonts-noto-color-emoji`, 只有一个 109px 档) 或 COLRv0 矢量字体 (Windows 的 Segoe UI Emoji)。
+COLRv1 的字体 (例如 Windows 自带的 `NotoColorEmoji-Regular.ttf`) Pillow 画不出来,
+配上去会在启动时告警, 所有 emoji 都退化成下一级来源。
+`ColorFontEmoji(font).can_rasterize_color` 可以先验一下字体能不能用。
 
 ## 权限点
 

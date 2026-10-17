@@ -13,7 +13,7 @@ from mbplugin_quote.model import ImageRef, SourceMessage
 from mbplugin_quote.request import ChatRequest
 from mbplugin_quote.resources import FetchLimits, ResourceResolver
 from mbplugin_quote.sources import fetch_messages, source_from_onebot
-from PIL import Image
+from PIL import Image, ImageFont
 
 # ---------- sources ----------
 
@@ -232,3 +232,39 @@ async def test_resolver_local_first_and_failures_are_collected(tmp_path: Path) -
     assert set(bundle.avatars) == {1}
     assert not bundle.emojis
     assert len(bundle.missing) == 3
+
+
+def _font_file(tmp_path: Path) -> Path:
+    """把 Pillow 自带的字体落到文件, 当作 emoji 字体用 (单色足以验证接线)"""
+    font = ImageFont.load_default(28)
+    assert isinstance(font, ImageFont.FreeTypeFont)
+    path = tmp_path / "emoji.otf"
+    embedded = font.path
+    if isinstance(embedded, BytesIO):
+        path.write_bytes(embedded.getvalue())
+    else:
+        assert isinstance(embedded, str)
+        path.write_bytes(Path(embedded).read_bytes())
+    return path
+
+
+@pytest.mark.asyncio
+async def test_resolver_draws_emoji_from_font_without_cdn(tmp_path: Path) -> None:
+    async def avatars(uid: int) -> bytes:
+        raise ConnectionError
+
+    r = ResourceResolver(
+        data_root=tmp_path,
+        avatar_source=avatars,
+        emoji_cdn=None,
+        emoji_font=_font_file(tmp_path),
+        limits=FetchLimits(timeout=0.2),
+    )
+    try:
+        bundle = await r.resolve(emojis=["★"])
+    finally:
+        await r.close()
+    assert set(bundle.emojis) == {"★"}
+    assert max(bundle.emojis["★"].size) <= 160
+    # 没有配置 CDN, 字体里没有的字形不算资源缺失
+    assert bundle.missing == []
