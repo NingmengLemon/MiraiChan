@@ -10,6 +10,8 @@
   的 `[tool.ruff]` / `[tool.ty]`。抑制 ty 诊断用 `# ty: ignore[rule]`, mypy 的 `# type: ignore[code]` ty 不认。
   格式化用 `uv run ruff format .`。已跟踪文件的 ruff check / ruff format --check / ty check 均为 0 诊断, 提交前保持住。
 - 运行: `just dev` / `just run`, 需要根目录 `config.json` (参考 `config.example.json`)
+- 排查与测试时不要直接跑入口文件或 `miraichan launch`: 它们会按 `config.json` 连真实实现端。
+  需要完整实例时把 `MIRAICHAN_PROJECT_ROOT` 指到临时目录, 或用 `tools/rehearse_*.py`。
 
 ## 约定
 
