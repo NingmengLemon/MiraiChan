@@ -108,6 +108,15 @@ def test_ensure_creates_the_file_with_owner_only_permissions(
     assert json.loads(path.read_text(encoding="utf-8")) == {KEY: "kept"}
 
 
+def test_a_directory_in_place_of_the_file_is_reported_clearly(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "credentials.json").mkdir()
+    set_credentials_path(tmp_path / "credentials.json")
+    with pytest.raises(CredentialsFileError, match="无法读取"):
+        load_credentials()
+
+
 def test_loose_permissions_are_reported(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:

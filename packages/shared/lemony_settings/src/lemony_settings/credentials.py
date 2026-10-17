@@ -69,6 +69,9 @@ def _read_file(path: Path) -> dict[str, str]:
         return {}
     except json.JSONDecodeError as exc:
         raise CredentialsFileError(f"{path} 不是合法的 JSON: {exc}") from exc
+    except OSError as exc:
+        # 路径是个目录、没权限读之类: 说清楚是哪个文件, 而不是抛一个裸的 OSError
+        raise CredentialsFileError(f"{path} 无法读取: {exc}") from exc
     if not isinstance(raw, dict):
         raise CredentialsFileError(f"{path} 的顶层必须是对象")
     data: dict[str, str] = {}
