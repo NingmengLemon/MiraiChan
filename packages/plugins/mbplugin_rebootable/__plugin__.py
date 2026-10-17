@@ -8,12 +8,14 @@ from typing import TypedDict
 
 from lemony_checkers import get_checker_factory_wrapper
 from lemony_settings import BaseSettings, require
-from lemony_storage_helper.files import configured_data_path
+from lemony_storage_helper.files import atomic_write_text, configured_data_path
 from lemony_utils.help import Command, register_help
 from melobot import PluginInfo, PluginPlanner, on_command
 from melobot.bot import Bot, BotLifeSpan, get_bot
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
+
+from .state import StateSnapshot, diff, find_repo_root, snapshot
 
 
 class RebootablePluginConfig(BaseSettings):
@@ -59,7 +61,7 @@ register_help(
     commands=[
         Command(
             f".{cfgloader.value.reboot_command}",
-            "重启 bot, 完成后在原会话报告耗时",
+            "重启 bot, 完成后在原会话报告耗时与状态变化",
             admin_only=True,
         ),
         Command(f".{cfgloader.value.poweroff_command}", "关闭 bot", admin_only=True),
@@ -93,6 +95,13 @@ class RebootInfo(TypedDict):
     time: float
     uid: int
     gid: int | None
+    # 重启前的状态快照; 旧版本写下的文件里没有这一项
+    state: StateSnapshot | None
+
+
+def _repo_root() -> Path | None:
+    """仓库根目录: 先看进程工作目录, 再看本文件所在的位置"""
+    return find_repo_root(Path.cwd()) or find_repo_root(Path(__file__).parent)
 
 
 @plugin.use
@@ -107,10 +116,12 @@ async def restart_bot(event: MessageEvent, adapter: Adapter, bot: Bot):
         await adapter.send_reply("当前启动方式不支持重启w")
         return
     await (await adapter.send(random.choice(cfgloader.value.sayings_on_reboot)))[0]
+    state = await asyncio.to_thread(snapshot, bot, root=_repo_root())
     reboot_info: RebootInfo = {
         "gid": event.group_id if isinstance(event, GroupMessageEvent) else None,
         "uid": event.user_id,
         "time": time.time(),
+        "state": state,
     }
     await asyncio.to_thread(_write_reboot_info, reboot_info)
     await bot.restart()
@@ -121,8 +132,8 @@ def _reboot_info_path() -> Path:
 
 
 def _write_reboot_info(info: RebootInfo) -> None:
-    with open(_reboot_info_path(), "w+", encoding="utf-8") as fp:
-        json.dump(info, fp)
+    # 原子写: 写一半崩溃时下一个进程读到的仍是完整的旧内容或新内容
+    atomic_write_text(_reboot_info_path(), json.dumps(info, ensure_ascii=False))
 
 
 def _read_reboot_info() -> RebootInfo | None:
@@ -144,8 +155,10 @@ async def startup_check(adapter: Adapter):
             return
         start_time = bot.get_hook_evoke_time(BotLifeSpan.STARTED)
         interval = (start_time if start_time > 0 else time.time()) - info["time"]
+        after = await asyncio.to_thread(snapshot, bot, root=_repo_root())
+        changes = diff(info.get("state"), after)
         await adapter.send_custom(
-            f"重启已完成, 耗时 {interval:.3f}s",
+            f"重启已完成, 耗时 {interval:.3f}s\n" + "\n".join(changes),
             user_id=info["uid"],
             group_id=info["gid"],
         )

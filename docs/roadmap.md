@@ -36,8 +36,6 @@
   `lemony_storage_helper.files` (`content_path` / `resource_path`)。
 - QQInfoCache 的事件联动: 用消息事件的 sender 调 `remember_member` 预热,
   在群名片变更 / 退群通知里调 `invalidate_member`。目前只靠 TTL 过期。
-- 重启前后的状态 diff: `.重启` 完成后, 除了耗时 (`mbplugin_rebootable`), 再报告和重启前相比
-  插件的增减、版本与提交的变化等。需要在重启前把这些状态和 `reboot_info.json` 一起记下来。
 - 远程插件加载 (`packages/miraichan/src/miraichan/loader.py`): 按 url 加载插件, 未实现。
 - `lemony_settings` 完全异步化 (`core.py`)。
 - `lemony_checkers` 的 checker 工厂完全惰性加载 (`factory.py`)。
