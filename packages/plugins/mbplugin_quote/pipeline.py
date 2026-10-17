@@ -38,6 +38,7 @@ class NothingToQuote(ValueError):
 @dataclass(frozen=True, slots=True)
 class Assets:
     fonts: FontProvider
+    # 名言卡片遮罩, "L" 模式的 alpha 图, 见 render.mask
     mask: Image.Image
     placeholder: Image.Image
 

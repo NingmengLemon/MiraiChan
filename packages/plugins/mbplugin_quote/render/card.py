@@ -86,10 +86,17 @@ def card_colors(avatar: Image.Image | None, style: CardStyle) -> CardColors:
     return CardColors(panel, text, signature)
 
 
-def _tint(mask: Image.Image, color: Color) -> Image.Image:
+def _alpha_of(mask: Image.Image) -> Image.Image:
+    """遮罩只用到 alpha 通道: "L" 图直接当 alpha, 带 alpha 通道的图取 A 通道"""
+    if mask.mode == "L":
+        return mask
+    return mask.getchannel("A") if "A" in mask.getbands() else mask.convert("L")
+
+
+def _tint(alpha: Image.Image, color: Color) -> Image.Image:
     """保留遮罩的 alpha 渐变, 把颜色换成 color"""
-    out = Image.new("RGBA", mask.size, (*color[:3], 255))
-    out.putalpha(mask.getchannel("A"))
+    out = Image.new("RGBA", alpha.size, (*color[:3], 255))
+    out.putalpha(alpha)
     return out
 
 
@@ -117,7 +124,7 @@ def render_card(
     if mask.size != style.size:
         mask = mask.resize(style.size, Image.Resampling.LANCZOS)
     colors = card_colors(avatar, style)
-    canvas.alpha_composite(_tint(mask.convert("RGBA"), colors.panel))
+    canvas.alpha_composite(_tint(_alpha_of(mask), colors.panel))
 
     # 署名首行带破折号, 第二行的 (昵称) 右对齐到名片末尾, 读起来像落款
     for content, box, max_size, min_size, color, align in (

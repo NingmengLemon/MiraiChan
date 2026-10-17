@@ -3,10 +3,14 @@ from typing import Literal
 from lemony_settings import BaseSettings
 from pydantic import BaseModel, Field
 
+from .render.mask import MaskStyle
+
 __all__ = ["QuoteSettings"]
 
 # 旧 MomoQuote 默认屏蔽的表情包
 _LEGACY_BANNED_STICKER_SETS = [231182, 231412, 231764, 239439, 239546, 239871]
+
+_DEFAULT_MASK = MaskStyle()
 
 
 class ChatSettings(BaseModel):
@@ -16,6 +20,47 @@ class ChatSettings(BaseModel):
     banned_sticker_sets: list[int] = Field(
         default_factory=lambda: list(_LEGACY_BANNED_STICKER_SETS),
         description="被屏蔽的商城表情包 id, 屏蔽后画成替代文本",
+    )
+
+
+class MaskSettings(BaseModel):
+    fade_from: float = Field(
+        default=_DEFAULT_MASK.fade_from,
+        ge=0,
+        le=1,
+        description="渐变带起点占卡片宽度的比例, 顶边处 0 到 255 的过渡从这里开始",
+    )
+    fade_width: float = Field(
+        default=_DEFAULT_MASK.fade_width,
+        gt=0,
+        le=1,
+        description="渐变带宽度占卡片宽度的比例",
+    )
+    slant: float = Field(
+        default=_DEFAULT_MASK.slant,
+        ge=-1,
+        le=1,
+        description="底边相对顶边的水平偏移, 占卡片宽度的比例; 正数表示底边更靠右",
+    )
+    curve: float = Field(
+        default=_DEFAULT_MASK.curve,
+        ge=0,
+        le=1,
+        description="过渡曲线: 0 是直线, 1 是两端平缓、中间更陡的 smoothstep",
+    )
+
+    def to_style(self) -> MaskStyle:
+        return MaskStyle(
+            fade_from=self.fade_from,
+            fade_width=self.fade_width,
+            slant=self.slant,
+            curve=self.curve,
+        )
+
+
+class CardSettings(BaseModel):
+    mask: MaskSettings = Field(
+        default_factory=MaskSettings, description="名言卡片的暗色遮罩, 按参数画出来"
     )
 
 
@@ -51,5 +96,6 @@ class QuoteSettings(BaseSettings):
     allow_quote_self: bool = Field(default=False, description="能否引用 bot 自己的消息")
     show_timing: bool = Field(default=False, description="回复里附带耗时")
     chat: ChatSettings = Field(default_factory=ChatSettings)
+    card: CardSettings = Field(default_factory=CardSettings)
     archive: ArchiveSettings = Field(default_factory=ArchiveSettings)
     limits: LimitSettings = Field(default_factory=LimitSettings)

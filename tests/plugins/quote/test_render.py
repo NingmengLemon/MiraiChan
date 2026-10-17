@@ -15,7 +15,8 @@ from mbplugin_quote.render.card import (
     render_card,
 )
 from mbplugin_quote.render.chat import ChatStyle, layout_chat, render_chat
-from PIL import Image, ImageFont
+from mbplugin_quote.render.mask import build_mask
+from PIL import Image, ImageChops, ImageFont
 
 
 def fonts(size: int) -> ImageFont.FreeTypeFont:
@@ -182,12 +183,11 @@ def test_card_colors_static_without_hue(avatar: Image.Image | None) -> None:
 
 def test_card_signature_lines_are_right_aligned() -> None:
     style = CardStyle()
-    mask = Image.new("RGBA", style.size, (19, 19, 21, 255))
     out = render_card(
         "正文",
         card_signature("很长很长的群名片", "短", "1"),
         avatar=None,
-        mask=mask,
+        mask=build_mask(style.size),
         emojis={},
         fonts=fonts,
     )
@@ -208,12 +208,11 @@ def test_card_signature_lines_are_right_aligned() -> None:
 
 
 def test_render_card_smoke() -> None:
-    mask = Image.new("RGBA", (1920, 1080), (19, 19, 21, 255))
     out = render_card(
         "测试文本 " * 30,
         card_signature("名片", "昵称", "1"),
         avatar=Image.new("RGB", (640, 640), (200, 50, 50)),
-        mask=mask,
+        mask=build_mask(CardStyle().size),
         emojis={},
         fonts=fonts,
     )
@@ -224,3 +223,22 @@ def test_render_card_smoke() -> None:
     # 正文区域里有非底色像素
     region = out.crop(CardStyle().text_box)
     assert len(region.getcolors(maxcolors=1 << 16) or []) > 1
+
+
+def test_card_takes_the_alpha_channel_of_rgba_masks() -> None:
+    style = CardStyle()
+    alpha = build_mask(style.size)
+    rgba = Image.new("RGBA", style.size, style.panel)
+    rgba.putalpha(alpha)  # 旧资源是带底色的 RGBA, 颜色应当被丢掉
+    signature = card_signature(None, None, "1")
+
+    def render(mask: Image.Image) -> Image.Image:
+        return render_card(
+            "正文", signature, avatar=None, mask=mask, emojis={}, fonts=fonts
+        )
+
+    # 两张图 alpha 都是 255, 比较 RGB: getbbox 默认只看 alpha 通道
+    assert (
+        ImageChops.difference(render(rgba), render(alpha)).convert("RGB").getbbox()
+        is None
+    )
