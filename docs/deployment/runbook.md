@@ -85,6 +85,7 @@ bot 由 systemd 管理, 输出进 journald (不再有单独的日志文件)。`<
 非 root 用户读 journal 需要在 `systemd-journal` 组里。
 
 群里 owner 发 `.重启` / `.关机` 也可以, 前者由 `mb run` 拉起新进程, 后者正常退出 (unit 不会自动拉起)。
+`.重启` 完成后会在原会话报告耗时, 以及和重启前相比代码提交、插件增减与插件版本的变化。
 
 ## 上线插件
 
@@ -113,9 +114,10 @@ bot 由 systemd 管理, 输出进 journald (不再有单独的日志文件)。`<
 2. 看一眼两个提交之间的改动: 表结构 (`db/models.py`) 有变化时先在数据副本上演练迁移;
    `config.example.json` 的插件列表有变化时同步到 `config.json`。
 3. `systemctl stop <name>`。
-4. 备份 `data/` (可排除 `data/fonts`)、`configs/` 与 `config.json`, 记下旧提交号, 校验备份包的 SHA256。
+4. 备份 `data/` (可排除 `data/fonts`)、`configs/`、`config.json` 与 `credentials.json` (如果用了凭据文件),
+   记下旧提交号, 校验备份包的 SHA256。
 5. 以部署用户 `git merge --ff-only origin/dev`, 再 `uv sync --all-packages --frozen`。
-6. 按需改 `config.json`, 然后 `systemctl start <name>`, 按上面"验证"一步看日志。
+6. 按需改 `config.json` 或凭据文件, 然后 `systemctl start <name>`, 按上面"验证"一步看日志。
 
 回退: 停服, `git reset --hard <旧提交>`, `uv sync --all-packages --frozen`, 把备份解回实例目录, 再启动。
 
