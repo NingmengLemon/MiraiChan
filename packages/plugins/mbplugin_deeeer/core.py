@@ -7,6 +7,7 @@ from pathlib import Path
 
 from lemony_images import FontCache, get_default_font_cache
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
+from lemony_storage_helper.files import resource_path
 from lemony_utils.time import get_time_period_start
 from PIL import Image, ImageDraw, ImageOps
 from sqlmodel import Field, Session, select
@@ -76,8 +77,10 @@ def record(
 
 ValidImageInput = BytesIO | str | Path | Image.Image
 
-# 取不到头像时的占位图, 随插件分发, 不依赖 cwd
-NO_AVATAR_PATH = Path(__file__).parent / "resources" / "no_avatar.png"
+# 取不到头像时的占位图, 随插件分发, 不依赖 cwd; 用户可以在 data/resources/deeeer/ 下覆盖
+NO_AVATAR_PATH = resource_path(
+    Path(__file__).parent / "resources", "no_avatar.png", identifier="deeeer"
+)
 
 
 def _to_image(pic: ValidImageInput):

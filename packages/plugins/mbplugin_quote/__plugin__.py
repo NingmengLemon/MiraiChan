@@ -19,7 +19,11 @@ from lemony_onebot_utils.qq import qq_info_cache
 from lemony_settings import require
 from lemony_storage_helper.database import StorageStartupError
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
-from lemony_storage_helper.files import configured_data_path, get_data_root
+from lemony_storage_helper.files import (
+    configured_data_path,
+    get_data_root,
+    resource_path,
+)
 from lemony_utils.help import Command, register_help
 from melobot import PluginPlanner, get_bot
 from melobot.exceptions import PluginIpcError
@@ -113,9 +117,13 @@ def _load_assets(font_path: Path) -> Assets:
     def fonts(size: int) -> ImageFont.FreeTypeFont:
         return ImageFont.truetype(str(font_path), size)
 
-    with Image.open(RESOURCE_DIR / "card_mask.png") as mask_img:
+    mask_path = resource_path(RESOURCE_DIR, "card_mask.png", identifier="quote")
+    placeholder_path = resource_path(
+        RESOURCE_DIR, "placeholder.png", identifier="quote"
+    )
+    with Image.open(mask_path) as mask_img:
         mask = mask_img.convert("RGBA")
-    with Image.open(RESOURCE_DIR / "placeholder.png") as ph_img:
+    with Image.open(placeholder_path) as ph_img:
         placeholder = ph_img.convert("RGBA")
     fonts(28)  # 字体文件不存在时在这里就报错
     return Assets(fonts=fonts, mask=mask, placeholder=placeholder)

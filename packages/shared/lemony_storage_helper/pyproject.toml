@@ -25,7 +25,7 @@ postgresql = [
     "asyncpg>=0.31.0",
     "sqlalchemy[postgresql-asyncpg,asyncio]>=2.0.45",
 ]
-files = ["aiofiles>=25.1.0"]
+files = ["aiofiles>=25.1.0", "puremagic>=2.2.0"]
 all = [
     "lemony_storage_helper[sqlite]",
     "lemony_storage_helper[postgresql]",

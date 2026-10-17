@@ -10,7 +10,6 @@ dependencies = [
     "lemony_storage_helper",
     "lemony_utils",
     "lemony_network",
-    "puremagic>=2.2.0",
     "uuid-utils>=0.14.1",
 ]
 

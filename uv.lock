@@ -597,11 +597,13 @@ all = [
     { name = "aiofiles" },
     { name = "aiosqlite" },
     { name = "asyncpg" },
+    { name = "puremagic" },
     { name = "sqlalchemy", extra = ["aiosqlite", "asyncio", "postgresql-asyncpg"] },
     { name = "sqlmodel" },
 ]
 files = [
     { name = "aiofiles" },
+    { name = "puremagic" },
 ]
 postgresql = [
     { name = "asyncpg" },
@@ -622,6 +624,7 @@ requires-dist = [
     { name = "lemony-storage-helper", extras = ["files"], marker = "extra == 'all'", editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-storage-helper", extras = ["postgresql"], marker = "extra == 'all'", editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-storage-helper", extras = ["sqlite"], marker = "extra == 'all'", editable = "packages/shared/lemony_storage_helper" },
+    { name = "puremagic", marker = "extra == 'files'", specifier = ">=2.2.0" },
     { name = "sqlalchemy", extras = ["aiosqlite", "asyncio"], marker = "extra == 'sqlite'", specifier = ">=2.0.45" },
     { name = "sqlalchemy", extras = ["postgresql-asyncpg", "asyncio"], marker = "extra == 'postgresql'", specifier = ">=2.0.45" },
     { name = "sqlmodel", marker = "extra == 'postgresql'", specifier = ">=0.0.31" },
@@ -850,7 +853,6 @@ dependencies = [
     { name = "lemony-network" },
     { name = "lemony-storage-helper" },
     { name = "lemony-utils" },
-    { name = "puremagic" },
     { name = "uuid-utils" },
 ]
 
@@ -861,7 +863,6 @@ requires-dist = [
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
     { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
-    { name = "puremagic", specifier = ">=2.2.0" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
 ]
 

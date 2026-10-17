@@ -175,6 +175,7 @@ melobot.log*
 /data/avatars/
 /data/reboot_info.json
 /data/emergency_alerts/
+/data/resources/
 
 # 这个文件夹是用户的配置文件所在的地方
 # 不要把用户的配置文件纳入版本控制

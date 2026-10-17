@@ -18,7 +18,7 @@ recorder 现在分为五层：
 1. OneBot11 adapter 将 `MessageEvent` 转为 `RecordedMessageInput`。
 2. `record_message()` 写入 account / conversation / sender / raw event / message / segments / media sources。
 3. 后台媒体 worker 扫描 pending / failed media source，下载到 UUID `.download` 临时文件。
-4. 下载完成后按内容计算 `sha256`、用 `puremagic` 识别真实后缀和 MIME，再以内容 hash 命名缓存文件并更新 `MediaObject`。
+4. 下载完成后按内容计算 `sha256`、由 `lemony_storage_helper.files` 按魔数识别真实后缀和 MIME，再以内容 hash 命名缓存文件并更新 `MediaObject`。
 
 通知事件：
 

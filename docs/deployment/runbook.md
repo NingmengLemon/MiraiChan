@@ -25,7 +25,9 @@
    uv sync --all-packages --frozen
    ```
 
-2. 放字体到 `data/fonts/`。
+2. 放字体到 `data/fonts/`。插件自带的静态资源可以用同名文件覆盖: 放进
+   `data/resources/<插件名>/` 即可 (例如 `data/resources/quote/card_mask.png`、
+   `data/resources/deeeer/no_avatar.png`), 没放时用包内自带的那份。
 
 3. 写 `config.json` (参考 `config.example.json`):
 
