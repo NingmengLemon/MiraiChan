@@ -220,19 +220,33 @@ def _fill(
 
     找不到比 ``floor`` 更远的就原样返回 ``floor``: 这一步只负责"还能不能再塞",
     不负责保证前进, 前进由调用方保证。
+
+    先指数探测再二分: 长不可断串里 ``ceiling`` 可能离得很远, 一上来就取中点会量
+    几千个字符的前缀, 而真正放得下的范围通常只有一行的宽度。
     """
     hard = layout.hard_ends
-    lo = bisect.bisect_right(hard, floor)
     hi = bisect.bisect_right(hard, ceiling) - 1
-    best = floor
-    while lo <= hi:
-        mid = (lo + hi) // 2
+    fit = -1
+    idx = bisect.bisect_right(hard, floor)
+    step = 1
+    while idx <= hi:
+        if layout.measure(start, hard[idx]) > limit:
+            break
+        fit = idx
+        if idx == hi:
+            return hard[hi]
+        idx = min(idx + step, hi)
+        step *= 2
+    if fit < 0:
+        return floor
+    lo, high = fit, idx
+    while high - lo > 1:
+        mid = (lo + high) // 2
         if layout.measure(start, hard[mid]) <= limit:
-            best = hard[mid]
-            lo = mid + 1
+            lo = mid
         else:
-            hi = mid - 1
-    return best
+            high = mid
+    return hard[lo]
 
 
 def _find_cut(start: int, layout: _Layout, limit: float) -> int:
