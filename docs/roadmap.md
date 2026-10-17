@@ -38,6 +38,9 @@
   读), 没有强制手段。`BaseSettings` 里若声明 `Secret[str]` 字段, `save()` 时 `model_dump()` 给的是
   `SecretStr` 对象, json / yaml 写入会直接失败。等真有插件需要在配置模型里声明密钥时, 再决定是
   save 时拒写 / 脱敏, 还是继续只走凭据存储。
+- 凭据层的可选加固 (参考 DSH 的凭据 seam, 本项目只保留文件 + 环境变量): `describe()` 式只读
+  元信息 (configured / source / writable, 不返回值) 与子进程环境清洗 (`KEY|PASSWORD|SECRET|TOKEN`
+  这类变量名)。前者等 runbook 真需要排查凭据来源时再做, 后者等 bot 开始 spawn 外部程序时再加。
 - QQInfoCache 的事件联动: 用消息事件的 sender 调 `remember_member` 预热,
   在群名片变更 / 退群通知里调 `invalidate_member`。目前只靠 TTL 过期。
 - 远程插件加载 (`packages/miraichan/src/miraichan/loader.py`): 按 url 加载插件, 未实现。
