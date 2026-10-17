@@ -32,15 +32,9 @@
   `lemony_settings` 生成的插件配置同理。
 - QQInfoCache 的事件联动: 用消息事件的 sender 调 `remember_member` 预热,
   在群名片变更 / 退群通知里调 `invalidate_member`。目前只靠 TTL 过期。
-- emoji 排版规则有两份: `lemony_images.layout` 与 `mbplugin_quote.render.text` 各算一遍
-  方块宽度与行高 (前者已换成 `ascent+descent`、后者是 `max(ascent+descent, 字号)`,
-  已经开始分叉), `fit_to_square` 也只共用了一半。要么让引用图直接用前者的排版,
-  要么把测量规则抽成一处。
 - 重启前后的状态 diff: `.重启` 完成后, 除了耗时 (`mbplugin_rebootable`), 再报告和重启前相比
   插件的增减、版本与提交的变化等。需要在重启前把这些状态和 `reboot_info.json` 一起记下来。
 - 远程插件加载 (`packages/miraichan/src/miraichan/loader.py`): 按 url 加载插件, 未实现。
-- `text_to_image` 不渲染 emoji (只有 `draw_multiline_text_auto` 接了 `ColorFontEmoji`),
-  emoji 会落成正文字体里的方框。
 - `lemony_settings` 完全异步化 (`core.py`)。
 - `lemony_checkers` 的 checker 工厂完全惰性加载 (`factory.py`)。
 - `lemony_utils` 的定位与拆分, 见 `packages/shared/lemony_utils/planning.md`。
