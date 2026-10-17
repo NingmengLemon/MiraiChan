@@ -8,21 +8,13 @@ import asyncio
 import time
 from collections.abc import Mapping
 from logging import getLogger
-from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
 
 import aiohttp
 from lemony_checkers import get_checker_factory_wrapper
 from lemony_network.qqntmedia_sslcontext import QQNTMEDIA_SSL_CONTEXT
 from lemony_network.request import HTTP_HEADERS
 from lemony_settings import BaseSettings, get_secret, require
-from lemony_storage_helper.files import (
-    get_data_root,
-    is_data_root_set,
-    mime_from_content,
-    safe_suffix,
-)
 from lemony_utils.help import Command, register_help
 from melobot import PluginInfo, PluginPlanner, on_command
 from melobot.bot import get_bot
@@ -31,6 +23,7 @@ from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 
 from .client import ProvenanceError, ProvenanceResult, check_image
+from .images import image_payloads, local_candidates, mime_of
 from .report import format_report, summarize
 
 PLUGIN_IDENTIFIER = "mbplugin_provenance"
@@ -101,18 +94,6 @@ def _reply_target(event: MessageEvent) -> str | None:
     return str(replies[0].data["id"])
 
 
-def _segment_dict(segment: object) -> Mapping[str, Any]:
-    if isinstance(segment, Mapping):
-        return segment
-    raw = getattr(segment, "raw", None)
-    if isinstance(raw, Mapping):
-        return raw
-    to_dict = getattr(segment, "to_dict", None)
-    if to_dict is not None:
-        return to_dict()
-    return {}
-
-
 async def _get_msg(adapter: Adapter, message_id: str) -> Mapping[str, Any] | None:
     """取消息的 OneBot 原始数据; 取不到返回 None"""
     try:
@@ -123,49 +104,6 @@ async def _get_msg(adapter: Adapter, message_id: str) -> Mapping[str, Any] | Non
     if echo is None or not echo.is_ok() or echo.data is None:
         return None
     return echo.data
-
-
-def _image_payloads(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-    message = payload.get("message") or []
-    images: list[Mapping[str, Any]] = []
-    for segment in message:
-        data = _segment_dict(segment)
-        if data.get("type") == "image":
-            seg_data = data.get("data")
-            if isinstance(seg_data, Mapping):
-                images.append(seg_data)
-    return images
-
-
-def _local_candidates(seg_data: Mapping[str, Any]) -> list[Path]:
-    """图片段里可能的本地路径: file 可能是绝对路径, 也可能相对 data root"""
-    raw = seg_data.get("file")
-    if not isinstance(raw, str) or not raw or not is_data_root_set():
-        return []
-    if raw.startswith("file://"):
-        path = Path(unquote(urlparse(raw).path))
-    else:
-        path = Path(raw)
-        if not path.is_absolute():
-            path = get_data_root() / path
-    try:
-        return [path] if path.is_file() else []
-    except OSError:
-        return []
-
-
-def _mime_of(data: bytes, seg_data: Mapping[str, Any], url: str | None) -> str:
-    mime = mime_from_content(data)
-    if mime:
-        return mime
-    suffix = safe_suffix(url) or safe_suffix(seg_data.get("file"))
-    return {
-        ".png": "image/png",
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".webp": "image/webp",
-        ".gif": "image/gif",
-    }.get(suffix, "application/octet-stream")
 
 
 async def _download(session: aiohttp.ClientSession, url: str) -> bytes:
@@ -189,18 +127,18 @@ async def _image_bytes(
 ) -> tuple[bytes, str]:
     """取一张图片的字节与 media type, 优先本地文件, 其次 url"""
     max_bytes = cfgloader.value.max_image_bytes
-    for path in _local_candidates(seg_data):
+    for path in local_candidates(seg_data):
         try:
             data = await asyncio.to_thread(path.read_bytes)
         except OSError:
             continue
         if len(data) > max_bytes:
             raise ProvenanceError("图片太大了")
-        return data, _mime_of(data, seg_data, None)
+        return data, mime_of(data, seg_data, None)
     url = seg_data.get("url")
     if isinstance(url, str) and url:
         data = await _download(session, url)
-        return data, _mime_of(data, seg_data, url)
+        return data, mime_of(data, seg_data, url)
     raise ProvenanceError("取不到这张图片 (既没有本地文件也没有下载地址)")
 
 
@@ -232,7 +170,7 @@ async def check_command(event: MessageEvent, adapter: Adapter) -> None:
     if payload is None:
         await adapter.send_reply("取不到这条消息")
         return
-    images = _image_payloads(payload)
+    images = image_payloads(payload)
     if not images:
         await adapter.send_reply("这条消息里没有图片")
         return
