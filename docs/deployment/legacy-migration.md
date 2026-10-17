@@ -9,7 +9,8 @@
 | --- | --- | --- |
 | 入口 | `python -m melobot run src/bot.py` | `mb run miracle_entrance.py` (`just run`) |
 | 环境 | PDM 建的 venv | `uv sync --all-packages` |
-| 全局配置 | `config.json` 键 `forwwsio.url` `forwwsio.access_token` `plugins` | `config.json` 键 `websocket.{type,url,access_token}` `plugins` `load_depth` `config_root` |
+| 全局配置 | `config.json` 键 `forwwsio.url` `forwwsio.access_token` `plugins` | `config.json` 键 `websocket.{type,url}` `plugins` `load_depth` `config_root` |
+| 凭据 | 与全局配置同文件 (`forwwsio.access_token`) | `credentials.json` 的 `websocket.access_token`, 或环境变量 `MIRAICHAN_WEBSOCKET_ACCESS_TOKEN` |
 | 插件配置 | `plugin_config/*_conf.json` | `configs/<identifier>/default.json` 与 `configs/lemony_checkers/*.json` |
 | 数据根 | 仓库下 `data/` | 仓库下 `data/` (`lemony_storage_helper.files.set_data_root(project_root / "data")`) |
 | OneBot 端 | 正向 ws | 同样支持正向 ws, 实现端可原样复用 |

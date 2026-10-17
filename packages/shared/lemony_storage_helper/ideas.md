@@ -11,12 +11,13 @@
 - [`GenericDatabaseHelper.new_base()`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/database/generic.py:76) 已经实现了 [`devnote.md`](packages/shared/lemony_storage_helper/devnote.md:51) 里“helper 或许应该可以协助用户进行表定义”的一部分；[`GenericAsyncAttrs`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/database/utils.py:286) 也对应了 [`devnote.md`](packages/shared/lemony_storage_helper/devnote.md:20) 里 awaitable relationship 的类型标注问题。
 - 上层启动时通过 [`set_relative_path_base()`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/database/sqlite.py:28) 把数据库相对路径统一落到项目 [`data`](data) 下，这和 [`devnote.md`](packages/shared/lemony_storage_helper/devnote.md:7) 的设想吻合；目前是在 [`init_modules()`](packages/miraichan/src/miraichan/main.py:44) 中设置的。
 
-### 目前略有割裂的地方
+### 文件层现在的样子
 
-- 数据库路径已经有统一 base，但本地文件还没有。比如 [`mbplugin_recorder`](packages/plugins/mbplugin_recorder/__plugin__.py:15) 的数据库路径是相对的 [`record/recorder.db`](packages/plugins/mbplugin_recorder/__plugin__.py:16)，媒体缓存却写死为 [`data/record/media`](packages/plugins/mbplugin_recorder/__plugin__.py:17)，它绕过了现有 [`set_relative_path_base()`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/database/sqlite.py:28) 的统一语义。
-- [`mbplugin_deeeer`](packages/plugins/mbplugin_deeeer/core.py:130) 直接读 [`data/no_data.png`](data/no_data.png)，旁边也已经写了 TODO：cwd 不一定是项目根，需要统一资源管理器。
-- [`lemony_storage_helper.files`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/files/__init__.py:1) 已经有 data root、`data_path` / `configured_data_path` 与原子写入 (`atomic_write_bytes` / `atomic_write_text`)；还缺内容寻址命名与可覆盖资源的解析。
-- [`mbplugin_recorder.media_cache_path()`](packages/plugins/mbplugin_recorder/media.py:70) 已经包含一部分“文件安全命名 + 内容哈希路径”的雏形，但它是插件私有逻辑；后面很适合下沉到 [`lemony_storage_helper.files`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/files/__init__.py:1)。
+- 数据库路径和媒体缓存都改成相对 data root 的写法了: [`mbplugin_recorder`](packages/plugins/mbplugin_recorder/__plugin__.py:16) 的 `record/recorder.db` 与 `record/media` 走同一套语义。
+- [`lemony_storage_helper.files`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/files/__init__.py:1) 提供 data root、`data_path` / `configured_data_path`、原子写入 (`atomic_write_bytes` / `atomic_write_text`)、内容寻址命名 (`content_path`, 基于 sha256 与安全后缀) 和可覆盖资源解析 (`resource_path`)。
+- 后缀清洗与魔数判断 (`safe_suffix` / `suffix_from_content` / `mime_from_content`) 是共享实现, [`mbplugin_recorder.media_cache_path()`](packages/plugins/mbplugin_recorder/media.py:1) 与它的下载逻辑直接用这些接口, 插件里不再有私有副本。
+
+下面几节是当时的设计讨论, 其中已经落地的部分只作为语义参考。
 
 ## 对接下来“本地文件管理”的重点想法
 
@@ -149,7 +150,7 @@ data/
 - 同内容不同来源应该能去重。
 - 后缀应来自魔数检测，而不是盲信 URL。
 
-这部分 [`mbplugin_recorder.media_cache_path()`](packages/plugins/mbplugin_recorder/media.py:70) 和 [`download_media_source()`](packages/plugins/mbplugin_recorder/media.py:89) 已经是一个不错的试验田。后续可以把 `_safe_suffix`、magic 检测、sha256 命名、临时下载、原子落盘这些下沉到 shared。
+这部分已经落地: `_safe_suffix`、magic 检测、sha256 命名在 `lemony_storage_helper.files` 里有共享实现, [`media_cache_path()`](packages/plugins/mbplugin_recorder/media.py:1) 与 [`download_media_source()`](packages/plugins/mbplugin_recorder/media.py:1) 直接调用它们。临时下载与原子落盘仍留在插件里, 因为那是 HTTP 下载流程的一部分。
 
 ### 6. 资源读取管理建议独立成 resource resolver
 
@@ -161,13 +162,7 @@ data/
 2. 包内资源 fallback，例如 [`packages/plugins/mbplugin_deeeer/resources`](packages/plugins/mbplugin_deeeer/resources)。
 3. 返回一个可读路径或 async bytes。
 
-API 语义可以是：
-
-- “给我某插件的运行期文件路径”
-- “给我某包的静态资源”
-- “给我可覆盖资源，用户没放就用默认资源”
-
-这样 [`data/no_data.png`](data/no_data.png) 可以逐步迁移到更清晰的位置，同时不破坏已有调用。
+`files.resource_path()` 现在实现的是 1 与 2 (返回路径, 不做 async bytes 读取); 需要 bytes 的调用方自己打开, 免得把文件内容塞进返回值约定里。
 
 ### 7. 和数据库 helper 的关系
 
@@ -179,15 +174,13 @@ API 语义可以是：
 
 不过它们应该共享同一个上层 data root。现在只有 [`set_relative_path_base()`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/database/sqlite.py:28) 管 SQLite，后续最好抽象成 storage root，而不是 database 专属 root。数据库 helper 可以继续支持自己的 relative base，但默认从全局 storage root 派生。
 
-## 建议实现顺序
+## 还没做的部分
 
-1. 先补 [`lemony_storage_helper.files`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/files/__init__.py:1) 的基础 path resolver 和 async 文件读写。
-2. 抽一个全局 storage root 初始化函数，让 [`init_modules()`](packages/miraichan/src/miraichan/main.py:44) 同时影响数据库和文件。
-3. 把 [`mbplugin_deeeer`](packages/plugins/mbplugin_deeeer/core.py:130) 的 [`data/no_data.png`](data/no_data.png) 读取迁到 resource resolver。
-4. 把 [`mbplugin_recorder.media_cache_path()`](packages/plugins/mbplugin_recorder/media.py:70) 的安全后缀、sha256 命名、原子写入逻辑逐步下沉。
-5. 再做可选索引库和清理策略，不要第一版就绑定全局索引。
+1. `files` 的 async 文件读写 (目前只有同步的原子写入; 需要的人不多时可以先不封装 aiofiles)。
+2. 可选索引库和清理策略, 不要第一版就绑定全局索引。
+3. 读改写互斥 (`filelock`), 等出现真正的读改写消费者再加。
 
-总体上，我觉得这个包目前数据库侧已经有了可用的骨架；接下来本地文件管理的重点不应是"封装 aiofiles"本身，而是统一路径语义、隔离插件数据、避免 cwd 相对路径、提供原子写入和为未来索引/去重留接口。
+总体上，这个包数据库侧已经有可用的骨架, 文件侧也已经统一了路径语义、内容寻址、可覆盖资源与原子写入; 剩下的是索引 / 清理这类更大的题目。
 
 ---
 

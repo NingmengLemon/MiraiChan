@@ -34,6 +34,10 @@
   等出现真正的读改写消费者 (文件索引、资源覆盖表这类) 时再加, 用已在依赖里的 `filelock`,
   `.lock` 后缀与 `lemony_settings` 对齐。内容寻址命名与可覆盖资源解析已在
   `lemony_storage_helper.files` (`content_path` / `resource_path`)。
+- 插件配置里的秘密字段: 目前靠约定 (凭据进 `credentials.json`, 插件用 `lemony_settings.get_secret`
+  读), 没有强制手段。`BaseSettings` 里若声明 `Secret[str]` 字段, `save()` 时 `model_dump()` 给的是
+  `SecretStr` 对象, json / yaml 写入会直接失败。等真有插件需要在配置模型里声明密钥时, 再决定是
+  save 时拒写 / 脱敏, 还是继续只走凭据存储。
 - QQInfoCache 的事件联动: 用消息事件的 sender 调 `remember_member` 预热,
   在群名片变更 / 退群通知里调 `invalidate_member`。目前只靠 TTL 过期。
 - 远程插件加载 (`packages/miraichan/src/miraichan/loader.py`): 按 url 加载插件, 未实现。
