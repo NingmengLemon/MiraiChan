@@ -1,7 +1,7 @@
 """核验结果的文本格式。"""
 
 from mbplugin_provenance.client import ProvenanceResult
-from mbplugin_provenance.report import format_report, summarize
+from mbplugin_provenance.report import format_report
 
 
 def _c2pa() -> ProvenanceResult:
@@ -69,15 +69,3 @@ def test_unknown_signal_type_is_labelled_by_its_name() -> None:
         results=[ProvenanceResult("future", "detected")],
     )
     assert "future: 检测到" in text
-
-
-def test_summary_reports_detected_signals() -> None:
-    assert summarize([_c2pa(), _synthid("not_detected")]) == (
-        "结论: 检测到 OpenAI 支持的生成痕迹 (C2PA 清单)"
-    )
-
-
-def test_summary_is_careful_when_nothing_is_found() -> None:
-    text = summarize([ProvenanceResult("c2pa", "not_detected")])
-    assert text.startswith("结论: 没有检测到 OpenAI 支持的来源信号")
-    assert "不代表一定不是 AI 生成" in text

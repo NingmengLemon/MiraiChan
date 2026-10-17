@@ -22,9 +22,9 @@ from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 
-from .client import ProvenanceError, ProvenanceResult, check_image
+from .client import ProvenanceError, check_image
 from .images import image_payloads, local_candidates, mime_of
-from .report import format_report, summarize
+from .report import format_report
 
 PLUGIN_IDENTIFIER = "mbplugin_provenance"
 # 凭据键: 值放在 credentials.json 的 refs 里, 或环境变量 MIRAICHAN_PROVENANCE_API_KEY
@@ -182,7 +182,6 @@ async def check_command(event: MessageEvent, adapter: Adapter) -> None:
 
     _cooldown[user_id] = time.monotonic()
     reports: list[str] = []
-    results: list[ProvenanceResult] = []
     async with _gate, aiohttp.ClientSession() as session:
         for index, seg_data in enumerate(images, start=1):
             try:
@@ -205,15 +204,12 @@ async def check_command(event: MessageEvent, adapter: Adapter) -> None:
                     f"图片 {index}/{len(images)}: 下载失败 ({type(exc).__name__})"
                 )
                 continue
-            results.extend(checked)
             reports.append(
                 format_report(
                     index, len(images), mime=mime, size=len(data), results=checked
                 )
             )
 
-    if results:
-        reports.append(summarize(results))
     if note:
         reports.append(note)
     await adapter.send_reply("\n\n".join(reports))

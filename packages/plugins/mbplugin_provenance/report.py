@@ -7,7 +7,7 @@ from collections.abc import Sequence
 
 from .client import ProvenanceResult
 
-__all__ = ["format_report", "summarize"]
+__all__ = ["format_report"]
 
 _LABELS = {"c2pa": "C2PA 清单", "synthid": "SynthID"}
 
@@ -57,15 +57,3 @@ def format_report(
     lines = [f"图片 {index}/{total} ({mime}, {_size_label(size)})"]
     lines.extend(_one_line(r) for r in results)
     return "\n".join(lines)
-
-
-def summarize(results: Sequence[ProvenanceResult]) -> str:
-    """整条消息的结论, 附带"只覆盖 OpenAI 信号"的说明"""
-    detected = [r for r in results if r.detected]
-    if detected:
-        kinds = ", ".join(_LABELS.get(r.type, r.type) for r in detected)
-        return f"结论: 检测到 OpenAI 支持的生成痕迹 ({kinds})"
-    return (
-        "结论: 没有检测到 OpenAI 支持的来源信号。"
-        "元数据被抹掉、水印被破坏或者是别家模型生成时也会是这个结果, 不代表一定不是 AI 生成。"
-    )
