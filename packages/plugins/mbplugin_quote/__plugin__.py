@@ -46,6 +46,8 @@ from .pipeline import (
     render_chat_quote,
 )
 from .render import CanvasTooLarge
+from .render.card import CardStyle
+from .render.mask import MaskCache, MaskStyle
 from .request import (
     ChatRequest,
     QuoteRequestError,
@@ -94,6 +96,7 @@ class _State:
     ready = False
     settings: QuoteSettings
     assets: Assets
+    masks: MaskCache
     resolver: ResourceResolver
     archive: QuoteArchive
     executor: ThreadPoolExecutor
@@ -112,19 +115,18 @@ def _data_root() -> Path:
     return get_data_root()
 
 
-def _load_assets(font_path: Path) -> Assets:
+def _load_assets(font_path: Path, masks: MaskCache, mask_style: MaskStyle) -> Assets:
     @lru_cache(maxsize=64)
     def fonts(size: int) -> ImageFont.FreeTypeFont:
         return ImageFont.truetype(str(font_path), size)
 
-    mask_path = resource_path(RESOURCE_DIR, "card_mask.png", identifier="quote")
     placeholder_path = resource_path(
         RESOURCE_DIR, "placeholder.png", identifier="quote"
     )
-    with Image.open(mask_path) as mask_img:
-        mask = mask_img.convert("RGBA")
     with Image.open(placeholder_path) as ph_img:
         placeholder = ph_img.convert("RGBA")
+    # 遮罩没有图片资源, 按配置画; 参数一变就重画
+    mask = masks.get(CardStyle().size, mask_style)
     fonts(28)  # 字体文件不存在时在这里就报错
     return Assets(fonts=fonts, mask=mask, placeholder=placeholder)
 
@@ -137,7 +139,13 @@ async def _() -> None:
         cfg = cfgloader.value
         data_root = _data_root()
         state.settings = cfg
-        state.assets = await asyncio.to_thread(_load_assets, data_root / cfg.font)
+        state.masks = MaskCache()
+        state.assets = await asyncio.to_thread(
+            _load_assets,
+            data_root / cfg.font,
+            state.masks,
+            cfg.card.mask.to_style(),
+        )
         state.resolver = ResourceResolver(
             data_root=data_root,
             avatar_source=cached_avatar_source.get,

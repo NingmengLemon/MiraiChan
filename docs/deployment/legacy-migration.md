@@ -71,5 +71,6 @@
 - 旧实例的插件配置 (`plugin_config/`) 中仍然需要的项转写到新的 `configs/`。引用图对应关系:
   `quoter_conf.emoji_cdn` / `momoquote_conf.emoji_cdn` -> `configs/quote/default.json` 的 `emoji_cdn`;
   `banned_stickersets` -> `chat.banned_sticker_sets`; `same_msg_min_dist` -> `limits.same_target_cooldown`;
-  `font` 改为相对 data 根的路径; `mask` `saveto` `uploader` 不再使用。
+  `font` 改为相对 data 根的路径; 遮罩素材的 `mask` 换成 `card.mask` 的四个参数 (默认值即卡片
+  现在的观感, 不用再准备图片); `saveto` `uploader` 不再使用。
 - 切换前用 `tools/fake_onebot_server.py` 在隔离目录里把计划启用的插件组合跑一遍 (见 `docs/development/testing.md`)。

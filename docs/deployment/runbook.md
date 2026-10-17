@@ -27,8 +27,9 @@
 
 2. 放字体到 `data/fonts/`。插件自带的静态资源可以用同名文件覆盖: 放进
    `data/resources/<identifier>/` 即可 (`identifier` 是不带 `mbplugin_` 前缀的插件名,
-   例如 `data/resources/quote/card_mask.png`、`data/resources/deeeer/no_avatar.png`),
-   没放时用包内自带的那份。
+   例如 `data/resources/quote/placeholder.png`、`data/resources/deeeer/no_avatar.png`),
+   没放时用包内自带的那份。按参数画的图 (例如引用图的卡片遮罩) 没有这份资源,
+   改插件的配置项即可。
 
 3. 写 `config.json` (参考 `config.example.json`):
 
