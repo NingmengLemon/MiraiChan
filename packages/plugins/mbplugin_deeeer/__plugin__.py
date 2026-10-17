@@ -12,6 +12,7 @@ from lemony_checkers import get_checker_factory_wrapper
 from lemony_images import bytes_to_b64_url
 from lemony_onebot_utils.botutils import cached_avatar_source
 from lemony_settings import BaseSettings, require
+from lemony_storage_helper.files import resource_path
 from lemony_utils.help import Command, register_help
 from melobot.bot import get_bot
 from melobot.plugin.base import PluginInfo, PluginPlanner
@@ -112,9 +113,10 @@ def post_init():
     GROUP_ISOLATION = cfgloader.value.group_isolation
     DEERS = []
     for d in cfgloader.value.enabled_deer_imgs:
+        deer_path = resource_path(RESOURCE_PATH, d["filename"], identifier="deeeer")
         DEERS.append(
             {
-                "data": Image.open(RESOURCE_PATH / d["filename"]).convert("RGBA"),
+                "data": Image.open(deer_path).convert("RGBA"),
                 "filename": d["filename"],
                 "random_weight": d["random_weight"],
             }
@@ -122,7 +124,9 @@ def post_init():
         logger.info(f"loaded deer img: {d['filename']}")
     logger.info(f"loaded all deer imgs, {len(DEERS)} in total")
     CORRECT_SIGN_IMG = Image.open(
-        RESOURCE_PATH / cfgloader.value.correct_sign_img
+        resource_path(
+            RESOURCE_PATH, cfgloader.value.correct_sign_img, identifier="deeeer"
+        )
     ).convert("RGBA")
     PAINTER = Painter()
 
