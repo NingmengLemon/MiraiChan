@@ -1,11 +1,48 @@
+import copy
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
+from lemony_settings import get_secret
 from pydantic import BaseModel, Field, Secret
 
 from .utils import get_project_root
 
 DEFAULT_CONFIG_PATH = get_project_root() / "config.json"
+DEFAULT_CREDENTIALS_PATH = get_project_root() / "credentials.json"
+
+# 允许从凭据文件 / 环境变量覆盖到根配置里的键。凭据只用于这些查找,
+# 不参与配置校验, 所以不会把别的配置项(比如插件列表)意外覆盖掉
+CREDENTIAL_KEYS = ("websocket.access_token",)
+
+
+def apply_credential_overrides(raw: Mapping[str, Any]) -> dict[str, Any]:
+    """把凭据里的值覆盖到原始配置上, 返回一份新的 dict。
+
+    读取顺序由 ``lemony_settings.credentials`` 决定 (环境变量优先, 其次凭据文件);
+    取不到值的键保持原样。缺的中间层会补成对象, 结构不对时交给 pydantic 报错。
+    """
+    data = copy.deepcopy(dict(raw))
+    for key in CREDENTIAL_KEYS:
+        value = get_secret(key)
+        if value is None:
+            continue
+        *parents, leaf = key.split(".")
+        node: dict[str, Any] = data
+        for part in parents:
+            child = node.get(part)
+            if not isinstance(child, dict):
+                child = {}
+                node[part] = child
+            node = child
+        node[leaf] = value
+    return data
+
+
+def plaintext_token_present(raw: Mapping[str, Any]) -> bool:
+    """配置里是否还留着明文的 websocket.access_token"""
+    websocket = raw.get("websocket")
+    return isinstance(websocket, dict) and bool(websocket.get("access_token"))
 
 
 class WebsocketIOConfigModel(BaseModel):

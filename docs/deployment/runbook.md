@@ -31,22 +31,36 @@
 
 3. 写 `config.json` (参考 `config.example.json`):
 
-   - `websocket`: `type = forward`, `url` 指向实现端, `access_token` 与实现端一致;
+   - `websocket`: `type = forward`, `url` 指向实现端 (access token 不放这里, 见下一步);
    - `plugins`: 上线的插件, 见下;
    - `log_levels`: 默认留空。
 
-4. 写权限配置 `configs/lemony_checkers/global.json` 的 `owner` / `admins`。
+4. 写凭据: 首次启动会在项目根创建 `credentials.json` (权限 0600), 把 access token 填进去:
+
+   ```json
+   {
+       "websocket.access_token": "与实现端一致的值"
+   }
+   ```
+
+   也可以不落文件, 用环境变量 (unit 里 `Environment=MIRAICHAN_WEBSOCKET_ACCESS_TOKEN=...`,
+   或 `EnvironmentFile=`); 环境变量优先于凭据文件。凭据文件也可以用 `--credentials-path` 指定到
+   别处。配置文件与凭据文件分开存放, 所以 `config.json` 可以放心分享 / 进备份。
+   旧实例的 `config.json` 里如果还留着 `websocket.access_token`, 启动时会打警告, 迁到凭据文件后
+   删掉即可。
+
+5. 写权限配置 `configs/lemony_checkers/global.json` 的 `owner` / `admins`。
    其余插件配置首次启动时按默认值生成在 `configs/<插件>/default.json`, 需要改的再改:
    - `configs/quote/default.json`: `emoji_font` 指向 `data/fonts/NotoColorEmoji.ttf`,
      或 `emoji_cdn` 指向 EmojiServer。
 
-5. 迁移旧数据 (替换旧实例时):
+6. 迁移旧数据 (替换旧实例时):
    - `deers.db` 原样复制到 `data/record/deers.db`, 启动时自动转换, 见 `legacy-migration.md`;
    - 旧 Recorder 的 `messages.db` 与旧引用图产物只归档, 不复制。
 
-6. 演练: 在开发机上跑 `uv run python tools/rehearse_e2e.py`, 应当全部通过。
+7. 演练: 在开发机上跑 `uv run python tools/rehearse_e2e.py`, 应当全部通过。
 
-7. 安装 systemd unit: 以 `deploy/miraichan.service.example` 为模板, 填好路径与用户,
+8. 安装 systemd unit: 以 `deploy/miraichan.service.example` 为模板, 填好路径与用户,
    `systemctl daemon-reload` 后 `systemctl enable --now <name>`。
 
 8. 验证: `journalctl -u <name> -f` 看到各插件 `成功加载插件` 与 ws 连接成功;

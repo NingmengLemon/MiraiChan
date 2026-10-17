@@ -34,9 +34,6 @@
   等出现真正的读改写消费者 (文件索引、资源覆盖表这类) 时再加, 用已在依赖里的 `filelock`,
   `.lock` 后缀与 `lemony_settings` 对齐。内容寻址命名与可覆盖资源解析已在
   `lemony_storage_helper.files` (`content_path` / `resource_path`)。
-- 凭据与配置分离: 凭据 (根 `config.json` 里 OneBot 11 的 `access_token`, 以后的 API key 等)
-  单独存放, 普通配置可以放心分享 / 进备份 / 给人看; 凭据文件权限收紧, 也可以从环境变量读。
-  `lemony_settings` 生成的插件配置同理。
 - QQInfoCache 的事件联动: 用消息事件的 sender 调 `remember_member` 预热,
   在群名片变更 / 退群通知里调 `invalidate_member`。目前只靠 TTL 过期。
 - 重启前后的状态 diff: `.重启` 完成后, 除了耗时 (`mbplugin_rebootable`), 再报告和重启前相比

@@ -166,6 +166,7 @@ cython_debug/
 
 # 忽略配置文件和日志文件
 /config.json
+/credentials.json
 melobot.log*
 # 旧的插件配置文件夹
 /plugin_config/

@@ -3,7 +3,6 @@
     "websocket": {
         "type": "forward",
         "url": "ws://127.0.0.1:10721",
-        "access_token": "YOUR_ULTRA_SECRET_ACCESS_TOKEN_HERE",
         "cd_time": 0
     },
     "load_depth": 3,

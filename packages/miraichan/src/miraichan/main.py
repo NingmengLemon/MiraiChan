@@ -7,7 +7,12 @@ from pathlib import Path
 import json5
 from lemony_checkers import init_checker_factory
 from lemony_images import init_default_font_cache
-from lemony_settings import init_settings_manager
+from lemony_settings import (
+    ensure_credentials_file,
+    init_settings_manager,
+    set_credentials_path,
+    warn_if_insecure,
+)
 from lemony_storage_helper.files import set_data_root
 from melobot import Bot, add_import_fallback
 from melobot.log import Logger, LogLevel
@@ -17,9 +22,12 @@ from typer import Option, Typer
 
 from .config import (
     DEFAULT_CONFIG_PATH,
+    DEFAULT_CREDENTIALS_PATH,
     ForwardWebsocketIOConfigModel,
     GlobalConfigModel,
     ReverseWebsocketIOConfigModel,
+    apply_credential_overrides,
+    plaintext_token_present,
 )
 from .loader import Loadable, resolve_plugin_path
 from .logging_bridge import install_logging_bridge
@@ -91,21 +99,27 @@ def _(
     config_path: Path | None = Option(
         None, "--config-path", "-c", help="Path to the configuration file."
     ),
+    credentials_path: Path | None = Option(
+        None, "--credentials-path", help="Path to the credentials file."
+    ),
 ):
     _main(
         debug=debug,
         config_path=config_path,
+        credentials_path=credentials_path,
     )
 
 
 def main(
     debug: bool = False,
     config_path: Path | None = None,
+    credentials_path: Path | None = None,
 ):
     # 提供一个直接调用的入口, 以便在不使用命令行参数的情况下启动 Miraichan
     _main(
         debug=debug,
         config_path=config_path,
+        credentials_path=credentials_path,
     )
 
 
@@ -142,14 +156,24 @@ def _setup_logging(*, debug: bool, levels: dict[str, str]) -> None:
 def _main(
     debug: bool,
     config_path: Path | None,
+    credentials_path: Path | None = None,
 ):
     from .validation_patches.ob11 import patch_all
 
     config_path = Path(config_path or DEFAULT_CONFIG_PATH)
+    set_credentials_path(credentials_path or DEFAULT_CREDENTIALS_PATH)
     set_global_logger(logger)
 
     logger.info("少女祈祷中... plz wait...")
     os.chdir(get_project_root())
+
+    try:
+        ensure_credentials_file(template={"websocket.access_token": ""})
+    except OSError:
+        logger.exception(
+            "无法创建凭据文件, 本次启动只能依赖环境变量或配置里的明文 access_token"
+        )
+    warn_if_insecure()
 
     if not config_path.is_file():
         try:
@@ -170,7 +194,13 @@ def _main(
         sys.exit(1)
 
     with open(config_path, "rb") as fp:
-        cfg = GlobalConfigModel.model_validate(json5.load(fp))
+        raw_cfg = json5.load(fp)
+    if plaintext_token_present(raw_cfg):
+        logger.warning(
+            "config.json 里还有明文的 websocket.access_token, "
+            "建议挪到凭据文件或环境变量后删掉这一项"
+        )
+    cfg = GlobalConfigModel.model_validate(apply_credential_overrides(raw_cfg))
     debug = debug or cfg.debug
     _setup_logging(debug=debug, levels=cfg.log_levels)
 
