@@ -1,3 +1,5 @@
+import math
+
 import pytest
 from mbplugin_quote.render.text import (
     draw_text_block,
@@ -38,7 +40,9 @@ def test_wrapped_lines_fit_width(width: int) -> None:
 
 def test_words_are_not_split_when_they_fit() -> None:
     block = layout_text("hello world", font(), max_width=font().getlength("hello w"))
-    assert line_texts(block) == ["hello ", "world"]
+    assert line_texts(block) == ["hello", "world"]
+    # 断行交给 lemony_images: 行尾空白不保留, 行宽只由看得见的文字决定
+    assert block.line_widths[0] == math.ceil(font().getlength("hello"))
 
 
 def test_overlong_word_is_hard_split() -> None:
