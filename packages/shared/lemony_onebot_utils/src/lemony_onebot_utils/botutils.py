@@ -1,8 +1,5 @@
 import asyncio
-import contextlib
 import functools
-import os
-import tempfile
 import time
 import traceback
 from collections.abc import Awaitable
@@ -12,7 +9,7 @@ import aiofiles
 from aiohttp import ClientSession, ClientTimeout
 from lemony_images import bytes_to_b64_url, text_to_image
 from lemony_network.request import HTTP_HEADERS, async_http
-from lemony_storage_helper.files import data_path
+from lemony_storage_helper.files import atomic_write_bytes, data_path
 from lemony_utils.misc import to_ordinal
 from melobot import get_bot
 from melobot.adapter.base import Adapter as BaseAdapter
@@ -54,19 +51,6 @@ async def get_reply(adapter: Adapter, event: MessageEvent) -> GetMsgEcho | None:
 #: 单次头像请求的超时。get_from_remote 会重试 3 次, 不设超时的话最坏要等
 #: 3 × aiohttp 默认的 300s, 调用方 (签到、引用渲染) 会一直挂在那里
 AVATAR_REQUEST_TIMEOUT = 10.0
-
-
-def _write_atomic(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "wb") as fp:
-            fp.write(data)
-        os.replace(tmp, path)
-    except BaseException:
-        with contextlib.suppress(OSError):
-            os.unlink(tmp)
-        raise
 
 
 @singleton
@@ -143,7 +127,7 @@ class AvatarCache:
             async with aiofiles.open(path, "rb") as fp:
                 return await fp.read()
         data = await self.get_from_remote(uid)
-        await asyncio.to_thread(_write_atomic, path, data)
+        await asyncio.to_thread(atomic_write_bytes, path, data, fsync=False)
         return data
 
     def _is_fresh(self, path: Path) -> bool:

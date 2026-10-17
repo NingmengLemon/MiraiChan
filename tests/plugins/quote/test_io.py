@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import unquote
 
 import pytest
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
@@ -13,7 +14,7 @@ from mbplugin_quote.model import ImageRef, SourceMessage
 from mbplugin_quote.request import ChatRequest
 from mbplugin_quote.resources import FetchLimits, ResourceResolver
 from mbplugin_quote.sources import fetch_messages, source_from_onebot
-from PIL import Image
+from PIL import Image, ImageFont
 
 # ---------- sources ----------
 
@@ -232,3 +233,136 @@ async def test_resolver_local_first_and_failures_are_collected(tmp_path: Path) -
     assert set(bundle.avatars) == {1}
     assert not bundle.emojis
     assert len(bundle.missing) == 3
+
+
+def _font_file(tmp_path: Path) -> Path:
+    """把 Pillow 自带的字体落到文件, 当作 emoji 字体用 (单色足以验证接线)
+
+    字体里真有字形的 emoji 用 ©, 真缺的用 🫠 (Emoji 14, 这个字体没有)。
+    """
+    if (tmp_path / "emoji.otf").exists():
+        return tmp_path / "emoji.otf"
+    font = ImageFont.load_default(28)
+    assert isinstance(font, ImageFont.FreeTypeFont)
+    path = tmp_path / "emoji.otf"
+    embedded = font.path
+    if isinstance(embedded, BytesIO):
+        path.write_bytes(embedded.getvalue())
+    else:
+        assert isinstance(embedded, str)
+        path.write_bytes(Path(embedded).read_bytes())
+    return path
+
+
+def _png_bytes(size: tuple[int, int] = (24, 24)) -> bytes:
+    buf = BytesIO()
+    Image.new("RGBA", size, (0, 0, 255, 255)).save(buf, "PNG")
+    return buf.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_resolver_draws_emoji_from_font_without_cdn(tmp_path: Path) -> None:
+    async def avatars(uid: int) -> bytes:
+        raise ConnectionError
+
+    r = ResourceResolver(
+        data_root=tmp_path,
+        avatar_source=avatars,
+        emoji_cdn=None,
+        emoji_font=_font_file(tmp_path),
+        limits=FetchLimits(timeout=0.2),
+    )
+    try:
+        bundle = await r.resolve(emojis=["©"])
+    finally:
+        await r.close()
+    assert set(bundle.emojis) == {"©"}
+    assert max(bundle.emojis["©"].size) <= 160
+    # 没有配置 CDN, 字体里没有的字形不算资源缺失
+    assert bundle.missing == []
+
+
+@pytest.mark.asyncio
+async def test_resolver_asks_cdn_only_for_glyphs_the_font_lacks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """字体里没有的字形 (画出来是 .notdef) 要退到 CDN, 不能贴个黑框了事"""
+    fetched: list[str] = []
+
+    async def fake_download(url: str) -> bytes:
+        fetched.append(url)
+        return _png_bytes()
+
+    async def avatars(uid: int) -> bytes:
+        raise ConnectionError
+
+    r = ResourceResolver(
+        data_root=tmp_path,
+        avatar_source=avatars,
+        emoji_cdn="https://emoji.example",
+        emoji_font=_font_file(tmp_path),
+        limits=FetchLimits(timeout=0.2),
+    )
+    monkeypatch.setattr(r, "_download", fake_download)
+    try:
+        bundle = await r.resolve(emojis=["©", "🫠"])
+    finally:
+        await r.close()
+    # © 由字体画, 🫠 字体没有, 因此只有它去下载
+    assert set(bundle.emojis) == {"©", "🫠"}
+    assert len(fetched) == 1
+    assert "🫠" in unquote(fetched[0])
+    assert bundle.missing == []
+
+
+@pytest.mark.asyncio
+async def test_resolver_does_not_touch_cdn_when_the_font_covers_everything(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def boom(url: str) -> bytes:
+        raise AssertionError("字体里有这个字形, 不该去下载")
+
+    async def avatars(uid: int) -> bytes:
+        raise ConnectionError
+
+    r = ResourceResolver(
+        data_root=tmp_path,
+        avatar_source=avatars,
+        emoji_cdn="https://emoji.example",
+        emoji_font=_font_file(tmp_path),
+        limits=FetchLimits(timeout=0.2),
+    )
+    monkeypatch.setattr(r, "_download", boom)
+    try:
+        bundle = await r.resolve(emojis=["©"])
+    finally:
+        await r.close()
+    assert set(bundle.emojis) == {"©"}
+
+
+@pytest.mark.asyncio
+async def test_broken_emoji_font_degrades_to_the_cdn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """emoji_font 配错时不该让整个插件不可用, 只是没有字体这一级来源"""
+
+    async def fake_download(url: str) -> bytes:
+        return _png_bytes()
+
+    async def avatars(uid: int) -> bytes:
+        raise ConnectionError
+
+    r = ResourceResolver(
+        data_root=tmp_path,
+        avatar_source=avatars,
+        emoji_cdn="https://emoji.example",
+        emoji_font=tmp_path / "no-such-font.ttf",
+        limits=FetchLimits(timeout=0.2),
+    )
+    monkeypatch.setattr(r, "_download", fake_download)
+    try:
+        bundle = await r.resolve(emojis=["©"])
+    finally:
+        await r.close()
+    assert set(bundle.emojis) == {"©"}
+    assert bundle.missing == []

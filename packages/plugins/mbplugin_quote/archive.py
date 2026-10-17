@@ -8,7 +8,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -17,6 +16,7 @@ from pathlib import Path
 
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
 from lemony_storage_helper.database.utils import datetime_column_tzaware
+from lemony_storage_helper.files import atomic_write_bytes
 from sqlalchemy import Column, Index, String
 from sqlmodel import Field, select
 from uuid_utils.compat import uuid7
@@ -103,24 +103,11 @@ class QuoteArchive:
     def add_hook(self, hook: ArchivedHook) -> None:
         self._hooks.append(hook)
 
-    @staticmethod
-    def _write_atomic(path: Path, data: bytes) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-        try:
-            with open(tmp, "wb") as fp:
-                fp.write(data)
-                fp.flush()
-                os.fsync(fp.fileno())
-            os.replace(tmp, path)
-        finally:
-            tmp.unlink(missing_ok=True)
-
     async def save(self, record: ArchiveRecord, data: bytes, fmt: str) -> QuoteArtifact:
         artifact_id = uuid7()
         now = _now()
         rel = Path(f"{now:%Y}") / f"{now:%m}" / f"{artifact_id.hex}.{fmt}"
-        await asyncio.to_thread(self._write_atomic, self._root / rel, data)
+        await asyncio.to_thread(atomic_write_bytes, self._root / rel, data)
         artifact = QuoteArtifact(
             id=artifact_id,
             created_at=now,

@@ -2,7 +2,7 @@ from collections.abc import Iterable
 
 from PIL import ImageFont
 
-from .typedef import _FontFileT
+from ..typedef import _FontFileT
 
 
 class FontCache:
@@ -64,7 +64,7 @@ def _reset_for_testing() -> None:
     Example::
 
         def setup_function():
-            lemony_images.font._reset_for_testing()
+            lemony_images.text.font._reset_for_testing()
     """
     global _default_font_cache
     _default_font_cache = None

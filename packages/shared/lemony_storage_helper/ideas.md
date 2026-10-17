@@ -15,7 +15,7 @@
 
 - 数据库路径已经有统一 base，但本地文件还没有。比如 [`mbplugin_recorder`](packages/plugins/mbplugin_recorder/__plugin__.py:15) 的数据库路径是相对的 [`record/recorder.db`](packages/plugins/mbplugin_recorder/__plugin__.py:16)，媒体缓存却写死为 [`data/record/media`](packages/plugins/mbplugin_recorder/__plugin__.py:17)，它绕过了现有 [`set_relative_path_base()`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/database/sqlite.py:28) 的统一语义。
 - [`mbplugin_deeeer`](packages/plugins/mbplugin_deeeer/core.py:130) 直接读 [`data/no_data.png`](data/no_data.png)，旁边也已经写了 TODO：cwd 不一定是项目根，需要统一资源管理器。
-- [`lemony_storage_helper.files`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/files/__init__.py:1) 还是空的，但 [`pyproject.toml`](packages/shared/lemony_storage_helper/pyproject.toml:27) 已经给了 files extra，说明本地文件管理是规划中的下一块。
+- [`lemony_storage_helper.files`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/files/__init__.py:1) 已经有 data root、`data_path` / `configured_data_path` 与原子写入 (`atomic_write_bytes` / `atomic_write_text`)；还缺内容寻址命名与可覆盖资源的解析。
 - [`mbplugin_recorder.media_cache_path()`](packages/plugins/mbplugin_recorder/media.py:70) 已经包含一部分“文件安全命名 + 内容哈希路径”的雏形，但它是插件私有逻辑；后面很适合下沉到 [`lemony_storage_helper.files`](packages/shared/lemony_storage_helper/src/lemony_storage_helper/files/__init__.py:1)。
 
 ## 对接下来“本地文件管理”的重点想法
@@ -104,9 +104,9 @@ data/
 
 提供：
 
-- resolve path
+- resolve path (已有: `data_path` / `configured_data_path`)
 - async read/write
-- atomic write
+- atomic write (已有: `atomic_write_bytes` / `atomic_write_text`)
 - exists/stat/delete
 - list
 - temporary file

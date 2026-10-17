@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from aiohttp import ClientSession, ClientTimeout
+from lemony_images.text import ColorFontEmoji
 from lemony_network.qqntmedia_sslcontext import QQNTMEDIA_SSL_CONTEXT
 from lemony_network.request import HTTP_HEADERS
 from PIL import Image
@@ -66,11 +67,24 @@ class ResourceResolver:
         data_root: Path,
         avatar_source: AvatarSource,
         emoji_cdn: str | None,
+        emoji_font: Path | None = None,
         limits: FetchLimits = FetchLimits(),  # noqa: B008 - frozen dataclass, 共享默认实例是安全的
     ) -> None:
         self._data_root = data_root
         self._avatar_source = avatar_source
         self._emoji_cdn = emoji_cdn.rstrip("/") + "/" if emoji_cdn else None
+        self._emoji_renderer: ColorFontEmoji | None = None
+        if emoji_font is not None:
+            try:
+                self._emoji_renderer = ColorFontEmoji(emoji_font)
+            except Exception as e:  # 字体配错只是没有字体可用, 不该让整个插件不可用
+                logger.exception(
+                    "emoji_font %s 打不开 (%s), 改用 emoji_cdn 或正文字体的字形",
+                    emoji_font,
+                    type(e).__name__,
+                )
+        if self._emoji_renderer is not None and not self._emoji_renderer.is_color:
+            logger.warning("emoji_font %s 没有彩色字形表, emoji 会画成单色", emoji_font)
         self._limits = limits
         self._session: ClientSession | None = None
         self._sem = asyncio.Semaphore(limits.concurrency)
@@ -149,17 +163,34 @@ class ResourceResolver:
         if (cached := self._emoji_cache.get(em)) is not None:
             bundle.emojis[em] = cached
             return
-        if self._emoji_cdn is None:
-            return
         try:
-            data = await self._download(self._emoji_cdn + quote(em, safe=""))
-            img = await asyncio.to_thread(_decode, data, 160)
-        except Exception as e:  # noqa: BLE001 - 同上
+            img = await self._emoji_image(em)
+        except Exception as e:  # noqa: BLE001 - 单个资源失败只记缺失, 不中断整张图
             bundle.missing.append(f"emoji {em}: {type(e).__name__}")
+            return
+        if img is None:
             return
         if len(self._emoji_cache) < 4096:
             self._emoji_cache[em] = img
         bundle.emojis[em] = img
+
+    async def _emoji_image(self, em: str) -> Image.Image | None:
+        """彩色字体优先, 字体里没有这个字形时才去下载; 都没有时返回 None"""
+        if self._emoji_renderer is not None:
+            # 字体渲染是纯 CPU 的, 放线程里免得卡住事件循环
+            try:
+                img = await asyncio.to_thread(
+                    self._emoji_renderer.render, em, target=160
+                )
+            except Exception as e:  # noqa: BLE001 - 字体画不出来时还有 CDN 这条退路
+                logger.warning("emoji 字体画 %r 失败: %s", em, type(e).__name__)
+                img = None
+            if img is not None:
+                return img
+        if self._emoji_cdn is None:
+            return None
+        data = await self._download(self._emoji_cdn + quote(em, safe=""))
+        return await asyncio.to_thread(_decode, data, 160)
 
     async def resolve(
         self,

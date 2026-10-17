@@ -9,7 +9,11 @@
 - 一个已经登录、开启正向 ws 的 OneBot v11 实现端。`reportSelfMessage` 关闭即可;
   引用图插件默认忽略 bot 自己的消息, 不依赖这个开关。
 - 字体文件 (不在仓库里): `data/fonts/NotoSansSC-Medium.ttf` 与 `data/fonts/sarasa-mono-sc-semibold.ttf`。
-- 可选: EmojiServer (引用图里的 emoji 图片)。
+- 可选: 彩色 emoji 字体 (推荐, 绝大多数 emoji 就不必再下载图片) 或 EmojiServer。
+  Debian 装 `fonts-noto-color-emoji` 后把 `/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf`
+  拷进 `data/fonts/` 即可 (trixie 的 2.051 版实测是 CBDT 位图字体, 只有 109px 一档,
+  Pillow 能画)。COLRv1 的彩色字体 Pillow 画不出来, 放进去会在启动时告警。
+  字体里缺的字形仍然会去 `emoji_cdn` 取, 两边都配也可以。
 
 ## 步骤
 
@@ -31,7 +35,8 @@
 
 4. 写权限配置 `configs/lemony_checkers/global.json` 的 `owner` / `admins`。
    其余插件配置首次启动时按默认值生成在 `configs/<插件>/default.json`, 需要改的再改:
-   - `configs/quote/default.json`: `emoji_cdn` 指向 EmojiServer。
+   - `configs/quote/default.json`: `emoji_font` 指向 `data/fonts/NotoColorEmoji.ttf`,
+     或 `emoji_cdn` 指向 EmojiServer。
 
 5. 迁移旧数据 (替换旧实例时):
    - `deers.db` 原样复制到 `data/record/deers.db`, 启动时自动转换, 见 `legacy-migration.md`;

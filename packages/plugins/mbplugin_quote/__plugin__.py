@@ -19,7 +19,7 @@ from lemony_onebot_utils.qq import qq_info_cache
 from lemony_settings import require
 from lemony_storage_helper.database import StorageStartupError
 from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
-from lemony_storage_helper.files import get_data_root
+from lemony_storage_helper.files import configured_data_path, get_data_root
 from lemony_utils.help import Command, register_help
 from melobot import PluginPlanner, get_bot
 from melobot.exceptions import PluginIpcError
@@ -134,6 +134,9 @@ async def _() -> None:
             data_root=data_root,
             avatar_source=cached_avatar_source.get,
             emoji_cdn=cfg.emoji_cdn,
+            emoji_font=(
+                configured_data_path(cfg.emoji_font) if cfg.emoji_font else None
+            ),
             limits=FetchLimits(
                 timeout=cfg.limits.fetch_timeout,
                 max_bytes=cfg.limits.max_image_bytes,
