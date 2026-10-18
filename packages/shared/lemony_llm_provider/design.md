@@ -281,7 +281,8 @@ debug 级别单独开关, 截断长度可配。
 
 `tools/llm_smoke.py` 打真实端点。2026-10-18 用 OpenCode Go 与 DeepSeek 官方各跑一遍
 (chat 走 `deepseek-v4.1-flash`, responses 走 `gpt-6-luna` 与 `deepseek-v4-flash`, anthropic 走 `claude-haiku-5-5`),
-五个端点全部通过: 文本流、reasoning、工具调用、工具结果回填后的第二轮、结构化输出。真端点暴露了三件假端点测不到的事:
+五个端点全部通过: 文本流、reasoning、图片输入(纯色小图三套协议都能答对颜色)、工具调用、工具结果回填后的第二轮、
+结构化输出。真端点暴露了三件假端点测不到的事:
 
 - 新一代 Claude 拒绝 `thinking.type=enabled`, 要求 `thinking.type=adaptive` 加 `output_config.effort`。
   于是 quirks 里加了 `anthropic_thinking_style`, 老模型才用 `enabled` 加 `budget_tokens`

@@ -17,6 +17,7 @@ from typing import Literal
 from lemony_llm_provider import (
     CompletionRequest,
     EndpointSpec,
+    ImagePart,
     LLMError,
     Message,
     Pool,
@@ -127,6 +128,17 @@ def _spec(target: Target, key: str) -> EndpointSpec:
     )
 
 
+def red_square_png() -> bytes:
+    """临时生成一张纯色小图, 用来验证图片输入这条路"""
+    from io import BytesIO
+
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (16, 16), (220, 30, 30)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
 def _fmt_usage(usage: Usage | None) -> str:
     if usage is None:
         return "usage=None"
@@ -213,6 +225,16 @@ async def _structured(pool: Pool) -> None:
     print(f"  json     ok  finish={result.finish_reason}  text={result.text[:100]!r}")
 
 
+async def _image_round(pool: Pool) -> None:
+    image = ImagePart(data=red_square_png(), media_type="image/png")
+    request = CompletionRequest(
+        messages=(Message.user("这张图主要是什么颜色? 用一个词回答.", image),),
+        max_tokens=256,
+    )
+    result = await pool.complete(request, session_id="smoke-image")
+    print(f"  image    ok  finish={result.finish_reason}  text={result.text[:60]!r}")
+
+
 async def run(target: Target, *, with_structured: bool) -> list[str]:
     key = os.environ.get(target.env)
     if not key:
@@ -223,6 +245,7 @@ async def run(target: Target, *, with_structured: bool) -> list[str]:
     try:
         for name, call in (
             ("plain", _plain(pool)),
+            ("image", _image_round(pool)),
             (
                 "tool",
                 _tool_round(

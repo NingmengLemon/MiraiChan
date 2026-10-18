@@ -146,6 +146,19 @@ class Usage:
             ),
         )
 
+    def plus(self, other: Usage) -> Usage:
+        """累计多个请求的用量; merged 是给流式分片用的, 取的是较大值"""
+        return Usage(
+            input_tokens=self.input_tokens + other.input_tokens,
+            output_tokens=self.output_tokens + other.output_tokens,
+            cached_input_tokens=self.cached_input_tokens + other.cached_input_tokens,
+            cache_write_input_tokens=(
+                self.cache_write_input_tokens + other.cache_write_input_tokens
+            ),
+            reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
+            total_tokens=self.total_tokens + other.total_tokens,
+        )
+
 
 @dataclass(frozen=True)
 class TextDelta:

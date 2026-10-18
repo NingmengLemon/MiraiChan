@@ -107,7 +107,8 @@ class _Endpoint:
             else self.latency_ms * 0.8 + elapsed_ms * 0.2
         )
         if usage is not None:
-            self.usage = self.usage.merged(usage)
+            # 这里是跨请求累计, 不能用 merged (那个取的是流式分片之间的较大值)
+            self.usage = self.usage.plus(usage)
 
     def report_failure(self, exc: LLMError) -> None:
         now = time.monotonic()
