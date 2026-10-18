@@ -14,7 +14,7 @@
 
 - 群聊管理: 入群审核等, 设想见 `packages/plugins/mbplugin_group_manager/planning.md`。
 - 能不能好好说话 (缩写翻译): 见 `packages/plugins/mbplugin_nbnhhsh/planning.md`。
-- LLM 接入: 纯异步 OpenAI 兼容层的可行性分析见 `packages/shared/lemony_llm_provider/planning.md`。
+- LLM 接入: 纯异步多协议访问层, 目标、协议对照与未决问题见 `packages/shared/lemony_llm_provider/design.md`。
 - B 站内容自动解析: 群里出现 B 站链接 / 小程序卡片 / BV 号时自动解析出标题、UP 主、简介等,
   并去掉分享链接里的跟踪参数 (旧实例的 BiliLinkPurify 插件做的就是后者)。
 - "手性碳验证码": 新成员入群时出题验证 (给出分子结构, 找出手性碳), 可以和群聊管理的入群审核放在一起。
