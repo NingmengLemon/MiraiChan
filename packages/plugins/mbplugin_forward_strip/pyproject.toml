@@ -5,6 +5,7 @@ description = "Cut trailing ads off a forwarded chat log with a Python slice (.s
 readme = "readme.md"
 requires-python = ">=3.12"
 dependencies = [
+    "lemony_checkers",
     "lemony_settings",
     "lemony_utils",
 ]
@@ -16,5 +17,6 @@ packages = ["mbplugin_forward_strip"]
 mbplugin_forward_strip = "."
 
 [tool.uv.sources]
+lemony_checkers = { workspace = true }
 lemony_settings = { workspace = true }
 lemony_utils = { workspace = true }

@@ -170,7 +170,8 @@ async def test_strip_keeps_identity_and_order() -> None:
 
 
 @pytest.mark.asyncio
-async def test_strip_falls_back_when_nested_is_rejected() -> None:
+async def test_strip_refuses_to_degrade_nested_forward() -> None:
+    # 带嵌套转发时如果发送失败, 宁可报错, 也不发出缺内容的记录
     nodes = [
         _gocq_node(1, "甲", "普通"),
         {
@@ -186,13 +187,17 @@ async def test_strip_falls_back_when_nested_is_rejected() -> None:
         },
     ]
     io = _FakeIo(_reply_segments(), nodes, fail_first=True)
-    result = await strip_forward(io, group_id=20000, reply_message_id=999, spec="[:]")
-    assert result.dropped_nested is True
-    assert result.nested == 1
-    second = io.sent[1]
-    content = second[1]["data"]["content"]
-    assert not any(seg["type"] == "forward" for seg in content)
-    assert any("嵌套聊天记录已省略" in seg["data"].get("text", "") for seg in content)
+    with pytest.raises(StripError, match="嵌套转发"):
+        await strip_forward(io, group_id=20000, reply_message_id=999, spec="[:]")
+    # 只尝试过一次, 没有发出残缺的版本
+    assert len(io.sent) == 1
+
+
+@pytest.mark.asyncio
+async def test_strip_plain_failure_is_generic() -> None:
+    io = _FakeIo(_reply_segments(), [_gocq_node(1, "甲", "一")], fail_first=True)
+    with pytest.raises(StripError, match="没有发出去"):
+        await strip_forward(io, group_id=20000, reply_message_id=999, spec="[:]")
 
 
 @pytest.mark.asyncio

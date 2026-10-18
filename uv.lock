@@ -1012,12 +1012,14 @@ name = "mbplugin-forward-strip"
 version = "0.1.0"
 source = { editable = "packages/plugins/mbplugin_forward_strip" }
 dependencies = [
+    { name = "lemony-checkers" },
     { name = "lemony-settings" },
     { name = "lemony-utils" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
 ]

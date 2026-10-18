@@ -41,7 +41,6 @@ class StripResult:
     total: int
     kept: int
     nested: int
-    dropped_nested: bool = False
 
 
 def _nodes_of(raw: Sequence[Any]) -> list[ForwardNode]:
@@ -53,25 +52,6 @@ def _nodes_of(raw: Sequence[Any]) -> list[ForwardNode]:
         if node is not None:
             nodes.append(node)
     return nodes
-
-
-def _drop_nested(nodes: Sequence[ForwardNode]) -> list[ForwardNode]:
-    """把节点内容里的嵌套转发换成一行文字, 用于协议端不吃嵌套时的兜底"""
-    replaced: list[ForwardNode] = []
-    for node in nodes:
-        content = tuple(seg for seg in node.content if seg.get("type") != "forward")
-        if len(content) != len(node.content):
-            content += ({"type": "text", "data": {"text": "[嵌套聊天记录已省略]"}},)
-        replaced.append(
-            ForwardNode(
-                content=content,
-                uin=node.uin,
-                name=node.name,
-                time=node.time,
-                refer_id=node.refer_id,
-            )
-        )
-    return replaced
 
 
 async def strip_forward(
@@ -101,17 +81,17 @@ async def strip_forward(
     if len(kept) > max_nodes:
         raise StripError(f"截完还有 {len(kept)} 条, 超过 {max_nodes} 条的上限")
 
-    # 先按原样发, 让每条消息的昵称和头像保持原主; 协议端不认嵌套时再降级
+    # 按原样发, 每条消息的昵称和头像保持原主。
+    # 嵌套转发发不出去时宁可报错, 不发一条缺了内容的记录
     nested = sum(count_nested_forwards(node) for node in kept)
     payload = [to_payload(node) for node in kept]
     try:
         await io.send_forward_nodes(group_id, payload)
-    except Exception:
-        if not nested:
-            raise
-        payload = [to_payload(node) for node in _drop_nested(kept)]
-        await io.send_forward_nodes(group_id, payload)
-        return StripResult(
-            total=len(nodes), kept=len(kept), nested=nested, dropped_nested=True
-        )
+    except Exception as exc:
+        if nested:
+            raise StripError(
+                f"发送失败: 保留的节点里有 {nested} 处嵌套转发, 当前实现端可能不支持, "
+                "没有发送残缺的记录"
+            ) from exc
+        raise StripError("转发没有发出去") from exc
     return StripResult(total=len(nodes), kept=len(kept), nested=nested)
