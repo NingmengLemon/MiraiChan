@@ -54,6 +54,7 @@ members = [
     "packages/plugins/mbplugin_toolbox",
     "packages/plugins/mbplugin_provenance",
     "packages/plugins/mbplugin_group_history",
+    "packages/plugins/mbplugin_readcheck",
     # "packages/plugins/*",
 ]
 
@@ -84,6 +85,7 @@ mbplugin_helper = { workspace = true }
 mbplugin_toolbox = { workspace = true }
 mbplugin_provenance = { workspace = true }
 mbplugin_group_history = { workspace = true }
+mbplugin_readcheck = { workspace = true }
 
 [dependency-groups]
 dev = [

@@ -22,6 +22,7 @@ members = [
     "mbplugin-moelottery",
     "mbplugin-provenance",
     "mbplugin-quote",
+    "mbplugin-readcheck",
     "mbplugin-rebootable",
     "mbplugin-recorder",
     "mbplugin-toolbox",
@@ -930,6 +931,29 @@ requires-dist = [
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "pillow", specifier = ">=13.0.0" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
+]
+
+[[package]]
+name = "mbplugin-readcheck"
+version = "0.1.0"
+source = { editable = "packages/plugins/mbplugin_readcheck" }
+dependencies = [
+    { name = "httpx2" },
+    { name = "lemony-llm-provider" },
+    { name = "lemony-onebot-utils" },
+    { name = "lemony-settings" },
+    { name = "lemony-utils" },
+    { name = "tzdata" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx2" },
+    { name = "lemony-llm-provider", editable = "packages/shared/lemony_llm_provider" },
+    { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
+    { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "tzdata", specifier = ">=2025.2" },
 ]
 
 [[package]]
