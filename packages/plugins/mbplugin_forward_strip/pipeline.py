@@ -5,6 +5,7 @@ IO 全部走注入的 ``ForwardIo``, 所以这里可以用假实现测试, 不�
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -20,6 +21,8 @@ from .nodes import (
 )
 
 __all__ = ["ForwardIo", "StripError", "StripResult", "strip_forward"]
+
+logger = logging.getLogger(__name__)
 
 
 class StripError(ValueError):

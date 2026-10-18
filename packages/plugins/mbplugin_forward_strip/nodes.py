@@ -23,6 +23,7 @@ __all__ = [
     "SegmentDict",
     "SliceSpecError",
     "count_nested_forwards",
+    "describe_shape",
     "find_forward_id",
     "forward_items",
     "from_payload",
@@ -217,6 +218,7 @@ def parse_slice(text: str) -> slice:
         raise SliceSpecError("步长不能是 0")
     return slice(start, stop, step)
 
+
 def forward_items(data: object) -> list[Any]:
     """从 get_forward_msg 的 data 里取节点数组, 两种键名都认"""
     if isinstance(data, list):
@@ -227,3 +229,18 @@ def forward_items(data: object) -> list[Any]:
             if isinstance(value, list):
                 return value
     return []
+
+
+def describe_shape(data: object) -> str:
+    """只描述结构不带上正文, 用于形状不识别时的日志"""
+    if isinstance(data, Mapping):
+        return f"dict keys={sorted(map(str, data))}"
+    if isinstance(data, list):
+        first = data[0] if data else None
+        keys = (
+            sorted(map(str, first))
+            if isinstance(first, Mapping)
+            else type(first).__name__
+        )
+        return f"list len={len(data)} first={keys}"
+    return type(data).__name__

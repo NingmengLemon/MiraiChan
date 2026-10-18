@@ -21,6 +21,7 @@ from mbplugin_forward_strip.nodes import (
     ForwardNode,
     SliceSpecError,
     count_nested_forwards,
+    describe_shape,
     find_forward_id,
     forward_items,
     from_forward_item,
@@ -241,3 +242,9 @@ def test_forward_items_accepts_both_keys() -> None:
     assert forward_items([4]) == [4]
     assert forward_items(None) == []
     assert forward_items({"other": 1}) == []
+
+
+def test_describe_shape_is_structure_only() -> None:
+    assert describe_shape({"messages": []}) == "dict keys=['messages']"
+    assert describe_shape([{"a": 1, "b": 2}]) == "list len=1 first=['a', 'b']"
+    assert describe_shape(None) == "NoneType"
