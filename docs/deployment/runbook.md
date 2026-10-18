@@ -112,11 +112,18 @@ bot 由 systemd 管理, 输出进 journald (不再有单独的日志文件)。`<
     "mbplugin_emergency_alerts",
     "mbplugin_toolbox",
     "mbplugin_provenance"
+    // agent 插件需要额外配置 (configs/llm/default.json 与联网凭据), 配好之后再打开
+    // "mbplugin_group_history",
+    // "mbplugin_readcheck"
 ]
 ```
 
 `mbplugin_emergency_alerts` 的推送行为改动后, 升级前先在开发机上跑
 `uv run python tools/rehearse_alerts.py`。它的留档数据库在 `data/emergency_alerts/`。
+
+`config.json` 由 json5 读取, 所以可以写注释; 上面两条 agent 插件默认注释掉:
+`mbplugin_group_history` 要一份能调工具的 `llm` 配置, `mbplugin_readcheck` 还要联网检索的凭据
+(键名 `readcheck.tools.api_key`)。没配就打开, 指令只会回一句"暂时不可用"。
 
 ## 升级已有实例
 

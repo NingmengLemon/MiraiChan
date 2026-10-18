@@ -51,6 +51,7 @@ from .render.mask import MaskCache, MaskStyle
 from .request import (
     ChatRequest,
     QuoteRequestError,
+    chat_tokens,
     check_limits,
     parse_chat_args,
 )
@@ -478,7 +479,8 @@ async def quote_chat(event: GroupMessageEvent, adapter: Adapter, args: CmdArgs) 
     if not await _gate_permission_only(event, "chat"):
         return
     try:
-        req = parse_chat_args([str(v) for v in args.vals])
+        # 不用 CmdArgs: 它按命令起始符切参数, 区间里的 ".." 会被切成两条命令
+        req = parse_chat_args(chat_tokens(event.text or "", "mq", "momoquote"))
         if not _is_bot_admin(event):
             check_limits(
                 req,

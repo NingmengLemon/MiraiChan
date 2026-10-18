@@ -17,6 +17,7 @@ __all__ = [
     "ChatRequest",
     "LimitExceeded",
     "QuoteRequestError",
+    "chat_tokens",
     "check_limits",
     "parse_chat_args",
 ]
@@ -26,6 +27,25 @@ _INT_RE = re.compile(r"^[+-]?\d+$")
 # 手机输入法常把 x 打成乘号, 一并接受
 _SCALE_RE = re.compile(r"^(\d+(?:\.\d+)?)[xX\u00d7]$")
 _SENDER_ONLY_FLAGS = frozenset({"-s", "--sender-only"})
+
+
+def chat_tokens(text: str, *names: str) -> list[str]:
+    """从整条消息里取出命令之后的参数 token。
+
+    melobot 的命令解析器按命令起始符切分参数, 参数里出现的 ``.`` 会被当成下一条命令的
+    起点, ``-5..5`` 到手时只剩 ``-5``, 区间的正半段就悄悄丢了。所以这里不经过
+    ``CmdArgs``, 直接从原文里切; 遇到下一个命令起始符就停, 免得把后面的命令吃进来。
+    """
+    pattern = "|".join(re.escape(name) for name in names)
+    stripped = re.sub(
+        rf"^[.。]\s*(?:{pattern})(?:\s+|$)", "", text.strip(), count=1, flags=re.I
+    )
+    tokens: list[str] = []
+    for token in stripped.split():
+        if token[:1] in {".", "。"}:
+            break
+        tokens.append(token)
+    return tokens
 
 
 class QuoteRequestError(ValueError):
