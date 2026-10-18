@@ -32,6 +32,8 @@ dependencies = [
     "mbplugin_toolbox",
     "mbplugin_provenance",
     "mbplugin_group_history",
+    "mbplugin_readcheck",
+    "mbplugin_forward_strip",
     # workspace members above
     "melobot[onebot]>=3.5.0",
 ]
@@ -55,6 +57,7 @@ members = [
     "packages/plugins/mbplugin_provenance",
     "packages/plugins/mbplugin_group_history",
     "packages/plugins/mbplugin_readcheck",
+    "packages/plugins/mbplugin_forward_strip",
     # "packages/plugins/*",
 ]
 
@@ -86,6 +89,7 @@ mbplugin_toolbox = { workspace = true }
 mbplugin_provenance = { workspace = true }
 mbplugin_group_history = { workspace = true }
 mbplugin_readcheck = { workspace = true }
+mbplugin_forward_strip = { workspace = true }
 
 [dependency-groups]
 dev = [

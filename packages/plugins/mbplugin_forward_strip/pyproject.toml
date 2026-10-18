@@ -1,0 +1,20 @@
+[project]
+name = "mbplugin_forward_strip"
+version = "0.1.0"
+description = "Cut trailing ads off a forwarded chat log with a Python slice (.strip)."
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = [
+    "lemony_settings",
+    "lemony_utils",
+]
+
+[tool.setuptools]
+packages = ["mbplugin_forward_strip"]
+
+[tool.setuptools.package-dir]
+mbplugin_forward_strip = "."
+
+[tool.uv.sources]
+lemony_settings = { workspace = true }
+lemony_utils = { workspace = true }
