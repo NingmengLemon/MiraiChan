@@ -7,9 +7,13 @@ authors = [
 ]
 dependencies = [
     "anthropic>=1.15.0",
+    "lemony-settings",
     "openai>=3.35.1",
 ]
 
 requires-python = ">=3.12,<3.14"
 readme = "README.md"
 license = { text = "AGPL3" }
+
+[tool.uv.sources]
+lemony-settings = { workspace = true }

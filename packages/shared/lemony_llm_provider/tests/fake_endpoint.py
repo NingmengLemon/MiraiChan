@@ -1,7 +1,7 @@
-"""本地假端点: 用真实 SSE 形状分别模拟 chat completions / responses / anthropic messages
+"""测试用的本地假端点
 
-三个端点的语义内容相同 (两段思维链、两段正文、两个工具调用、一份用量), 只是协议形状不同。
-按请求里的 model 切换形状, 用来覆盖正常、截断、报错这些分支。
+用真实 SSE 形状模拟 chat completions / responses / anthropic messages, 三个端点的语义内容相同
+(两段思维链、两段正文、两个工具调用、一份含缓存读写的用量)。按请求里的 model 切换形状。
 """
 
 from __future__ import annotations
@@ -11,50 +11,50 @@ import json
 import socket
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from aiohttp import web
+
+_CAPTURED = web.AppKey("captured", list)
 
 NORMAL = "fake-model"
 DS_SHAPE = "ds-shape"  # chat: usage 附在最后一个内容块上, 不单独下发
 INCOMPLETE_SHAPE = "incomplete-shape"  # responses: response.incomplete
 FAILED_SHAPE = "failed-shape"  # responses: response.failed
 TRUNCATE_SHAPE = "truncate-shape"  # 任意协议: 发一半就断流
+UNAUTHORIZED_SHAPE = "unauthorized-shape"  # 任意协议: 401
+RATELIMIT_SHAPE = "ratelimit-shape"  # 任意协议: 429 + Retry-After
 
 REASONING = ["先想想", "，再算算"]
 TEXT = ["你好", "，主人"]
-# (工具名, 参数分片)
 TOOLS = [
     ("get_time", ['{"tz":', '"Asia/Shanghai"}']),
     ("get_weather", ['{"city":', '"杭州"}']),
 ]
 USAGE = {
-    "input": 11,  # 总输入
-    "uncached": 6,  # anthropic 的 input_tokens
+    "input": 11,
+    "uncached": 6,
     "cached": 3,
     "cache_write": 2,
     "output": 22,
     "reasoning": 7,
     "total": 33,
 }
+_CAPTURED_HEADERS = ("idempotency-key", "user-agent", "x-opencode-session")
 
 
 @dataclass
 class Captured:
     path: str
-    body: dict[str, Any]
+    body: dict[str, Any] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
 
 
 def _sse(data: dict[str, Any] | str, *, event: str | None = None) -> str:
     payload = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False)
     head = f"event: {event}\n" if event else ""
     return f"{head}data: {payload}\n\n"
-
-
-# --------------------------------------------------------------------------
-# chat completions
-# --------------------------------------------------------------------------
 
 
 def chat_chunks(model: str) -> list[str]:
@@ -84,7 +84,7 @@ def chat_chunks(model: str) -> list[str]:
         chunk({"reasoning_content": REASONING[0]}),
         chunk({"reasoning_content": REASONING[1]}),
         chunk({"content": TEXT[0]}),
-        chunk({"content": ""}),  # 空增量不应产生事件
+        chunk({"content": ""}),
         chunk({"content": TEXT[1]}),
     ]
     for index, (name, args) in enumerate(TOOLS):
@@ -109,7 +109,6 @@ def chat_chunks(model: str) -> list[str]:
     if model == TRUNCATE_SHAPE:
         return chunks
     if model == DS_SHAPE:
-        # DeepSeek: usage 附在最后一个内容块上, 该块没有新增内容且 finish_reason 非 null
         chunks.append(
             _sse(
                 {
@@ -131,7 +130,6 @@ def chat_chunks(model: str) -> list[str]:
         chunks.append("data: [DONE]\n\n")
         return chunks
     chunks.append(chunk({}, finish="tool_calls"))
-    # OpenAI: finish_reason 之后再来一个只含 usage 的块
     chunks.append(
         _sse(
             {
@@ -146,11 +144,6 @@ def chat_chunks(model: str) -> list[str]:
     )
     chunks.append("data: [DONE]\n\n")
     return chunks
-
-
-# --------------------------------------------------------------------------
-# responses
-# --------------------------------------------------------------------------
 
 
 def _response_object(
@@ -394,11 +387,6 @@ def responses_chunks(model: str) -> list[str]:
     return chunks
 
 
-# --------------------------------------------------------------------------
-# anthropic messages
-# --------------------------------------------------------------------------
-
-
 def anthropic_chunks(model: str) -> list[str]:
     chunks = [
         _sse(
@@ -459,7 +447,6 @@ def anthropic_chunks(model: str) -> list[str]:
             },
             event="content_block_start",
         ),
-        # 空文本增量不应产生事件
         _sse(
             {
                 "type": "content_block_delta",
@@ -539,7 +526,7 @@ def anthropic_chunks(model: str) -> list[str]:
 # --------------------------------------------------------------------------
 
 
-def _bad(protocol: str, message: str) -> web.Response:
+def _error(protocol: str, message: str, status: int) -> web.Response:
     return web.json_response(
         {
             "error": {
@@ -547,7 +534,7 @@ def _bad(protocol: str, message: str) -> web.Response:
                 "type": "invalid_request_error",
             }
         },
-        status=400,
+        status=status,
     )
 
 
@@ -595,7 +582,7 @@ def validate_messages(body: dict[str, Any]) -> str | None:
     return None
 
 
-@dataclass
+@dataclass(frozen=True)
 class Route:
     protocol: str
     chunks: Any
@@ -604,24 +591,45 @@ class Route:
 
 async def _stream(request: web.Request, route: Route) -> web.StreamResponse:
     body = await request.json()
-    request.app["captured"].append(Captured(request.path, body))
+    headers = {
+        k.lower(): v
+        for k, v in request.headers.items()
+        if k.lower() in _CAPTURED_HEADERS
+    }
+    request.app[_CAPTURED].append(Captured(request.path, body, headers))
+
+    if body["model"] == UNAUTHORIZED_SHAPE:
+        return _error(route.protocol, "invalid api key", 401)
+    if body["model"] == RATELIMIT_SHAPE:
+        return web.json_response(
+            {
+                "error": {
+                    "message": f"{route.protocol}: slow down",
+                    "type": "rate_limit",
+                }
+            },
+            status=429,
+            headers={"Retry-After": "2"},
+        )
+
     problem = route.validate(body)
     if problem is not None:
-        return _bad(route.protocol, problem)
+        return _error(route.protocol, problem, 400)
+
     response = web.StreamResponse(
         headers={"Content-Type": "text/event-stream", "Cache-Control": "no-cache"}
     )
     await response.prepare(request)
     for chunk in route.chunks(body["model"]):
         await response.write(chunk.encode())
-        await asyncio.sleep(0.001)
+        await asyncio.sleep(0)
     await response.write_eof()
     return response
 
 
 def build_app() -> web.Application:
     app = web.Application()
-    app["captured"] = []
+    app[_CAPTURED] = []
     routes = {
         "/v1/chat/completions": Route("chat", chat_chunks, validate_chat),
         "/v1/responses": Route("responses", responses_chunks, validate_responses),
@@ -643,13 +651,13 @@ async def fake_endpoint() -> AsyncGenerator[tuple[str, list[Captured]]]:
     app = build_app()
     runner = web.AppRunner(app)
     await runner.setup()
-    # 自己 bind 一个临时端口, 比事后从私有属性里挖更稳
+    # 自己 bind 临时端口, 比事后从私有属性里挖更稳
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
     site = web.SockSite(runner, sock)
     await site.start()
     try:
-        yield f"http://127.0.0.1:{port}", app["captured"]
+        yield f"http://127.0.0.1:{port}", app[_CAPTURED]
     finally:
         await runner.cleanup()

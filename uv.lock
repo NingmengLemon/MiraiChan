@@ -536,12 +536,14 @@ version = "0.1.0"
 source = { editable = "packages/shared/lemony_llm_provider" }
 dependencies = [
     { name = "anthropic" },
+    { name = "lemony-settings" },
     { name = "openai" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=1.15.0" },
+    { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "openai", specifier = ">=3.35.1" },
 ]
 
