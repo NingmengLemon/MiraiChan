@@ -5,7 +5,10 @@ description = "Lemoneko's LLM provider library for MiraiChan"
 authors = [
     { name = "NingmengLemon", email = "60469383+NingmengLemon@users.noreply.github.com" },
 ]
-dependencies = ["httpx>=0.28.1", "httpx-sse>=0.4.3"]
+dependencies = [
+    "anthropic>=1.15.0",
+    "openai>=3.35.1",
+]
 
 requires-python = ">=3.12,<3.14"
 readme = "README.md"
