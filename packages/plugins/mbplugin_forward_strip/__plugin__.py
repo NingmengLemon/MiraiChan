@@ -3,8 +3,6 @@
 昵称与头像靠原样回填每个节点的 uin/name, 不做任何伪造。
 """
 
-from __future__ import annotations
-
 import logging
 import re
 from collections.abc import Sequence

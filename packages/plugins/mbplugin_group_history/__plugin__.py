@@ -3,8 +3,6 @@
 这里只做: 配置与端点池初始化、群与冷却的闸门、把事件翻译成一次 agent 调用、发送结果。
 """
 
-from __future__ import annotations
-
 import logging
 import re
 import time
