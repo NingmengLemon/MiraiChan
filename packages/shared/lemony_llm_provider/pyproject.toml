@@ -7,6 +7,7 @@ authors = [
 ]
 dependencies = [
     "anthropic>=1.15.0",
+    "google-genai>=2.31.0",
     "lemony-settings",
     "openai>=3.35.1",
 ]

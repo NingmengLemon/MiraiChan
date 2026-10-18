@@ -83,6 +83,8 @@ _PRESETS: dict[str, Quirks] = {
         supports_top_p=False,
         effort_map=DEEPSEEK_EFFORT,
     ),
+    # Gemini 原生协议: 没有 stop 的独立字段以外的坑, 采样参数都能用
+    "gemini": Quirks(max_tokens_field="max_output_tokens"),
     # 聚合站自己的差异 (额外头、会话头) 属于端点配置, 不在这里;
     # 模型差异用 capabilities 覆盖已有的预设
 }

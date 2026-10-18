@@ -1,4 +1,4 @@
-"""对真实端点跑一遍最小 smoke: 三套协议各发一次, 校验归一化结果
+"""对真实端点跑一遍最小 smoke: 每条协议各发一次, 校验归一化结果
 
 需要 OPENCODE_GO_API_KEY 与 DEEPSEEK_API_KEY (放在环境变量或 .env 里),
 用 `uv run --env-file .env python tools/llm_smoke.py` 运行。
@@ -49,7 +49,7 @@ SCHEMA = {
 }
 
 
-ProtocolName = Literal["chat", "responses", "anthropic"]
+ProtocolName = Literal["chat", "responses", "anthropic", "gemini"]
 
 
 @dataclass(frozen=True)
@@ -92,6 +92,16 @@ TARGETS = (
         base_url="https://opencode.ai/inference/go/anthropic",
         model="claude-haiku-5-5",
         quirks="anthropic",
+        env="OPENCODE_GO_API_KEY",
+        session_header="x-opencode-session",
+    ),
+    Target(
+        key="go-gemini",
+        protocol="gemini",
+        # 原生 google 线: SDK 会拼成 /v1beta/models/<model>:streamGenerateContent
+        base_url="https://opencode.ai/inference/go/google",
+        model="gemini-4-argon-contributor",
+        quirks="gemini",
         env="OPENCODE_GO_API_KEY",
         session_header="x-opencode-session",
     ),

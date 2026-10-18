@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import anthropic
 import openai
+from google.genai import errors as genai_errors
 
 from .models import PartialOutput
 
@@ -198,4 +199,22 @@ def map_sdk_error(exc: Exception, *, endpoint_id: str) -> LLMError:
         return RequestRejected(
             message, capability=looks_like_capability_mismatch(message), **common
         )
+    if isinstance(exc, genai_errors.APIError):
+        # genai 把状态码放在 code 上, 没有 status_code
+        code = getattr(exc, "code", None)
+        if isinstance(code, int):
+            common["status"] = code
+            if code in (401, 403):
+                return AuthError(message, **common)
+            if code == 429:
+                return RateLimited(message, retry_after=retry_after, **common)
+            if code >= 500:
+                return UpstreamServerError(message, **common)
+            if code == 400:
+                return RequestRejected(
+                    message,
+                    capability=looks_like_capability_mismatch(message),
+                    **common,
+                )
+        return LLMError(message, **common)
     return LLMError(message, **common)

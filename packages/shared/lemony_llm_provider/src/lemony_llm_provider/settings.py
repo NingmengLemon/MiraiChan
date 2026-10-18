@@ -12,7 +12,7 @@ from pydantic import Field
 from .errors import LLMConfigError
 from .quirks import Quirks, apply_capabilities, resolve_quirks
 
-Protocol = Literal["chat", "responses", "anthropic"]
+Protocol = Literal["chat", "responses", "anthropic", "gemini"]
 
 
 class EndpointSettings(BaseSettings):

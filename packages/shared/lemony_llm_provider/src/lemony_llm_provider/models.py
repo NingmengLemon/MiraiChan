@@ -43,6 +43,8 @@ class ToolCall:
     id: str
     name: str
     arguments: str  # JSON 文本, 保留原文以免精度损失
+    # 少数协议要求把这次调用的签名原样带回去(Gemini 的 thought_signature), 以 base64 文本保存
+    signature: str | None = None
 
 
 @dataclass(frozen=True)
@@ -180,6 +182,7 @@ class ToolCallStart:
     index: int
     id: str
     name: str
+    signature: str | None = None
 
 
 @dataclass(frozen=True)
@@ -228,7 +231,7 @@ class StreamAccumulator:
 
     def __init__(self) -> None:
         self.usage: Usage | None = None
-        self.calls: list[dict[str, str]] = []
+        self.calls: list[dict[str, Any]] = []
         self.finish_reason: FinishReason | None = None
         self.signature = ""
         self.text = ""
@@ -254,7 +257,9 @@ class StreamAccumulator:
         elif isinstance(event, SignatureDelta):
             self.signature += event.signature
 
-    def start(self, key: Any, call_id: str, name: str) -> list[StreamEvent]:
+    def start(
+        self, key: Any, call_id: str, name: str, signature: str | None = None
+    ) -> list[StreamEvent]:
         index = self._by_key.get(key)
         if index is not None:
             # 有的实现会在每个分块里重复带 id, 不能重复报"开始"
@@ -264,8 +269,8 @@ class StreamAccumulator:
             return []
         index = len(self.calls)
         self._by_key[key] = index
-        self.calls.append({"id": call_id, "name": name, "args": ""})
-        return [ToolCallStart(index, call_id, name)]
+        self.calls.append({"id": call_id, "name": name, "args": "", "sig": signature})
+        return [ToolCallStart(index, call_id, name, signature)]
 
     def set_name(self, key: Any, name: str) -> None:
         index = self._by_key.get(key)
@@ -300,7 +305,9 @@ class StreamAccumulator:
 
     @property
     def tool_calls(self) -> tuple[ToolCall, ...]:
-        return tuple(ToolCall(c["id"], c["name"], c["args"]) for c in self.calls)
+        return tuple(
+            ToolCall(c["id"], c["name"], c["args"], c.get("sig")) for c in self.calls
+        )
 
     def partial(self) -> PartialOutput:
         return PartialOutput(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import inspect
 import logging
 import os
 import time
@@ -13,8 +14,11 @@ from dataclasses import dataclass
 from typing import Any
 
 import anthropic
+import google.genai as genai
 import httpx2
 import openai
+from google.genai import errors as genai_errors
+from google.genai import types as genai_types
 
 from . import protocols
 from .errors import (
@@ -54,6 +58,44 @@ DEFAULT_USER_AGENT = "miraichan-llm/0.1"
 # 发给配置之外的第三方端点, 所以启动时直接拒绝
 _SDK_ENV_HEADERS = ("OPENAI_CUSTOM_HEADERS", "ANTHROPIC_CUSTOM_HEADERS")
 _SDK_ENV_IDENTITY = ("OPENAI_ORG_ID", "OPENAI_PROJECT_ID")
+
+# 三个 SDK 各自的异常基类, 统一交给 map_sdk_error 归类
+_SDK_ERRORS: tuple[type[Exception], ...] = (
+    openai.OpenAIError,
+    anthropic.AnthropicError,
+    genai_errors.APIError,
+)
+
+
+async def _close_stream(stream: Any) -> None:
+    """关掉一条已经打开的流: 有的 SDK 给 close, 有的只给 aclose"""
+    for name in ("aclose", "close"):
+        closer = getattr(stream, name, None)
+        if closer is not None:
+            result = closer()
+            if inspect.isawaitable(result):
+                await result
+            return
+
+
+class _GeminiStream:
+    """genai 的流 + 它专用的客户端: 关流的时候一起关掉"""
+
+    def __init__(self, inner: Any, client: genai.Client) -> None:
+        self._inner = inner
+        self._client = client
+
+    def __aiter__(self) -> _GeminiStream:
+        return self
+
+    async def __anext__(self) -> Any:
+        return await self._inner.__anext__()
+
+    async def aclose(self) -> None:
+        with contextlib.suppress(Exception):
+            await _close_stream(self._inner)
+        with contextlib.suppress(Exception):
+            await self._client.aio.aclose()
 
 
 @dataclass(frozen=True)
@@ -120,8 +162,12 @@ class _Endpoint:
         self.calls = 0
         self.usage = Usage()
 
-    def _make_client(self) -> openai.AsyncOpenAI | anthropic.AsyncAnthropic:
+    def _make_client(self) -> Any:
         headers = {"User-Agent": DEFAULT_USER_AGENT, **self.spec.extra_headers}
+        if self.spec.protocol == "gemini":
+            # genai 的 http_options 只能在构造时给, 而会话头是逐请求的,
+            # 所以这条路线每次请求现建一个客户端, 跟着流一起关 (见 gemini_client)
+            return None
         # 永远显式传 key: openai 缺 key 会直接抛, anthropic 会去读 ANTHROPIC_API_KEY
         common: dict[str, Any] = {
             "api_key": self.spec.api_key or "none",
@@ -134,9 +180,27 @@ class _Endpoint:
             return anthropic.AsyncAnthropic(**common)
         return openai.AsyncOpenAI(**common)
 
+    def gemini_client(self, headers: Mapping[str, str]) -> genai.Client:
+        """按请求头现建一个 genai 客户端: 聚合站要求的会话头只能这样带"""
+        return genai.Client(
+            api_key=self.spec.api_key or "none",
+            http_options=genai_types.HttpOptions(
+                base_url=self.spec.base_url,
+                api_version="v1beta",
+                headers={
+                    "Authorization": f"Bearer {self.spec.api_key or 'none'}",
+                    "User-Agent": DEFAULT_USER_AGENT,
+                    **self.spec.extra_headers,
+                    **headers,
+                },
+                timeout=int(self.spec.timeout * 1000),
+            ),
+        )
+
     async def aclose(self) -> None:
-        with contextlib.suppress(Exception):
-            await self.client.close()
+        if self.client is not None:
+            with contextlib.suppress(Exception):
+                await self.client.close()
         with contextlib.suppress(Exception):
             await self.http.aclose()
 
@@ -314,7 +378,7 @@ class Pool:
         async with endpoint.semaphore:
             try:
                 stream = await self._create(endpoint, body, extra, headers)
-            except (openai.OpenAIError, anthropic.AnthropicError) as exc:
+            except _SDK_ERRORS as exc:
                 raise map_sdk_error(exc, endpoint_id=spec.id) from exc
             except LLMError:
                 raise
@@ -327,12 +391,12 @@ class Pool:
                     for event in module.parse(obj, acc):
                         acc.observe(event)
                         yield event
-            except (openai.OpenAIError, anthropic.AnthropicError) as exc:
+            except _SDK_ERRORS as exc:
                 raise map_sdk_error(exc, endpoint_id=spec.id) from exc
             finally:
                 # 取消时也要把底层连接关掉, 而且不能被这次的取消打断
                 with contextlib.suppress(Exception, asyncio.CancelledError):
-                    await stream.close()
+                    await _close_stream(stream)
 
         completed = acc.completed(spec.id)
         yield completed
@@ -345,6 +409,21 @@ class Pool:
         headers: Mapping[str, str],
     ):
         spec = endpoint.spec
+        if spec.protocol == "gemini":
+            client = endpoint.gemini_client(headers)
+            # genai 的流式调用本身就是可等待的, 拿到的是异步迭代器;
+            # 客户端跟着流一起关, 否则每轮请求都会漏一个连接池
+            try:
+                inner = await client.aio.models.generate_content_stream(
+                    model=body["model"],
+                    contents=body["contents"],
+                    config=body["config"],
+                )
+            except _SDK_ERRORS:
+                with contextlib.suppress(Exception):
+                    await client.aio.aclose()
+                raise
+            return _GeminiStream(inner, client)
         kwargs = {
             **body,
             "extra_body": extra,

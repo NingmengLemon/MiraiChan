@@ -1,4 +1,4 @@
-"""三套协议的翻译与解析
+"""四条协议的翻译与解析
 
 每个协议模块都提供 `build(request, model=..., quirks=...) -> Translation` 与
 `parse(obj, acc) -> list[StreamEvent]`。
@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..models import StreamAccumulator, StreamEvent
-from . import anthropic, chat, responses
+from . import anthropic, chat, gemini, responses
 from .base import Translation
 
 
@@ -25,6 +25,7 @@ _BY_PROTOCOL: dict[str, ProtocolModule] = {
     "chat": ProtocolModule(chat.build, chat.parse),
     "responses": ProtocolModule(responses.build, responses.parse),
     "anthropic": ProtocolModule(anthropic.build, anthropic.parse),
+    "gemini": ProtocolModule(gemini.build, gemini.parse),
 }
 
 
