@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from pathlib import Path
 
 import pytest
@@ -102,7 +102,7 @@ def _ref() -> GroupRef:
     return GroupRef(protocol=PROTOCOL, self_id=SELF_ID, group_id=GROUP)
 
 
-def _tools(service: RecorderService) -> HistoryTools:
+def _tools(service: RecorderService, tz: tzinfo = UTC) -> HistoryTools:
     context = ToolContext(
         ref=_ref(),
         now=T0 + timedelta(days=1),
@@ -110,6 +110,7 @@ def _tools(service: RecorderService) -> HistoryTools:
         max_window_days=365,
         result_limit=20,
         max_tool_chars=3000,
+        tz=tz,
     )
     return HistoryTools(lambda: service.get_session(), context)
 
@@ -207,6 +208,35 @@ def _completion(text: str = "", calls: tuple[ToolCall, ...] = ()) -> Completion:
         usage=None,
         endpoint_id="test",
     )
+
+
+async def test_timestamps_render_in_configured_timezone(
+    service: RecorderService,
+) -> None:
+    from zoneinfo import ZoneInfo
+
+    utc_output = await _tools(service).call("search_history", {"keywords": ["爬山"]})
+    shanghai = await _tools(service, ZoneInfo("Asia/Shanghai")).call(
+        "search_history", {"keywords": ["爬山"]}
+    )
+    # T0 是 12:00 UTC, 上海时间应当是 20:00
+    assert "[10-01 12:00]" in utc_output
+    assert "[10-01 20:00]" in shanghai
+
+
+async def test_historian_tells_the_model_what_time_it_is(
+    service: RecorderService,
+) -> None:
+    seen: list[CompletionRequest] = []
+
+    async def fake(request: CompletionRequest, **_: object) -> Completion:
+        seen.append(request)
+        return _completion(text="好")
+
+    when = datetime(2026, 10, 18, 9, 30, tzinfo=UTC)
+    historian = Historian(fake, _tools(service), now=when)
+    await historian.ask("昨晚聊了什么")
+    assert "现在是 2026-10-18T09:30" in (seen[0].system or "")
 
 
 async def test_agent_calls_tool_then_answers(service: RecorderService) -> None:

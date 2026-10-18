@@ -6,6 +6,7 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime
 
 from lemony_llm_provider import Completion, CompletionRequest, Message
 
@@ -46,13 +47,17 @@ class Historian:
         max_tokens: int = 2048,
         system_prompt: str = SYSTEM_PROMPT,
         session_id: str | None = None,
+        now: datetime | None = None,
     ) -> None:
         self._complete = complete
         self._tools = tools
         self._alias = alias
         self._max_rounds = max(1, max_rounds)
         self._max_tokens = max_tokens
-        self._system_prompt = system_prompt
+        # 相对时间(比如「昨晚」)要靠当前时间才能落到具体窗口上
+        self._system_prompt = system_prompt + (
+            f"\n\n现在是 {now.isoformat(timespec='minutes')}。" if now else ""
+        )
         self._session_id = session_id
 
     @property

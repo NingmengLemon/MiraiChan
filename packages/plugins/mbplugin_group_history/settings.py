@@ -33,9 +33,13 @@ class GroupHistorySettings(BaseSettings):
         default=3000, ge=200, description="单个工具结果回给模型的字符上限"
     )
     max_answer_chars: int = Field(
-        default=800,
-        ge=100,
-        description="回答超过这个长度就转成合并转发, 避免刷屏",
+        default=200,
+        ge=50,
+        description="回答超过这个长度就转成合并转发; 默认按手机上一屏来算",
+    )
+    timezone: str = Field(
+        default="Asia/Shanghai",
+        description="展示发言时间与理解「昨晚」这类相对时间时用的时区",
     )
     cooldown_seconds: int = Field(
         default=30, ge=0, description="同一群两次提问的最小间隔"

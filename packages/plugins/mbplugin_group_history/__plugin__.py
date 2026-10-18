@@ -10,6 +10,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 from lemony_llm_provider import LLMError, LLMSettings, Pool
 from lemony_onebot_utils.forward import ForwardBuilder, Sender
@@ -135,13 +136,16 @@ async def _answer(
     if factory is None:
         return "记录器插件没加载, 查不了历史"
     settings = cfgloader.value
+    tz = ZoneInfo(settings.timezone)
     context = ToolContext(
         ref=GroupRef(
             protocol=str(event.protocol),
             self_id=str(event.self_id),
             group_id=str(event.group_id),
         ),
+        # 库里存 UTC, 比较一律用 UTC; 只有展示时间时才换成配置里的时区
         now=datetime.now(UTC),
+        tz=tz,
         window_days=settings.window_days,
         max_window_days=settings.max_window_days,
         result_limit=settings.result_limit,
@@ -156,6 +160,8 @@ async def _answer(
         system_prompt=system_prompt,
         # 同一个群用同一个会话标识, 依赖前缀缓存的端点可以少算一点
         session_id=f"group-history:{event.group_id}",
+        # 给模型看的当前时间是本地时间, 它才能把「昨晚」落到窗口上
+        now=datetime.now(tz),
     )
     return await historian.ask(question)
 

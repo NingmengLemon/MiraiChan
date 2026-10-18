@@ -11,6 +11,8 @@ dependencies = [
     "lemony_utils",
     "mbplugin_recorder",
     "sqlalchemy>=2.0",
+    # Windows 上 zoneinfo 没有系统时区库, 时区名字要自己带一份
+    "tzdata>=2025.2",
 ]
 
 [tool.setuptools]

@@ -55,9 +55,10 @@
 | `max_window_days` | 365 | 模型能要求的最大回溯天数, 防止全库扫描 |
 | `result_limit` | 20 | 单次检索最多返回条数 |
 | `max_tool_chars` | 3000 | 单个工具结果回给模型的字符上限 |
-| `max_answer_chars` | 800 | 超过就转合并转发 |
+| `max_answer_chars` | 200 | 超过就转合并转发, 默认按手机一屏 |
 | `cooldown_seconds` | 30 | 同群两次提问的最小间隔 |
 | `enabled_groups` | 空 | 允许使用的群号, 空表示不限制 |
+| `timezone` | `Asia/Shanghai` | 展示发言时间、理解「昨晚」这类相对时间用的时区 |
 
 ## 已知限制
 

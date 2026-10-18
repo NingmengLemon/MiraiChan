@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any
 from uuid import UUID
 
@@ -31,8 +31,13 @@ def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-def _format_hit(index: int, sent_at: datetime, sender: str, text: str) -> str:
-    return f"{index}. [{sent_at:%m-%d %H:%M}] {_clip(sender, 24)}: {_clip(text, 160)}"
+def _format_hit(
+    index: int, sent_at: datetime, sender: str, text: str, tz: tzinfo
+) -> str:
+    # SQLite 存的是去掉时区的 UTC 时间, 读回来要按 UTC 解释再换成展示时区
+    aware = sent_at if sent_at.tzinfo is not None else sent_at.replace(tzinfo=UTC)
+    local = aware.astimezone(tz)
+    return f"{index}. [{local:%m-%d %H:%M}] {_clip(sender, 24)}: {_clip(text, 160)}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +48,7 @@ class ToolContext:
     max_window_days: int
     result_limit: int
     max_tool_chars: int
+    tz: tzinfo  # 引用里的时间按这个时区显示
 
 
 TOOL_SPECS: tuple[ToolSpec, ...] = (
@@ -175,7 +181,7 @@ class HistoryTools:
         if not hits:
             return f"从 {since:%Y-%m-%d} 到现在没有匹配的消息"
         lines = [
-            _format_hit(index, hit.sent_at, hit.sender, hit.text)
+            _format_hit(index, hit.sent_at, hit.sender, hit.text, context.tz)
             for index, hit in enumerate(hits, start=1)
         ]
         return _clip("\n".join(lines), context.max_tool_chars)
@@ -227,7 +233,7 @@ class HistoryTools:
         if not hits:
             return f"从 {since:%Y-%m-%d} 到现在没有找到 {speaker} 的发言"
         lines = [
-            _format_hit(index, hit.sent_at, hit.sender, hit.text)
+            _format_hit(index, hit.sent_at, hit.sender, hit.text, context.tz)
             for index, hit in enumerate(hits, start=1)
         ]
         return _clip("\n".join(lines), context.max_tool_chars)
