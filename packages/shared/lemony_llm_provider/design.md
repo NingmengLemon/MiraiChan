@@ -79,37 +79,52 @@ Anthropic SDK 1.15.0 的 `messages.create` 没有 `temperature` / `top_p` / `top
 另外两个 SDK 每次请求都会自动生成 `Idempotency-Key`(`stainless-python-retry-{uuid4}`), 接管重试之后必须为一次逻辑
 请求固定同一个 key, 否则上游即便支持幂等也认不出是同一次请求。
 
+Gemini 这一代换的是原生 wire: 官方 `google-genai` 客户端把请求发到
+`{base_url}/v1beta/models/{model}:streamGenerateContent?alt=sse`, 请求体是 `contents` + `generationConfig`(SDK 侧是
+`config`)。三处硬性要求写在协议里:
+
+- 回传工具调用时必须带上那次调用自己的 `thought_signature`, 否则上游 400 明确拒绝; 所以统一的 `ToolCall` 多了一个
+  `signature` 字段, 流式拼装时按调用保存, 序列化回请求时放回 `functionCall` part。
+- 没有 `tool` 角色, 函数结果放在 user 回合的 `functionResponse` 里, 而且要写函数名而不是 id。
+- 思考过程只下发签名不下发正文, `thoughtsTokenCount` 单独计, 不计入 `candidatesTokenCount`。
+
+SDK 的 `http_options` 只能在构造客户端时给, 而 OpenCode Go 要求每个请求都带 `x-opencode-session`, 所以 Gemini 这条路
+每次请求现建一个客户端, 跟着流一起关。这是目前唯一的性能妥协, 会话数固定之后再考虑按会话缓存客户端。
+`google-genai` 自带自己的 HTTP 客户端(基于 httpx), 不走上面那个 `httpx2.AsyncClient`, 代理与连接池要另配。
+
+
 ## 协议对照
 
-| 项目 | chat completions | responses | Anthropic messages |
-| --- | --- | --- | --- |
-| 系统提示 | `messages[0].role=system` | `instructions` | `system` 顶层参数 |
-| 状态 | 无状态 | 可 `store`, 也可无状态 | 无状态 |
-| 工具声明 | `tools[].function.{name,description,parameters}` | `tools[]` 扁平 `{type,name,parameters}` | `tools[].{name,description,input_schema}` |
-| 工具结果 | `role=tool` + `tool_call_id` | `function_call_output` + `call_id` | user 消息里的 `tool_result` + `tool_use_id`, 同一轮的多个结果合并进同一条 user 消息 |
-| 历史里的工具调用 | assistant 的 `tool_calls` | `function_call` item | assistant 的 `tool_use` 块 |
-| 图片 | `image_url`(url 或 data url) | `input_image` | `image.source`(base64 / url / file) |
-| 结构化输出 | `response_format.json_schema`(带 name) | `text.format`(带 name) | `output_config.format`(无 name) |
-| 思维链 | `reasoning_content`(DeepSeek) | `reasoning` item | `thinking` 块 + `signature` |
-| 流式 | `data:` 行, 以 `[DONE]` 结尾 | 命名事件 | 命名事件 |
-| 增量事件名 | `choices[].delta` | `response.output_text.delta` / `response.reasoning_text.delta` / `response.function_call_arguments.delta` | `content_block_delta` 里的 `text_delta` / `thinking_delta` / `input_json_delta` / `signature_delta` |
-| 正常结束 | `finish_reason` 非空 + `[DONE]` | `response.completed` | `message_delta`(带 `stop_reason`) + `message_stop` |
-| 异常结束 | 流内 error 块(抛无 status 的 `APIError`) | `response.failed` / 流内 `error` 事件, SDK 都不抛 | 流内 error(抛 `APIStatusError`, 但此时 HTTP 200 已发, `status` 不可信) |
-| 未完成 | `finish_reason=length` | `response.incomplete` + `incomplete_details.reason` | `stop_reason=max_tokens` / `model_context_window_exceeded` |
-| 用量到达 | finish_reason 之后(OpenAI) / 末块附带(DeepSeek) | `response.completed` 里 | `message_start`(输入) + `message_delta`(输出) |
-| 缓存明细 | `prompt_tokens_details.{cached_tokens,cache_write_tokens}` | `input_tokens_details.{cached_tokens,cache_write_tokens}` | `cache_read_input_tokens` / `cache_creation_input_tokens` |
-| 推理明细 | `completion_tokens_details.reasoning_tokens` | `output_tokens_details.reasoning_tokens` | `output_tokens_details.thinking_tokens` |
-| 采样参数 | temperature/top_p/stop | temperature/top_p, 无 stop | 无 temperature/top_p, 有 stop_sequences |
-| 最大输出 | `max_tokens` 或 `max_completion_tokens` | `max_output_tokens` | `max_tokens`(必填) |
+| 项目 | chat completions | responses | Anthropic messages | Gemini generateContent |
+| --- | --- | --- | --- | --- |
+| 系统提示 | `messages[0].role=system` | `instructions` | `system` 顶层参数 | `config.system_instruction` |
+| 状态 | 无状态 | 可 `store`, 也可无状态 | 无状态 | 无状态 |
+| 工具声明 | `tools[].function.{name,description,parameters}` | `tools[]` 扁平 `{type,name,parameters}` | `tools[].{name,description,input_schema}` | `tools[].function_declarations[]` |
+| 工具结果 | `role=tool` + `tool_call_id` | `function_call_output` + `call_id` | user 消息里的 `tool_result` + `tool_use_id`, 同一轮的多个结果合并进同一条 user 消息 | user 回合里的 `function_response`, 用函数名而不是 id; 没有 tool 角色 |
+| 历史里的工具调用 | assistant 的 `tool_calls` | `function_call` item | assistant 的 `tool_use` 块 | model 回合的 `functionCall` part, 必须带 `thought_signature` |
+| 图片 | `image_url`(url 或 data url) | `input_image` | `image.source`(base64 / url / file) | `inline_data` / `file_data` |
+| 结构化输出 | `response_format.json_schema`(带 name) | `text.format`(带 name) | `output_config.format`(无 name) | `response_mime_type` + `response_schema` |
+| 思维链 | `reasoning_content`(DeepSeek) | `reasoning` item | `thinking` 块 + `signature` | `thought` part, 只下发 `thought_signature`, 正文为空 |
+| 流式 | `data:` 行, 以 `[DONE]` 结尾 | 命名事件 | 命名事件 | `alt=sse` 的 `data:` 行 |
+| 增量事件名 | `choices[].delta` | `response.output_text.delta` / `response.reasoning_text.delta` / `response.function_call_arguments.delta` | `content_block_delta` 里的 `text_delta` / `thinking_delta` / `input_json_delta` / `signature_delta` | 每个分块是一整个 `candidates[].content.parts`, 工具调用一次给全 |
+| 正常结束 | `finish_reason` 非空 + `[DONE]` | `response.completed` | `message_delta`(带 `stop_reason`) + `message_stop` | 末块的 `candidates[].finishReason` |
+| 异常结束 | 流内 error 块(抛无 status 的 `APIError`) | `response.failed` / 流内 `error` 事件, SDK 都不抛 | 流内 error(抛 `APIStatusError`, 但此时 HTTP 200 已发, `status` 不可信) | 抛 `genai.errors.APIError`, 状态在 `code` 上 |
+| 未完成 | `finish_reason=length` | `response.incomplete` + `incomplete_details.reason` | `stop_reason=max_tokens` / `model_context_window_exceeded` | `finishReason=MAX_TOKENS` |
+| 用量到达 | finish_reason 之后(OpenAI) / 末块附带(DeepSeek) | `response.completed` 里 | `message_start`(输入) + `message_delta`(输出) | 末块的 `usageMetadata` |
+| 缓存明细 | `prompt_tokens_details.{cached_tokens,cache_write_tokens}` | `input_tokens_details.{cached_tokens,cache_write_tokens}` | `cache_read_input_tokens` / `cache_creation_input_tokens` | `cachedContentTokenCount` |
+| 推理明细 | `completion_tokens_details.reasoning_tokens` | `output_tokens_details.reasoning_tokens` | `output_tokens_details.thinking_tokens` | `thoughtsTokenCount`(不计入 candidates) |
+| 采样参数 | temperature/top_p/stop | temperature/top_p, 无 stop | 无 temperature/top_p, 有 stop_sequences | temperature/top_p/stop_sequences |
+| 最大输出 | `max_tokens` 或 `max_completion_tokens` | `max_output_tokens` | `max_tokens`(必填) | `max_output_tokens` |
+| 思考开关 | `thinking`(DeepSeek) | `reasoning.effort` | `thinking.type` + `effort` | `thinking_config.thinking_level` |
 
 工具选择的三套写法:
 
-| 统一取值 | chat completions | responses | Anthropic messages |
-| --- | --- | --- | --- |
-| auto | `"auto"` | `"auto"` | `{"type": "auto"}` |
-| none | `"none"` | `"none"` | `{"type": "none"}` |
-| required | `"required"` | `"required"` | `{"type": "any"}` |
-| 指定工具 | `{"type":"function","function":{"name":...}}` | `{"type":"function","name":...}` | `{"type":"tool","name":...}` |
+| 统一取值 | chat completions | responses | Anthropic messages | Gemini |
+| --- | --- | --- | --- | --- |
+| auto | `"auto"` | `"auto"` | `{"type": "auto"}` | `AUTO` |
+| none | `"none"` | `"none"` | `{"type": "none"}` | `NONE` |
+| required | `"required"` | `"required"` | `{"type": "any"}` | `ANY` |
+| 指定工具 | `{"type":"function","function":{"name":...}}` | `{"type":"function","name":...}` | `{"type":"tool","name":...}` | `ANY` + `allowed_function_names` |
 
 ## 统一内部模型
 
@@ -274,6 +289,7 @@ DeepSeek 的上下文缓存按前缀命中, 换端点会掉缓存, 要不要粘�
 | chat(Go) | `https://opencode.ai/inference/go/openai/v1` | `/chat/completions` | `.../go/openai/v1/chat/completions` |
 | responses | `https://api.deepseek.com` | `/responses` | `https://api.deepseek.com/responses` |
 | anthropic | `https://opencode.ai/inference/go/anthropic` | `/v1/messages` | `.../go/anthropic/v1/messages` |
+| gemini | `https://opencode.ai/inference/go/google` | `/v1beta/models/{model}:streamGenerateContent` | `.../go/google/v1beta/models/gemini-4-argon-contributor:streamGenerateContent` |
 
 `quirks` 不是几个字符串而是三样东西:
 
@@ -288,7 +304,7 @@ DeepSeek 的上下文缓存按前缀命中, 换端点会掉缓存, 要不要粘�
 SDK 原生签名里没有的字段一律走 `extra_body`, 不能当关键字参数展开, 否则调用处直接 `TypeError`。
 
 随库提供的预设: `deepseek_chat` / `deepseek_responses` / `deepseek_anthropic` / `openai_chat` / `openai_responses` /
-`anthropic` / `anthropic_budgeted` / `generic`。预设跟**模型**走而不是跟中转走: OpenCode Go 上的 DeepSeek 一样用
+`anthropic` / `anthropic_budgeted` / `gemini` / `generic`。预设跟**模型**走而不是跟中转走: OpenCode Go 上的 DeepSeek 一样用
 `deepseek_chat`, 聚合站自己的差异(额外头、会话头)放端点配置。
 `strict_params` 打开之后, 采样参数被丢弃不再是 debug 日志而是 `LLMConfigError`。
 
@@ -343,6 +359,7 @@ SDK 原生签名里没有的字段一律走 `extra_body`, 不能当关键字参�
 9. `between_tools` 这种 thinking 配置语义未确认, 暂不暴露。
 10. 请求级日志与首 token 耗时还没做: 现在只有端点级统计(`Pool.stats()`)与失败时的 warning。
 11. `Retry-After` 只解析秒数, HTTP-date 形式会退回指数退避。
+12. Gemini 每次请求现建客户端(为了逐请求的会话头), 会话数稳定后应按会话缓存, 否则每个请求都要新建连接池。
 
 ## 现状与下一步
 
