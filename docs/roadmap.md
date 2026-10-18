@@ -43,3 +43,8 @@
 - `lemony_settings` 完全异步化 (`core.py`)。
 - `lemony_checkers` 的 checker 工厂完全惰性加载 (`factory.py`)。
 - `lemony_utils` 的定位与拆分, 见 `packages/shared/lemony_utils/planning.md`。
+
+## 已知问题
+
+- 转发缩水遇到嵌套转发时, 外层气泡预览在 SnowLuma 1.14.22 上是坏的 (PC 打不开, 手机无预览但内容正常);
+  内容本身正确, 属于实现端的嵌套转发预览问题, 见 `packages/plugins/mbplugin_forward_strip/readme.md`。
