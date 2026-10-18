@@ -8,6 +8,7 @@
 - `development/`: 本仓库的开发约定
   - `testing.md`: 测试的放置与运行
   - `logging.md`: 日志约定与 debug 开关
+  - `plugins.md`: 插件开发的坑 (命令参数切分等)
 - `deployment/`: 部署与运维
   - `runbook.md`: 部署步骤、上线插件、升级与替换旧实例
   - `legacy-migration.md`: 从旧实例迁移的对照与步骤
