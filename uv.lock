@@ -17,6 +17,7 @@ members = [
     "mbplugin-checker-manager",
     "mbplugin-deeeer",
     "mbplugin-emergency-alerts",
+    "mbplugin-group-history",
     "mbplugin-helper",
     "mbplugin-moelottery",
     "mbplugin-provenance",
@@ -813,6 +814,29 @@ requires-dist = [
 ]
 
 [[package]]
+name = "mbplugin-group-history"
+version = "0.1.0"
+source = { editable = "packages/plugins/mbplugin_group_history" }
+dependencies = [
+    { name = "lemony-llm-provider" },
+    { name = "lemony-onebot-utils" },
+    { name = "lemony-settings" },
+    { name = "lemony-utils" },
+    { name = "mbplugin-recorder" },
+    { name = "sqlalchemy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "lemony-llm-provider", editable = "packages/shared/lemony_llm_provider" },
+    { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
+    { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "mbplugin-recorder", editable = "packages/plugins/mbplugin_recorder" },
+    { name = "sqlalchemy", specifier = ">=2.0" },
+]
+
+[[package]]
 name = "mbplugin-helper"
 version = "1.0.0"
 source = { editable = "packages/plugins/mbplugin_helper" }
@@ -1095,6 +1119,7 @@ dependencies = [
     { name = "mbplugin-checker-manager" },
     { name = "mbplugin-deeeer" },
     { name = "mbplugin-emergency-alerts" },
+    { name = "mbplugin-group-history" },
     { name = "mbplugin-helper" },
     { name = "mbplugin-moelottery" },
     { name = "mbplugin-provenance" },
@@ -1137,6 +1162,7 @@ requires-dist = [
     { name = "mbplugin-checker-manager", editable = "packages/plugins/mbplugin_checker_manager" },
     { name = "mbplugin-deeeer", editable = "packages/plugins/mbplugin_deeeer" },
     { name = "mbplugin-emergency-alerts", editable = "packages/plugins/mbplugin_emergency_alerts" },
+    { name = "mbplugin-group-history", editable = "packages/plugins/mbplugin_group_history" },
     { name = "mbplugin-helper", editable = "packages/plugins/mbplugin_helper" },
     { name = "mbplugin-moelottery", editable = "packages/plugins/mbplugin_moelottery" },
     { name = "mbplugin-provenance", editable = "packages/plugins/mbplugin_provenance" },

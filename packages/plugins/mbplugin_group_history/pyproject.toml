@@ -1,0 +1,27 @@
+[project]
+name = "mbplugin_group_history"
+version = "0.1.0"
+description = "Ask questions about a group's recorded history (.ask)."
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = [
+    "lemony_llm_provider",
+    "lemony_onebot_utils",
+    "lemony_settings",
+    "lemony_utils",
+    "mbplugin_recorder",
+    "sqlalchemy>=2.0",
+]
+
+[tool.setuptools]
+packages = ["mbplugin_group_history"]
+
+[tool.setuptools.package-dir]
+mbplugin_group_history = "."
+
+[tool.uv.sources]
+lemony_llm_provider = { workspace = true }
+lemony_onebot_utils = { workspace = true }
+lemony_settings = { workspace = true }
+lemony_utils = { workspace = true }
+mbplugin_recorder = { workspace = true }
