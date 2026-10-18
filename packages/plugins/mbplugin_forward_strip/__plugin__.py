@@ -15,10 +15,32 @@ from lemony_utils.help import Command, register_help
 from melobot import PluginPlanner, get_bot
 from melobot.handle import on_command
 from melobot.protocols.onebot.v11 import Adapter, GroupMessageEvent
+from melobot.protocols.onebot.v11.adapter import echo as echo_module
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, TextSegment
 from pydantic import Field
 
+from .nodes import forward_items
 from .pipeline import StripError, strip_forward
+
+
+def _install_raw_forward_echo() -> None:
+    """让 get_forward_msg 的回应保留原始 data
+
+    melobot 的 ``GetForwardMsgEcho`` 只认 ``data.message``, 而 SnowLuma 返回的是
+    ``data.messages``, 构造 echo 时直接 KeyError, 表现成"取不到转发内容"。这里把该类型的
+    echo 换成不解析正文的通用版本, 内容由插件按两种形状自己读。
+    """
+    if getattr(echo_module.GetForwardMsgEcho, "_forward_strip_raw", False):
+        return
+
+    class _RawForwardEcho(echo_module.Echo):  # type: ignore[misc]
+        _forward_strip_raw = True
+
+    echo_module.GetForwardMsgEcho = _RawForwardEcho  # ty: ignore[invalid-assignment]
+
+
+_install_raw_forward_echo()
+
 
 PLUGIN_IDENTIFIER = "forward_strip"
 
@@ -65,9 +87,10 @@ class _AdapterIo:
             echo = await group.unwrap(0)
         except Exception as exc:
             raise StripError("取不到转发内容") from exc
-        if echo.data is None:
+        items = forward_items(echo.data)
+        if not items:
             raise StripError("取不到转发内容")
-        return list(echo.data["message"])
+        return items
 
     async def send_forward_nodes(
         self, group_id: int, nodes: Sequence[dict[str, Any]]

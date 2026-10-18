@@ -22,6 +22,8 @@ from mbplugin_forward_strip.nodes import (
     SliceSpecError,
     count_nested_forwards,
     find_forward_id,
+    forward_items,
+    from_forward_item,
     from_payload,
     parse_slice,
     to_payload,
@@ -217,3 +219,25 @@ async def test_strip_errors() -> None:
         await strip_forward(
             io, group_id=20000, reply_message_id=999, spec="[:]", max_nodes=1
         )
+
+
+def test_from_forward_item_snowluma_event_shape() -> None:
+    # SnowLuma 的 get_forward_msg 返回的是消息事件, 发送者信息在 sender 上
+    item = {
+        "message_id": 42,
+        "sender": {"user_id": 10001, "card": "阿岚", "nickname": "lan"},
+        "message": [{"type": "text", "data": {"text": "在吗"}}],
+        "time": 1700000000,
+    }
+    node = from_forward_item(item)
+    assert node is not None
+    assert (node.uin, node.name, node.time) == (10001, "阿岚", 1700000000)
+    assert node.content == ({"type": "text", "data": {"text": "在吗"}},)
+
+
+def test_forward_items_accepts_both_keys() -> None:
+    assert forward_items({"messages": [1, 2]}) == [1, 2]
+    assert forward_items({"message": [3]}) == [3]
+    assert forward_items([4]) == [4]
+    assert forward_items(None) == []
+    assert forward_items({"other": 1}) == []

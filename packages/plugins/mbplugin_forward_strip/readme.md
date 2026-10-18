@@ -42,8 +42,8 @@ QQ 客户端按 `uin` 取头像、按 `name` 显示昵称, 所以截断之后每
 - NapCat: `send_group_forward_msg` 里自定义节点的 `uin`/`name` 会被忽略, 转发里所有消息都显示
   成 bot 自己 (NapNeko/NapCatQQ#61, 维护者回复"受原理限制不能伪造转发")。换成 NapCat 时
   这个插件的核心价值就没了。
-- `get_forward_msg` 返回的节点在 SnowLuma 上还会带 `time`/`seq`, 以及引用段的 `message`
-  内嵌正文; 本插件把 `time` 原样带走, 其余未知字段不参与重建。
+- SnowLuma 的 `get_forward_msg` 返回 `{messages: [...]}`, 数组里每一项是消息事件 (`sender.user_id` / `sender.card` / `message` / `time`), 而不是 node 消息段; 发送侧收的是 `messages` 里的 node。插件两种形状都归一化。melobot 自带的 `GetForwardMsgEcho` 只认 `data.message`, 构造时直接 KeyError, 插件在导入时把该 echo 换成不解析正文的通用版本。
+  节点还会带 `time`/`seq` 以及引用段的 `message` 内嵌正文; 本插件把 `time` 原样带走, 其余未知字段不参与重建。
 
 ## 配置
 

@@ -14,7 +14,7 @@ from .nodes import (
     SliceSpecError,
     count_nested_forwards,
     find_forward_id,
-    from_payload,
+    from_forward_item,
     parse_slice,
     to_payload,
 )
@@ -46,7 +46,7 @@ class StripResult:
 def _nodes_of(raw: Sequence[Any]) -> list[ForwardNode]:
     nodes: list[ForwardNode] = []
     for item in raw:
-        node = from_payload(
+        node = from_forward_item(
             item if isinstance(item, dict) else {"type": item.type, "data": item.data}
         )
         if node is not None:

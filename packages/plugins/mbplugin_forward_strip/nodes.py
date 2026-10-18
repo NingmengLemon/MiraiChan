@@ -24,6 +24,7 @@ __all__ = [
     "SliceSpecError",
     "count_nested_forwards",
     "find_forward_id",
+    "forward_items",
     "from_payload",
     "parse_slice",
     "to_payload",
@@ -107,8 +108,36 @@ def from_payload(payload: Mapping[str, Any]) -> ForwardNode | None:
     )
 
 
+def from_forward_item(item: Mapping[str, Any]) -> ForwardNode | None:
+    """get_forward_msg 返回数组里的一项 -> ForwardNode
+
+    两种形状都见得到:
+
+    - node 消息段 (go-cqhttp / OneBot 标准实现的典型返回)
+    - 消息事件 (SnowLuma 的返回: ``message_id`` / ``sender`` / ``message`` / ``time``),
+      发送者信息在 ``sender.user_id``、``sender.card`` 或 ``sender.nickname`` 上
+    """
+    if (node := from_payload(item)) is not None:
+        return node
+    content = item.get("message", item.get("content", ()))
+    if isinstance(content, str):
+        content = ({"type": "text", "data": {"text": content}},)
+    if not content and item.get("message_id") is None:
+        return None
+    sender = item.get("sender")
+    sender = sender if isinstance(sender, Mapping) else {}
+    uin = _int_or_none(sender.get("user_id", item.get("user_id", item.get("uin"))))
+    name = _name_of(sender) or _name_of(item)
+    return ForwardNode(
+        content=_segments(content or ()),
+        uin=uin,
+        name=name,
+        time=_int_or_none(item.get("time")),
+    )
+
+
 def _name_of(data: Mapping[str, Any]) -> str | None:
-    for key in ("name", "nickname"):
+    for key in ("name", "card", "nickname"):
         value = data.get(key)
         if isinstance(value, str) and value:
             return value
@@ -187,3 +216,14 @@ def parse_slice(text: str) -> slice:
     if step == 0:
         raise SliceSpecError("步长不能是 0")
     return slice(start, stop, step)
+
+def forward_items(data: object) -> list[Any]:
+    """从 get_forward_msg 的 data 里取节点数组, 两种键名都认"""
+    if isinstance(data, list):
+        return list(data)
+    if isinstance(data, Mapping):
+        for key in ("messages", "message"):
+            value = data.get(key)
+            if isinstance(value, list):
+                return value
+    return []
