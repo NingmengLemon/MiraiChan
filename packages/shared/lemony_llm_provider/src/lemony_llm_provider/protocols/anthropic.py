@@ -25,6 +25,8 @@ from .base import (
     Translation,
     check_capabilities,
     select_stop,
+    select_temperature,
+    select_top_p,
     sendable_messages,
     tool_choice_value,
 )
@@ -94,7 +96,8 @@ def build(request: CompletionRequest, *, model: str, quirks: Quirks) -> Translat
             pending.append(block)
             continue
         flush_results()
-        if message.tool_calls:
+        # assistant 的正文、思维链与工具调用统一按 thinking -> text -> tool_use 还原
+        if message.role == "assistant" and (message.tool_calls or message.reasoning):
             blocks: list[dict[str, Any]] = []
             if message.reasoning and message.signature:
                 # thinking 块必须排在正文与工具调用之前, 且原样带回 signature
@@ -105,6 +108,9 @@ def build(request: CompletionRequest, *, model: str, quirks: Quirks) -> Translat
                         "signature": message.signature,
                     }
                 )
+            elif message.reasoning:
+                # 没有签名就没法原样回传, 与其发一个上游会拒的块, 不如记下来
+                dropped.append("thinking.signature")
             if message.text():
                 blocks.append({"type": "text", "text": message.text()})
             blocks.extend(
@@ -182,16 +188,19 @@ def build(request: CompletionRequest, *, model: str, quirks: Quirks) -> Translat
             if budget:
                 # adaptive 没有预算这个概念, 只能丢掉
                 dropped.append("thinking.budget_tokens")
-    # messages.create 已经没有 temperature / top_p / top_k, 传上去只会被拒
-    if request.temperature is not None:
-        dropped.append("temperature")
-    if request.top_p is not None:
-        dropped.append("top_p")
+    extra: dict[str, Any] = {}
+    # messages.create 已经没有 temperature / top_p / top_k, 端点声明支持时只能走 extra_body
+    temperature = select_temperature(request, quirks, dropped)
+    if temperature is not None:
+        extra["temperature"] = temperature
+    top_p = select_top_p(request, quirks, dropped)
+    if top_p is not None:
+        extra["top_p"] = top_p
     stop = select_stop(request, quirks, dropped)
     if stop:
         body["stop_sequences"] = stop
-    body.update(request.extra_body)
-    return Translation(body, tuple(dropped))
+    extra.update(request.extra_body)
+    return Translation(body, tuple(dropped), extra)
 
 
 def parse(obj: Any, acc: StreamAccumulator) -> list[StreamEvent]:
@@ -221,7 +230,7 @@ def parse(obj: Any, acc: StreamAccumulator) -> list[StreamEvent]:
         elif delta.type == "thinking_delta":
             out.append(ReasoningDelta(delta.thinking))
         elif delta.type == "signature_delta":
-            acc.signature += delta.signature
+            # 累加统一交给 StreamAccumulator.observe, 这里再算一次会翻倍
             out.append(SignatureDelta(delta.signature))
         elif delta.type == "input_json_delta":
             out.extend(acc.args(obj.index, delta.partial_json))

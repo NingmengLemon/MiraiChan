@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import os
 import time
 import uuid
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncGenerator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 import anthropic
+import httpx2
 import openai
 
 from . import protocols
@@ -40,10 +43,17 @@ logger = logging.getLogger(__name__)
 
 # 冷却上限, 单位秒
 COOLDOWN_CAP = 120.0
+# 截断/流内报错的退避上限: 比一般错误短, 这类问题往往不是端点整体坏了
+ABORT_COOLDOWN_CAP = 30.0
 # 鉴权错误的冷却时间: 基本等于"本进程内不再使用"
 AUTH_COOLDOWN = 3600.0
 # 端点要求客户端自报身份, 不要用 SDK 或 HTTP 库的默认 UA
 DEFAULT_USER_AGENT = "miraichan-llm/0.1"
+
+# 两个 SDK 会无条件读取这些环境变量并注入每个请求, 多端点场景下会把凭据或组织信息
+# 发给配置之外的第三方端点, 所以启动时直接拒绝
+_SDK_ENV_HEADERS = ("OPENAI_CUSTOM_HEADERS", "ANTHROPIC_CUSTOM_HEADERS")
+_SDK_ENV_IDENTITY = ("OPENAI_ORG_ID", "OPENAI_PROJECT_ID")
 
 
 @dataclass(frozen=True)
@@ -57,11 +67,49 @@ class Completion:
     endpoint_id: str
 
 
+@dataclass(frozen=True)
+class EndpointStats:
+    id: str
+    protocol: str
+    model: str
+    calls: int
+    failures: int
+    latency_ms: float
+    usage: Usage
+    disabled: bool
+    cooldown_s: float
+
+
+def _check_sdk_env() -> None:
+    offending = [
+        name for name in (*_SDK_ENV_HEADERS, *_SDK_ENV_IDENTITY) if os.environ.get(name)
+    ]
+    if offending:
+        raise LLMConfigError(
+            "这些环境变量会被 SDK 自动加进请求头, 可能把凭据或组织信息发到配置之外的端点; "
+            f"先 unset: {', '.join(offending)}"
+        )
+
+
 class _Endpoint:
     """单个端点的运行时状态"""
 
     def __init__(self, spec: EndpointSpec) -> None:
         self.spec = spec
+        self.http = httpx2.AsyncClient(
+            proxy=spec.proxy,
+            # httpx2 要求四段超时全给, 否则拒绝构造
+            timeout=httpx2.Timeout(
+                connect=spec.connect_timeout,
+                read=spec.timeout,
+                write=spec.timeout,
+                pool=spec.connect_timeout,
+            ),
+            limits=httpx2.Limits(
+                max_connections=max(1, spec.max_concurrency),
+                max_keepalive_connections=max(1, spec.max_concurrency),
+            ),
+        )
         # 两个 SDK 的客户端类型互不相干, 按协议分派调用, 这里只当传输层用
         self.client: Any = self._make_client()
         self.semaphore = asyncio.Semaphore(max(1, spec.max_concurrency))
@@ -75,20 +123,22 @@ class _Endpoint:
     def _make_client(self) -> openai.AsyncOpenAI | anthropic.AsyncAnthropic:
         headers = {"User-Agent": DEFAULT_USER_AGENT, **self.spec.extra_headers}
         # 永远显式传 key: openai 缺 key 会直接抛, anthropic 会去读 ANTHROPIC_API_KEY
-        api_key = self.spec.api_key or "none"
         common: dict[str, Any] = {
-            "api_key": api_key,
+            "api_key": self.spec.api_key or "none",
             "base_url": self.spec.base_url,
             "max_retries": 0,  # 重试由池子接管
-            "timeout": self.spec.timeout,
             "default_headers": headers,
+            "http_client": self.http,
         }
         if self.spec.protocol == "anthropic":
             return anthropic.AsyncAnthropic(**common)
         return openai.AsyncOpenAI(**common)
 
     async def aclose(self) -> None:
-        await self.client.close()
+        with contextlib.suppress(Exception):
+            await self.client.close()
+        with contextlib.suppress(Exception):
+            await self.http.aclose()
 
     @property
     def disabled(self) -> bool:
@@ -116,10 +166,14 @@ class _Endpoint:
             self.disabled_reason = f"{exc.kind}: {exc}"
             self.cooldown_until = now + AUTH_COOLDOWN
             return
-        if isinstance(exc, RequestRejected) and exc.capability:
-            # 端点可能只是不支持这个参数, 短暂冷却后仍可服务别的请求
+        if isinstance(exc, StreamAborted):
+            # 截断与流内报错说明这个端点这一次不可靠, 短暂绕开, 不要永久惩罚
             self.failures += 1
-            self.cooldown_until = now + COOLDOWN_CAP / 2
+            self.cooldown_until = now + min(2.0**self.failures, ABORT_COOLDOWN_CAP)
+            return
+        if isinstance(exc, RequestRejected) and exc.capability:
+            # 参数不被支持是请求形状与端点不匹配, 端点本身还是健康的, 不冷却
+            self.failures += 1
             return
         if exc.retryable:
             self.failures += 1
@@ -130,6 +184,19 @@ class _Endpoint:
                 else min(2.0**self.failures, COOLDOWN_CAP)
             )
             self.cooldown_until = now + delay
+
+    def stats(self, now: float) -> EndpointStats:
+        return EndpointStats(
+            id=self.spec.id,
+            protocol=self.spec.protocol,
+            model=self.spec.model,
+            calls=self.calls,
+            failures=self.failures,
+            latency_ms=round(self.latency_ms, 1),
+            usage=self.usage,
+            disabled=self.disabled,
+            cooldown_s=round(max(0.0, self.cooldown_until - now), 1),
+        )
 
 
 class Pool:
@@ -145,6 +212,7 @@ class Pool:
     ) -> None:
         if not endpoints:
             raise LLMConfigError("至少需要一个端点")
+        _check_sdk_env()
         self._eps: dict[str, _Endpoint] = {
             spec.id: _Endpoint(spec) for spec in endpoints
         }
@@ -163,18 +231,13 @@ class Pool:
         self._cursor = dict.fromkeys(self._aliases, 0)
 
     @classmethod
-    def from_settings(
-        cls,
-        settings: LLMSettings,
-        *,
-        max_attempts: int = 2,
-    ) -> Pool:
+    def from_settings(cls, settings: LLMSettings) -> Pool:
         specs = build_specs(settings)
         return cls(
             list(specs.values()),
             settings.aliases,
             default_alias=settings.default_alias,
-            max_attempts=max_attempts,
+            max_attempts=settings.max_attempts,
         )
 
     async def aclose(self) -> None:
@@ -186,6 +249,10 @@ class Pool:
 
     async def __aexit__(self, *exc: object) -> None:
         await self.aclose()
+
+    def stats(self) -> list[EndpointStats]:
+        now = time.monotonic()
+        return [endpoint.stats(now) for endpoint in self._eps.values()]
 
     # -- 端点选择 ----------------------------------------------------------
     def _alias_ids(self, alias: str | None) -> tuple[str, ...]:
@@ -231,7 +298,7 @@ class Pool:
         request: CompletionRequest,
         acc: StreamAccumulator,
         headers: Mapping[str, str],
-    ) -> AsyncIterator[StreamEvent]:
+    ) -> AsyncGenerator[StreamEvent, None]:
         spec = endpoint.spec
         module = protocols.for_protocol(spec.protocol)
         translation = module.build(request, model=spec.model, quirks=spec.quirks)
@@ -241,34 +308,53 @@ class Pool:
             if spec.strict_params:
                 raise LLMConfigError(message)
             logger.debug(message)
-        merged_body = {**body, **dict(spec.extra_body)}
+        # SDK 的原生签名里没有的字段只能走 extra_body, 不能当关键字参数展开
+        extra = {**translation.extra, **dict(spec.extra_body)}
 
         async with endpoint.semaphore:
             try:
-                if spec.protocol == "anthropic":
-                    stream = await endpoint.client.messages.create(
-                        **merged_body, extra_headers=dict(headers)
-                    )
-                elif spec.protocol == "chat":
-                    stream = await endpoint.client.chat.completions.create(
-                        **merged_body, extra_headers=dict(headers)
-                    )
-                else:
-                    stream = await endpoint.client.responses.create(
-                        **merged_body, extra_headers=dict(headers)
-                    )
-                try:
-                    async for obj in stream:
-                        for event in module.parse(obj, acc):
-                            acc.observe(event)
-                            yield event
-                finally:
-                    await stream.close()
+                stream = await self._create(endpoint, body, extra, headers)
             except (openai.OpenAIError, anthropic.AnthropicError) as exc:
                 raise map_sdk_error(exc, endpoint_id=spec.id) from exc
+            except LLMError:
+                raise
+            except (TypeError, ValueError) as exc:
+                raise LLMConfigError(
+                    f"端点 {spec.id} 的参数不被 SDK 接受: {exc}"
+                ) from exc
+            try:
+                async for obj in stream:
+                    for event in module.parse(obj, acc):
+                        acc.observe(event)
+                        yield event
+            except (openai.OpenAIError, anthropic.AnthropicError) as exc:
+                raise map_sdk_error(exc, endpoint_id=spec.id) from exc
+            finally:
+                # 取消时也要把底层连接关掉, 而且不能被这次的取消打断
+                with contextlib.suppress(Exception, asyncio.CancelledError):
+                    await stream.close()
 
         completed = acc.completed(spec.id)
         yield completed
+
+    async def _create(
+        self,
+        endpoint: _Endpoint,
+        body: dict[str, Any],
+        extra: dict[str, Any],
+        headers: Mapping[str, str],
+    ):
+        spec = endpoint.spec
+        kwargs = {
+            **body,
+            "extra_body": extra,
+            "extra_headers": dict(headers),
+        }
+        if spec.protocol == "anthropic":
+            return await endpoint.client.messages.create(**kwargs)
+        if spec.protocol == "chat":
+            return await endpoint.client.chat.completions.create(**kwargs)
+        return await endpoint.client.responses.create(**kwargs)
 
     async def stream(
         self,
@@ -276,7 +362,7 @@ class Pool:
         *,
         alias: str | None = None,
         session_id: str | None = None,
-    ) -> AsyncIterator[StreamEvent]:
+    ) -> AsyncGenerator[StreamEvent, None]:
         alias_name = alias or self._default_alias
         ids = self._alias_ids(alias_name)
         # 一次逻辑请求固定同一个幂等键, 换端点也不能换
@@ -296,12 +382,22 @@ class Pool:
             started = False
             began = time.monotonic()
             try:
-                async for event in self._run(endpoint, request, acc, headers):
-                    started = True
-                    yield event
+                async with contextlib.aclosing(
+                    self._run(endpoint, request, acc, headers)
+                ) as events:
+                    async for event in events:
+                        started = True
+                        yield event
             except LLMError as exc:
                 endpoint.report_failure(exc)
                 last = exc
+                if started and not isinstance(exc, StreamAborted):
+                    # 内容已经吐出去了, 这时候只能把残片交代清楚, 不能重来
+                    raise StreamAborted(
+                        f"{exc.kind}: {exc}",
+                        partial=acc.partial(),
+                        endpoint_id=endpoint.spec.id,
+                    ) from exc
                 if self._should_retry(exc, started=started, attempts=attempts):
                     logger.warning(
                         "端点 %s 失败 (%s), 换下一个端点重试: %s",

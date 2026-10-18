@@ -11,7 +11,8 @@ import openai
 
 from .models import PartialOutput
 
-# 参数不被支持的典型说法, 用来把"换一个端点就能过"和"请求本身非法"分开
+# 参数不被支持的典型说法, 用来把"换一个端点就能过"和"请求本身非法"分开。
+# 注意别把普通的取值校验错误算进来, 那种换端点也过不了
 _CAPABILITY_HINTS = (
     "unsupported",
     "not supported",
@@ -20,7 +21,6 @@ _CAPABILITY_HINTS = (
     "unrecognized request argument",
     "extra inputs are not permitted",
     "unexpected keyword",
-    "invalid value for",
 )
 
 
@@ -192,6 +192,9 @@ def map_sdk_error(exc: Exception, *, endpoint_id: str) -> LLMError:
             return AuthError(message, **common)
         if status is not None and status >= 500:
             return UpstreamServerError(message, **common)
+        if status == 200:
+            # 流内错误是用已经发出去的 200 响应现造的, status 说明不了任何事
+            return LLMError(message, **common)
         return RequestRejected(
             message, capability=looks_like_capability_mismatch(message), **common
         )

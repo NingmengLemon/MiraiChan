@@ -297,20 +297,21 @@ def responses_chunks(model: str) -> list[str]:
                 event="response.output_item.added",
             )
         )
-        chunks.extend(
-            _sse(
-                {
-                    "type": "response.function_call_arguments.delta",
-                    "sequence_number": 30 + output_index,
-                    "item_id": item["id"],
-                    "output_index": output_index,
-                    "delta": piece,
-                },
-                event="response.function_call_arguments.delta",
+        if offset == 0:
+            chunks.extend(
+                _sse(
+                    {
+                        "type": "response.function_call_arguments.delta",
+                        "sequence_number": 30 + output_index,
+                        "item_id": item["id"],
+                        "output_index": output_index,
+                        "delta": piece,
+                    },
+                    event="response.function_call_arguments.delta",
+                )
+                for piece in TOOLS[offset][1]
             )
-            for piece in TOOLS[offset][1]
-        )
-        if offset == 1:
+        else:
             # 第二个工具只给 done 不给 delta, 覆盖"兼容层只发完整参数"的情形
             chunks.append(
                 _sse(

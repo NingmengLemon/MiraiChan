@@ -82,7 +82,7 @@ TARGETS = (
         protocol="responses",
         base_url="https://opencode.ai/inference/go/openai/v1",
         model="gpt-6-luna",
-        quirks="opencode_go_responses",
+        quirks="openai_responses",
         env="OPENCODE_GO_API_KEY",
         session_header="x-opencode-session",
     ),
@@ -91,7 +91,7 @@ TARGETS = (
         protocol="anthropic",
         base_url="https://opencode.ai/inference/go/anthropic",
         model="claude-haiku-5-5",
-        quirks="opencode_go_anthropic",
+        quirks="anthropic",
         env="OPENCODE_GO_API_KEY",
         session_header="x-opencode-session",
     ),
@@ -229,7 +229,8 @@ async def _image_round(pool: Pool) -> None:
     image = ImagePart(data=red_square_png(), media_type="image/png")
     request = CompletionRequest(
         messages=(Message.user("这张图主要是什么颜色? 用一个词回答.", image),),
-        max_tokens=256,
+        # 思考模型会先花掉一大截预算, 给少了就只剩 finish=length
+        max_tokens=1024,
     )
     result = await pool.complete(request, session_id="smoke-image")
     print(f"  image    ok  finish={result.finish_reason}  text={result.text[:60]!r}")

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from .client import COOLDOWN_CAP, DEFAULT_USER_AGENT, Completion, Pool
+from .client import COOLDOWN_CAP, DEFAULT_USER_AGENT, Completion, EndpointStats, Pool
 from .errors import (
     AuthError,
     ConnectionFailed,
@@ -56,6 +56,7 @@ __all__ = [
     "Effort",
     "EndpointSettings",
     "EndpointSpec",
+    "EndpointStats",
     "FinishReason",
     "ImagePart",
     "LLMConfigError",

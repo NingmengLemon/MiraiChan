@@ -74,7 +74,13 @@ def build(request: CompletionRequest, *, model: str, quirks: Quirks) -> Translat
             continue
         items.append({"role": message.role, "content": _content(message)})
 
-    body: dict[str, Any] = {"model": model, "input": items, "stream": True}
+    body: dict[str, Any] = {
+        "model": model,
+        "input": items,
+        "stream": True,
+        # responses 的 store 默认是 true, 这里显式关掉, 上下文由调用方自己带
+        "store": False,
+    }
     if request.system:
         body["instructions"] = request.system
     if request.tools:
@@ -112,8 +118,7 @@ def build(request: CompletionRequest, *, model: str, quirks: Quirks) -> Translat
     if request.stop:
         # responses 协议本身没有 stop 参数
         dropped.append("stop")
-    body.update(request.extra_body)
-    return Translation(body, tuple(dropped))
+    return Translation(body, tuple(dropped), dict(request.extra_body))
 
 
 def _usage(raw: Any) -> Usage:

@@ -28,6 +28,9 @@ class EndpointSettings(BaseSettings):
     strict_params: bool = False
     max_concurrency: int = 4
     timeout: float = 120.0
+    # 连接超时单独一个值, 免得黑洞端点把整个 timeout 耗在握手上
+    connect_timeout: float = 10.0
+    proxy: str | None = None
     extra_headers: dict[str, str] = Field(default_factory=dict)
     session_header: str | None = None
     extra_body: dict[str, Any] = Field(default_factory=dict)
@@ -37,6 +40,8 @@ class LLMSettings(BaseSettings):
     default_alias: str = "chat"
     aliases: dict[str, list[str]] = Field(default_factory=dict)
     endpoints: dict[str, EndpointSettings] = Field(default_factory=dict)
+    # 每个别名共用的尝试次数, 含第一次
+    max_attempts: int = 2
 
 
 @dataclass(frozen=True)
@@ -47,11 +52,14 @@ class EndpointSpec:
     protocol: Protocol
     base_url: str
     model: str
-    api_key: str | None = None
+    # 不参与 repr: 异常 traceback 与 debug 日志都不该带出密钥
+    api_key: str | None = field(default=None, repr=False)
     quirks: Quirks = field(default_factory=Quirks)
     strict_params: bool = False
     max_concurrency: int = 4
     timeout: float = 120.0
+    connect_timeout: float = 10.0
+    proxy: str | None = None
     extra_headers: Mapping[str, str] = field(default_factory=dict)
     session_header: str | None = None
     extra_body: Mapping[str, Any] = field(default_factory=dict)
@@ -68,10 +76,14 @@ def build_specs(
     *,
     key_resolver: Callable[[str], str | None] | None = None,
 ) -> dict[str, EndpointSpec]:
-    """把配置模型折成端点描述; 取不到凭据直接报错, 不退回 SDK 的环境变量发现"""
+    """把配置模型折成端点描述; 取不到凭据或必填项为空都直接报错"""
     resolver = key_resolver or _lemony_secret
     specs: dict[str, EndpointSpec] = {}
     for name, endpoint in settings.endpoints.items():
+        if not endpoint.base_url:
+            raise LLMConfigError(f"端点 {name!r} 缺少 base_url")
+        if not endpoint.model:
+            raise LLMConfigError(f"端点 {name!r} 缺少 model")
         key = None
         if endpoint.api_key_ref:
             key = resolver(endpoint.api_key_ref)
@@ -92,6 +104,8 @@ def build_specs(
             strict_params=endpoint.strict_params,
             max_concurrency=endpoint.max_concurrency,
             timeout=endpoint.timeout,
+            connect_timeout=endpoint.connect_timeout,
+            proxy=endpoint.proxy,
             extra_headers=dict(endpoint.extra_headers),
             session_header=endpoint.session_header,
             extra_body=dict(endpoint.extra_body),

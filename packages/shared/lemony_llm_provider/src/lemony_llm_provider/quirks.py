@@ -83,12 +83,8 @@ _PRESETS: dict[str, Quirks] = {
         supports_top_p=False,
         effort_map=DEEPSEEK_EFFORT,
     ),
-    # OpenCode Go: 只给聚合协议本身的差别, 具体模型沿用对应官方预设
-    "opencode_go_chat": Quirks(max_tokens_field="max_tokens"),
-    "opencode_go_responses": Quirks(
-        max_tokens_field="max_output_tokens", supports_stop=False
-    ),
-    "opencode_go_anthropic": Quirks(supports_temperature=False, supports_top_p=False),
+    # 聚合站自己的差异 (额外头、会话头) 属于端点配置, 不在这里;
+    # 模型差异用 capabilities 覆盖已有的预设
 }
 
 

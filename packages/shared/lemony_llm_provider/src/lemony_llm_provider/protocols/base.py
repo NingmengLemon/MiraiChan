@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from ..errors import LLMConfigError
@@ -14,6 +14,8 @@ from ..quirks import Quirks
 class Translation:
     body: dict[str, Any]
     dropped: tuple[str, ...] = ()  # 因为端点不支持而丢掉的采样参数
+    # SDK 原生签名里没有的字段, 必须走 create(extra_body=...) 而不是当关键字参数展开
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 def sendable_messages(request: CompletionRequest) -> list[Message]:

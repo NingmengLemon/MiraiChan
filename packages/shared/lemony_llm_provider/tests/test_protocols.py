@@ -98,7 +98,8 @@ def test_anthropic_translation() -> None:
     assert "thinking.budget_tokens" in result.dropped
     assert body["stop_sequences"] == ["STOP"]
     assert "temperature" not in body
-    assert "temperature" in result.dropped
+    # messages.create 没有 temperature 参数, 端点声明支持时只能走 extra_body
+    assert result.extra["temperature"] == 0.7
 
 
 def test_structured_output_shapes() -> None:
@@ -142,12 +143,43 @@ def test_effort_none_disables_thinking() -> None:
     request = CompletionRequest(
         messages=(Message.user("hi"),), reasoning=Reasoning(effort="none")
     )
-    chat = build("chat", request, "deepseek_chat").body
-    assert chat["thinking"] == {"type": "disabled"}
-    assert "reasoning_effort" not in chat
+    deepseek = build("chat", request, "deepseek_chat")
+    # thinking 不是 SDK 的原生参数, 必须走 extra_body, 否则调用处会 TypeError
+    assert deepseek.extra["thinking"] == {"type": "disabled"}
+    assert "thinking" not in deepseek.body
+    assert "reasoning_effort" not in deepseek.body
     # OpenAI 侧没有 thinking 开关, 什么都不发
-    assert "thinking" not in build("chat", request, "openai_chat").body
+    openai_chat = build("chat", request, "openai_chat")
+    assert "thinking" not in openai_chat.body
     assert build("anthropic", request).body["thinking"] == {"type": "disabled"}
+
+
+def test_responses_always_opts_out_of_storage() -> None:
+    # responses 的 store 默认是 true, 不显式关掉就等于让服务端留存对话
+    assert build("responses", base_request()).body["store"] is False
+
+
+def test_extra_body_is_kept_out_of_native_kwargs() -> None:
+    request = CompletionRequest(
+        messages=(Message.user("hi"),), extra_body={"provider_specific": 1}
+    )
+    for protocol in ("chat", "responses", "anthropic"):
+        result = build(protocol, request)
+        assert result.extra["provider_specific"] == 1
+        assert "provider_specific" not in result.body
+
+
+def test_anthropic_temperature_goes_to_extra_when_enabled() -> None:
+    from lemony_llm_provider import Quirks
+
+    request = CompletionRequest(messages=(Message.user("hi"),), temperature=0.3)
+    quirks = Quirks(supports_temperature=True, supports_top_p=True)
+    module = protocols.for_protocol("anthropic")
+    result = module.build(request, model="m", quirks=quirks)
+    # SDK 类型层没有这个参数, 只能走 extra_body
+    assert result.extra["temperature"] == 0.3
+    assert "temperature" not in result.body
+    assert result.dropped == ()
 
 
 def test_anthropic_budgeted_style_validates_budget() -> None:

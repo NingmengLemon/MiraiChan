@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Literal
@@ -153,6 +154,19 @@ async def test_three_protocols_agree(env: _Env) -> None:
     assert results["anthropic"].signature == "sig-1"
     assert [r.endpoint_id for r in results.values()] == ["c", "r", "a"]
 
+    # 请求侧也要验: 光比对返回内容看不出翻译层被掏空
+    bodies = {captured.path: captured.body for captured in env.captured}
+    chat_body = bodies["/v1/chat/completions"]
+    assert chat_body["stream_options"] == {"include_usage": True}
+    assert chat_body["tools"][0]["function"]["name"] == "get_time"
+    responses_body = bodies["/v1/responses"]
+    assert responses_body["store"] is False
+    assert responses_body["tools"][0]["name"] == "get_time"
+    anthropic_body = bodies["/v1/messages"]
+    assert anthropic_body["max_tokens"] == 2048
+    assert anthropic_body["tools"][0]["input_schema"]
+    assert anthropic_body["system"] == "你是一只猫娘"
+
 
 async def test_deepseek_style_usage_on_last_chunk(env: _Env) -> None:
     pool = Pool([make_spec(env.base, key="ds", protocol="chat", model=DS_SHAPE)], {})
@@ -198,9 +212,13 @@ async def test_truncated_stream_aborts(env: _Env, protocol: ProtocolName) -> Non
         await pool.aclose()
     partial = info.value.partial
     assert partial.text == EXPECTED_TEXT  # 已经下发的部分留在异常里
+    assert partial.reasoning == EXPECTED_REASONING
+    assert [(c.name, c.arguments) for c in partial.tool_calls] == EXPECTED_CALLS
     if protocol == "anthropic":
         # anthropic 的用量在 message_start 就报, 所以截断流也有
         assert partial.usage is not None
+        # 签名只该被累加一次
+        assert partial.signature == "sig-1"
 
 
 async def test_auth_failure_disables_endpoint_and_fails_over(env: _Env) -> None:
@@ -237,6 +255,48 @@ async def test_rate_limit_cools_down_and_fails_over(env: _Env) -> None:
     assert second.endpoint_id == "good"
     # 冷却期内不再打它
     assert [c.body["model"] for c in env.captured].count(RATELIMIT_SHAPE) == 1
+    # 换端点重试仍然算同一次逻辑请求: 幂等键必须一致
+    keys = [c.headers["idempotency-key"] for c in env.captured[:2]]
+    assert len(keys) == 2 and keys[0] == keys[1]
+
+
+async def test_stats_are_observable(env: _Env) -> None:
+    pool = Pool([make_spec(env.base, key="c", protocol="chat")], {})
+    try:
+        await _complete(pool, "default")
+        (stats,) = pool.stats()
+    finally:
+        await pool.aclose()
+    assert stats.id == "c"
+    assert stats.calls == 1
+    assert stats.failures == 0
+    assert stats.latency_ms >= 0.0
+    assert stats.usage == EXPECTED_USAGE
+    assert stats.disabled is False
+
+
+async def test_closing_the_stream_early_releases_the_slot(env: _Env) -> None:
+    spec = make_spec(env.base, key="c", protocol="chat")
+    spec = EndpointSpec(
+        id=spec.id,
+        protocol=spec.protocol,
+        base_url=spec.base_url,
+        model=spec.model,
+        api_key=spec.api_key,
+        quirks=spec.quirks,
+        max_concurrency=1,
+    )
+    pool = Pool([spec], {})
+    try:
+        stream = pool.stream(make_request())
+        async for _event in stream:  # 只取一个事件就放弃
+            break
+        await stream.aclose()
+        # 信号量必须已经还回去了, 否则第二次调用会一直等下去
+        result = await asyncio.wait_for(pool.complete(make_request()), timeout=5)
+        assert result.text == EXPECTED_TEXT
+    finally:
+        await pool.aclose()
 
 
 async def test_capability_rejection_never_reaches_the_endpoint(env: _Env) -> None:

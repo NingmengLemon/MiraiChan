@@ -111,11 +111,13 @@ def build(request: CompletionRequest, *, model: str, quirks: Quirks) -> Translat
                 "strict": True,
             },
         }
+    extra: dict[str, Any] = {}
     if request.reasoning and request.reasoning.effort:
         effort = request.reasoning.effort
         if effort == "none":
             if quirks.thinking_off_style == "thinking_param":
-                body["thinking"] = {"type": "disabled"}
+                # thinking 不是 SDK 的原生参数, 只能走 extra_body
+                extra["thinking"] = {"type": "disabled"}
         else:
             body["reasoning_effort"] = quirks.fold_effort(effort)
     if request.max_tokens is not None:
@@ -129,8 +131,8 @@ def build(request: CompletionRequest, *, model: str, quirks: Quirks) -> Translat
     stop = select_stop(request, quirks, dropped)
     if stop:
         body["stop"] = stop
-    body.update(request.extra_body)
-    return Translation(body, tuple(dropped))
+    extra.update(request.extra_body)
+    return Translation(body, tuple(dropped), extra)
 
 
 def _usage(raw: Any) -> Usage:
