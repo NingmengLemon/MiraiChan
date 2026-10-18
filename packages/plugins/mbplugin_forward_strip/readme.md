@@ -74,3 +74,21 @@ QQ 客户端按 `uin` 取头像、按 `name` 显示昵称, 所以截断之后每
 
 如果以后要绕开: 可以在发送前把嵌套层展开 (取内层 `get_forward_msg` 的节点, 按顺序并进外层的节点列表),
 内容一条不丢、只是失去"一层套一层"的结构; 那样走的是扁平转发的预览路径, PC/手机都正常。
+
+### 其他实现端怎么处理嵌套
+
+同一件事有两种做法, 都是协议端的活, 插件侧给的东西一样 (节点列表里放一个带 id 的 `forward` 段):
+
+| 实现端 | 做法 | 关键代码 |
+| --- | --- | --- |
+| SnowLuma / 新版 NapCat | 外层 LongMsg 的 actions 里追加内层节点 (piggyback), 预览元素的 `meta.detail.uniseq` 与内层 actionCommand 对应 | SnowLuma `bridge/apis/forward.ts`; NapCat `UploadForwardMsgV2` + `ForwardMsgBuilder` |
+| Lagrange.Core | 内层先单独上传成自己的 resId, 外层预览只引用它 (`com.tencent.multimsg` 的 `detail.resid`) | `MultiMsgEntity` 的 `Preprocess` 上传 / `Build` 生成 LightApp |
+
+Lagrange 那条路的好处是内外层互不依赖, 预览坏了也能按 resid 再拉; SnowLuma 1.14.22 走 piggyback, 我们看到的
+预览畸形就出在这一段。NapCat 老版本忽略自定义 `uin`/`name`, 新版有 `UploadForwardMsgV2`, 但没实测。
+
+### 展开嵌套的点子 (未做)
+
+发送前把嵌套层展开并进外层节点列表, 走扁平转发的预览路径。**限制是节点数**: QQ 客户端对超过约 100 条
+的转发显示不全, 插件自己的 `max_nodes` 也是 100, 展开后很容易超。可行做法是展开到预算为止,
+超预算就报错而不是发一条看不全的记录; 但没展开干净的层仍然会撞上上面的预览问题, 所以暂时搁置。
