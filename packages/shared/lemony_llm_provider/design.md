@@ -318,14 +318,22 @@ SDK 原生签名里没有的字段一律走 `extra_body`, 不能当关键字参�
   于是 quirks 里加了 `anthropic_thinking_style`, 老模型才用 `enabled` 加 `budget_tokens`
 - DeepSeek 的 chat 侧不接受 `response_format: json_schema`(报 "This response_format type is unavailable now"),
   只有 responses 的 `text.format` 认; 这条差异现在由 `deepseek_chat` 的能力声明表达, 请求会在发送前被拒
-- Claude 在 adaptive 加 `display=summarized` 下仍然没有吐出 thinking 块, 所以签名回传这条链路在真端点上还没被验证过
+- Claude 不出思维链这件事是上游在变: 从 Opus 4.7 起思维链正文默认不下发, 要 `display=summarized` 才给,
+  而社区报告里连显式 `summarized` 也有拿到空正文只带签名的情况(theregister 2026-08-14, claude-code#56356)。
+  所以这个现象不算本库的问题, 但签名回传因此还没在真端点上验证过
+
+`tools/llm_load_balance.py` 验证多 key 轮询。NVIDIA NIM 那边有 6 个 key, `z-ai/glm-5.3-flash` 可用:
+6 次请求正好摊到 6 个端点上; 在最前面插一个无效 key 的端点后, 它被 403 判成鉴权失败并 disabled,
+请求自动落到健康的三个 key 上, 后续轮询在两两之间平均分布。这条路径同时验证了鉴权失败后换端点、
+冷却/禁用状态跨请求保留, 以及 `Pool.stats()` 的计数。
 
 ## 未决问题
 
 1. 一条 assistant 消息里出现多个 thinking 块(或 `redacted_thinking`、responses 的 `encrypted_content`)时怎么回传。
    现在只留了单块字段, 升级成有序块列表要动三个翻译层。
-2. Claude 的思维链为什么不出现: 是 `display` 取值不对、Go 中转把它剥掉了, 还是这个模型默认不流式吐 thinking。
-   签名回传的端到端验证卡在这里; 缺签名时当前实现只把 `thinking.signature` 记进 dropped, 不发这个块。
+2. Claude 的思维链不出现在响应里: 上游从 Opus 4.7 起默认不下发思维链正文, `display` 设为 `summarized` 是
+   官方推荐的做法; 但社区仍报告拿到"空正文 + 签名"的块。实现已经能原样回传只带签名的 thinking 块,
+   端到端的签名验证等上游稳定下来再做。
 3. Anthropic 侧 `temperature` / `top_p` 已经能按能力声明走 `extra_body`, 但服务端是否接受没有验证。
 4. 首 token 超时(TTFT)如何实现。SDK 只有请求级 `timeout`, 需要自己包一层 `asyncio.wait_for` 并在超时后关闭底层流。
 5. 429 的处理: 是换端点还是本端点退避。现在按"换端点 + 记冷却"处理, 单 key 场景下等于直接失败。

@@ -247,6 +247,15 @@ def test_assistant_roundtrip_keeps_reasoning_and_tools() -> None:
     ]
 
 
+def test_anthropic_keeps_signature_only_thinking_block() -> None:
+    # 新版 Claude 可能只回签名不回正文, 这种块也必须原样带回去
+    message = Message.assistant("答", signature="sig-only")
+    request = CompletionRequest(messages=(Message.user("hi"), message), max_tokens=1024)
+    blocks = build("anthropic", request).body["messages"][1]["content"]
+    assert blocks[0] == {"type": "thinking", "thinking": "", "signature": "sig-only"}
+    assert blocks[1] == {"type": "text", "text": "答"}
+
+
 def test_capability_mismatch_is_rejected_before_sending() -> None:
     from lemony_llm_provider import Quirks
 

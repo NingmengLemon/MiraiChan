@@ -97,14 +97,17 @@ def build(request: CompletionRequest, *, model: str, quirks: Quirks) -> Translat
             continue
         flush_results()
         # assistant 的正文、思维链与工具调用统一按 thinking -> text -> tool_use 还原
-        if message.role == "assistant" and (message.tool_calls or message.reasoning):
+        if message.role == "assistant" and (
+            message.tool_calls or message.reasoning or message.signature
+        ):
             blocks: list[dict[str, Any]] = []
-            if message.reasoning and message.signature:
-                # thinking 块必须排在正文与工具调用之前, 且原样带回 signature
+            if message.signature:
+                # thinking 块必须排在正文与工具调用之前, 且原样带回 signature。
+                # 新版 Claude 可能只给签名不给正文, 那种块也要照原样回传
                 blocks.append(
                     {
                         "type": "thinking",
-                        "thinking": message.reasoning,
+                        "thinking": message.reasoning or "",
                         "signature": message.signature,
                     }
                 )
