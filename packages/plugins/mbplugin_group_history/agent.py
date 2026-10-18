@@ -1,21 +1,17 @@
-"""最小 agent 循环: 模型决定调哪个工具, 我们把结果喂回去, 直到它给出答案"""
+"""群史问答的提示词与 agent 组装
+
+循环本身在 ``lemony_llm_provider.agent`` 里, 这里只提供这个场景的提示词与当前时间。
+"""
 
 from __future__ import annotations
 
-import json
-import logging
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from datetime import datetime
 
-from lemony_llm_provider import Completion, CompletionRequest, Message
-
-logger = logging.getLogger(__name__)
+from lemony_llm_provider import Agent, AgentAnswer, CompleteFn, Toolbox
 
 __all__ = ["SYSTEM_PROMPT", "Answer", "Historian"]
 
-#: 单次 complete 的签名, 便于测试时换成假实现
-CompleteFn = Callable[..., Awaitable[Completion]]
+Answer = AgentAnswer
 
 SYSTEM_PROMPT = """你是这个群聊的记录员, 只能依据工具返回的群聊记录回答。
 
@@ -26,97 +22,26 @@ SYSTEM_PROMPT = """你是这个群聊的记录员, 只能依据工具返回的�
 - 用中文, 直接给结论, 不要复述提问。篇幅尽量短, 除非用户要求详细。"""
 
 
-@dataclass(frozen=True, slots=True)
-class Answer:
-    text: str
-    rounds: int
-    tool_calls: int
-    hit_round_limit: bool = False
-
-
-class Historian:
-    """把一次提问跑成"调工具 -> 回填 -> 再问"的循环"""
-
-    def __init__(
-        self,
-        complete: CompleteFn,
-        tools: object,
-        *,
-        alias: str | None = None,
-        max_rounds: int = 4,
-        max_tokens: int = 2048,
-        system_prompt: str = SYSTEM_PROMPT,
-        session_id: str | None = None,
-        now: datetime | None = None,
-    ) -> None:
-        self._complete = complete
-        self._tools = tools
-        self._alias = alias
-        self._max_rounds = max(1, max_rounds)
-        self._max_tokens = max_tokens
-        # 相对时间(比如「昨晚」)要靠当前时间才能落到具体窗口上
-        self._system_prompt = system_prompt + (
-            f"\n\n现在是 {now.isoformat(timespec='minutes')}。" if now else ""
-        )
-        self._session_id = session_id
-
-    @property
-    def specs(self):
-        return getattr(self._tools, "specs", ())
-
-    async def _call(self, messages: list[Message], *, with_tools: bool) -> Completion:
-        request = CompletionRequest(
-            system=self._system_prompt,
-            messages=tuple(messages),
-            tools=self.specs if with_tools else (),
-            tool_choice="auto" if with_tools else None,
-            max_tokens=self._max_tokens,
-        )
-        return await self._complete(
-            request, alias=self._alias, session_id=self._session_id
-        )
-
-    async def ask(self, question: str) -> Answer:
-        messages: list[Message] = [Message.user(question)]
-        used = 0
-        for round_index in range(1, self._max_rounds + 1):
-            result = await self._call(messages, with_tools=True)
-            if not result.tool_calls:
-                return Answer(
-                    text=result.text.strip(), rounds=round_index, tool_calls=used
-                )
-            # 带思考的模型要求把 reasoning / signature 一并回传, 否则下一轮会 400
-            messages.append(
-                Message.assistant(
-                    result.text,
-                    *result.tool_calls,
-                    reasoning=result.reasoning or None,
-                    signature=result.signature or None,
-                )
-            )
-            for call in result.tool_calls:
-                used += 1
-                output = await self._dispatch(call.name, call.arguments)
-                messages.append(Message.tool_result(call.id, output))
-
-        # 轮数用完: 不再给工具, 让它按已有材料收尾
-        logger.debug("群史问答达到轮数上限 %s, 收尾", self._max_rounds)
-        final = await self._call(messages, with_tools=False)
-        return Answer(
-            text=final.text.strip(),
-            rounds=self._max_rounds,
-            tool_calls=used,
-            hit_round_limit=True,
-        )
-
-    async def _dispatch(self, name: str, arguments: str) -> str:
-        try:
-            parsed = json.loads(arguments or "{}")
-        except json.JSONDecodeError:
-            return "工具参数不是合法 JSON"
-        if not isinstance(parsed, dict):
-            return "工具参数必须是对象"
-        call = getattr(self._tools, "call", None)
-        if call is None:
-            return "没有可用的工具"
-        return await call(name, parsed)
+def Historian(
+    complete: CompleteFn,
+    toolbox: Toolbox,
+    *,
+    alias: str | None = None,
+    max_rounds: int = 4,
+    max_tokens: int = 2048,
+    system_prompt: str = SYSTEM_PROMPT,
+    session_id: str | None = None,
+    now: datetime | None = None,
+) -> Agent:
+    # 相对时间(比如「昨晚」)要靠当前时间才能落到具体窗口上
+    context = f"现在是 {now.isoformat(timespec='minutes')}。" if now else ""
+    return Agent(
+        complete,
+        toolbox,
+        alias=alias,
+        max_rounds=max_rounds,
+        max_tokens=max_tokens,
+        system_prompt=system_prompt,
+        context=context,
+        session_id=session_id,
+    )

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from .agent import Agent, AgentAnswer, CompleteFn, Toolbox
 from .client import COOLDOWN_CAP, DEFAULT_USER_AGENT, Completion, EndpointStats, Pool
 from .errors import (
     AuthError,
@@ -48,7 +49,10 @@ from .settings import EndpointSettings, EndpointSpec, LLMSettings, build_specs
 __all__ = [
     "COOLDOWN_CAP",
     "DEFAULT_USER_AGENT",
+    "Agent",
+    "AgentAnswer",
     "AuthError",
+    "CompleteFn",
     "Completed",
     "Completion",
     "CompletionRequest",
@@ -82,6 +86,7 @@ __all__ = [
     "ToolCallArgsDelta",
     "ToolCallStart",
     "ToolSpec",
+    "Toolbox",
     "UpstreamServerError",
     "UpstreamTimeout",
     "Usage",
