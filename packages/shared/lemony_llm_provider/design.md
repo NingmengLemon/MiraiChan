@@ -172,7 +172,11 @@ Completed(finish_reason, tool_calls, usage)   # usage 可能为 None, 表示上�
   干净 EOF、截断、流内报错三种情况都走这条路, 调用方因此能区分"正常结束"和"只拿到半截"。
 
 错误统一成 `LLMError` 层级, 携带 `endpoint_id`、`kind`、`status`、`retryable`、原始响应体摘要。
-流已经打开之后, `status` 不可信(Anthropic 的流内错误挂在 200 响应上), 分类要以异常类型和阶段为准。
+流已经打开之后, `status` 不可信(Anthropic 的流内错误挂在 200 响应上), 分类要以异常类型和阶段为准;
+只要已经下发过事件, 任何异常都会再包一层 `StreamAborted` 把 partial 带出来。
+
+用量有两种合并语义, 不能混: 同一个请求里流式分片之间用 `Usage.merged`(取较大值, 因为输入输出分两处到达),
+跨请求累计用 `Usage.plus`(求和)。
 
 ## 路由与容错
 
@@ -188,30 +192,37 @@ Completed(finish_reason, tool_calls, usage)   # usage 可能为 None, 表示上�
 | 401 / 403 | `disabled`, 冷却到进程结束 | 换下一个端点 |
 | 429 | 按 `Retry-After`(秒)冷却, 没有该头就用 `2 ** 连续失败次数` | 换下一个端点 |
 | 5xx / 超时 / 连接错误 / Anthropic `OverloadedError` | 指数退避冷却, 上限 120 秒 | 首 token 之前换端点, 之后抛 `StreamAborted` |
-| 400 / 422, 错误信息指向参数不支持 | 不冷却 | 换下一个端点(该端点的 quirks 需要修正) |
+| 400 / 422, 错误信息指向参数不支持 | 只记失败, 不冷却 | 换下一个端点(该端点的 quirks 需要修正) |
 | 400 / 422, 请求本身非法 | 不冷却 | 立即抛 |
-| 流内报错 / `response.failed` / 干净 EOF | 记一次失败, 不重试 | 抛 `StreamAborted` |
+| 流内报错 / `response.failed` / 干净 EOF | 记一次失败, 短退避(上限 30 秒) | 抛 `StreamAborted`, 已下发的部分在 `partial` 里 |
 
-重试次数按逻辑请求计(`max_attempts`, 默认 2), 一次逻辑请求在换端点时必须沿用同一个 `Idempotency-Key`。
-`Retry-After` 优先于指数退避。
+重试次数按逻辑请求计(`max_attempts`, 默认 2, 配置里可改), 一次逻辑请求在换端点时沿用同一个 `Idempotency-Key`。
+这个键由库自己生成: 两个 SDK 不会替 chat completions / responses / messages 发这个头, 所以"不手动传也有人管"是不成立的。
+`Retry-After` 优先于指数退避; 目前只解析秒数形式, HTTP-date 会退回指数退避。
 
-流式失败不重试: 已经吐出去的内容收不回来, 重放会让上层看到重复文本。整段调用因为调用方还没拿到内容,
-允许在整个请求层重试。
+流式失败不重试: 已经吐出去的内容收不回来, 重放会让上层看到重复文本。首 token 之前失败才换端点。
+`complete()` 复用同一条流式路径, 因此整段调用同样只在这个窗口内重试, 拿到第一个事件之后就不再换端点。
 
-用量与延迟: 每次调用(含失败)更新端点延迟指数移动平均与用量累计, 用于日志与后续权重策略。当前只做轮询,
-不做成功率加权; 也不做端点粘性。DeepSeek 的上下文缓存按前缀命中, 换端点会掉缓存, 要不要粘性取决于真实用量
-里缓存命中的占比。
+用量与延迟: 每次成功调用更新端点延迟的指数移动平均与用量累计, 失败只计次数。`Pool.stats()` 暴露每个端点的
+调用数、失败数、延迟、累计用量、是否 disabled 与剩余冷却时间; 当前不做成功率加权, 也不做端点粘性。
+DeepSeek 的上下文缓存按前缀命中, 换端点会掉缓存, 要不要粘性取决于真实用量里缓存命中的占比。
 
 ## 调用与清理
 
-对外两个入口: `stream(request)` 给出归一化事件的异步生成器, `complete(request)` 在库内把同一条流聚合成整段结果。
-整段调用复用流式路径, 不另写第二套解析; 端点明确不支持流式时才回落到非流式请求, 再把响应转成同样的事件序列。
+对外两个入口: `stream(request, *, alias=None, session_id=None)` 给出归一化事件的异步生成器,
+`complete(...)` 在同一条流上聚合成整段结果。整段调用不另写一套解析。
+
+`session_id` 是给端点用的会话标识: 端点在配置里声明 `session_header` 时, 这个值会写进那个头
+(OpenCode Go 要求 `x-opencode-session`, 用于它那边的路由与缓存)。不传就不加这个头。
+
+`max_concurrency` 是单个端点同时进行的流数上限, 信号量覆盖整条流的生命周期, 不是"每秒请求数"。
 
 生成器被取消或提前 `aclose()` 时必须关闭底层 SDK 流, 否则连接会泄在 httpx2 的连接池里。实现上用
-`async with stream:` 或显式 `await stream.close()`, 并在 finally 里归还端点的并发额度。
+`contextlib.aclosing` 包住内层生成器, 并在 finally 里关流、归还端点的并发额度; 关流那一步吞掉取消异常,
+免得在已取消的任务里再抛一次。
 
-日志记录端点 id、模型、耗时、首 token 耗时、用量、停止原因与错误分类; 不记录 prompt 与正文。需要排查时用
-debug 级别单独开关, 截断长度可配。
+观测现状: 端点级统计通过 `Pool.stats()` 读; 请求级日志还没实现, 只有失败时的 warning 与被丢弃参数的 debug 日志。
+首 token 耗时与"请求耗时的结构化记录"留在未决问题里。
 
 ## 配置与凭据
 
@@ -244,12 +255,25 @@ debug 级别单独开关, 截断长度可配。
 ```
 
 `api_key_ref` 是凭据键名而不是密钥本身, 由 `lemony_settings.get_secret` 解析(环境变量优先, 其次凭据文件),
-`llm.ds_1.api_key` 对应的环境变量是 `MIRAICHAN_LLM_DS_1_API_KEY`。取不到就报错, 而不是退回 SDK 的环境变量发现。
-没有鉴权的本地端点用 `api_key_ref: null`, 库传一个哨兵字符串给 SDK。
+`llm.ds_1.api_key` 对应的环境变量是 `MIRAICHAN_LLM_DS_1_API_KEY`。取不到或 `base_url` / `model` 为空都直接报错,
+而不是退回 SDK 的环境变量发现。没有鉴权的本地端点用 `api_key_ref: null`, 库传一个哨兵字符串给 SDK。
+两个 SDK 还会无条件读取 `OPENAI_CUSTOM_HEADERS` / `ANTHROPIC_CUSTOM_HEADERS`(以及 `OPENAI_ORG_ID` /
+`OPENAI_PROJECT_ID`)并注入每个请求, 多端点场景下会把凭据或组织信息发给第三方端点, `Pool` 构造时检测到这些
+环境变量会直接拒绝启动。
 
 库导出 `LLMSettings`、`EndpointSpec` 与 `build_specs(settings)`, 由消费方插件自己
-`lemony_settings.require(identifier="llm", model=LLMSettings)` 取配置再构建 `Pool`; 库不替调用方猜标识符。
-`timeout` 按端点配置, 默认连接 10 秒、读取 120 秒; 首 token 超时见未决问题。
+`lemony_settings.require(identifier="llm", model=LLMSettings)` 取配置再构建 `Pool`(或用 `Pool.from_settings`);
+库不替调用方猜标识符。`timeout` 是读取超时, `connect_timeout` 默认 10 秒, 两者与 `max_concurrency`
+一起被注入成每个端点独立的 `httpx2.AsyncClient`; `proxy` 可选。首 token 超时见未决问题。
+
+`base_url` 的形状由 SDK 决定, 写错会拼出双 `/v1` 或者 404:
+
+| 协议 | 配置里的 base_url | SDK 追加 | 最终 URL |
+| --- | --- | --- | --- |
+| chat | `https://api.deepseek.com` | `/chat/completions` | `https://api.deepseek.com/chat/completions` |
+| chat(Go) | `https://opencode.ai/inference/go/openai/v1` | `/chat/completions` | `.../go/openai/v1/chat/completions` |
+| responses | `https://api.deepseek.com` | `/responses` | `https://api.deepseek.com/responses` |
+| anthropic | `https://opencode.ai/inference/go/anthropic` | `/v1/messages` | `.../go/anthropic/v1/messages` |
 
 `quirks` 不是几个字符串而是三样东西:
 
@@ -258,11 +282,14 @@ debug 级别单独开关, 截断长度可配。
 - 参数映射: `max_tokens` 还是 `max_completion_tokens`、thinking 的落点(chat 的 `thinking` / anthropic 的
   `adaptive` 或 `enabled` / responses 的 `reasoning.effort`)、tool_choice 形态、effort 折叠表
 - 默认值与约束: chat 必须带 `stream_options={"include_usage": true}` 否则没有用量、Anthropic `max_tokens` 必填、
-  `budget_tokens >= 1024 && < max_tokens`、base_url 要不要带 `/v1`、聚合站需要的额外头(
-  OpenRouter 的 `HTTP-Referer` / `X-Title`)、`include=["reasoning.encrypted_content"]` 等
+  `budget_tokens >= 1024 && < max_tokens`、聚合站需要的额外头(
+  OpenRouter 的 `HTTP-Referer` / `X-Title`, 配在 `extra_headers`)、`include=["reasoning.encrypted_content"]` 等
+
+SDK 原生签名里没有的字段一律走 `extra_body`, 不能当关键字参数展开, 否则调用处直接 `TypeError`。
 
 随库提供的预设: `deepseek_chat` / `deepseek_responses` / `deepseek_anthropic` / `openai_chat` / `openai_responses` /
-`anthropic` / `anthropic_budgeted` / `opencode_go_chat` / `opencode_go_responses` / `opencode_go_anthropic` / `generic`。
+`anthropic` / `anthropic_budgeted` / `generic`。预设跟**模型**走而不是跟中转走: OpenCode Go 上的 DeepSeek 一样用
+`deepseek_chat`, 聚合站自己的差异(额外头、会话头)放端点配置。
 `strict_params` 打开之后, 采样参数被丢弃不再是 debug 日志而是 `LLMConfigError`。
 
 ## 验证
@@ -272,12 +299,15 @@ debug 级别单独开关, 截断长度可配。
 `tests/` 下的假端点按三种协议的真实 SSE 形状返回同一段内容(两段思维链、两段正文、两个工具调用、一份含缓存读写的
 用量), 再用真实的 `openai` / `anthropic` SDK 去打它, 断言覆盖:
 
-- 请求翻译: 三套协议的 system / 工具结构 / 结构化输出 / stop / 用量开关落点, 以及哪些参数被记为丢弃
+- 请求翻译: 三套协议的 system / 工具结构 / 结构化输出 / stop / 用量开关落点, 以及哪些参数被记为丢弃和哪些走
+  `extra_body`; 响应侧固定带 `store: false`
 - effort 折叠与 thinking 开关: `minimal`/`xhigh`/`ultra` 的折叠、`none` 关掉 thinking、Anthropic 预算约束提前报错
 - 回传: assistant 的 `reasoning_content`、带 signature 的 thinking 块、两个工具调用、合并后的 tool_result
-- 路由: 鉴权失败后端点被禁用并换到下一个、429 之后冷却不再被选中、能力缺失在发请求前就拒绝
+- 路由: 鉴权失败后端点被禁用并换到下一个、429 之后冷却不再被选中、换端点时幂等键不变、能力缺失在发请求前就拒绝、
+  端点统计可读、提前关闭流之后并发额度立刻归还
 - 流式: 三条路径的语义(text / reasoning / 工具调用 / 结束原因 / 用量)一致, 工具调用 id 各自非空不重复;
-  DeepSeek 末块 usage 形状; 断流在三条路径上都判为截断; `response.failed` 抛错; `response.incomplete` 判为 length
+  DeepSeek 末块 usage 形状; 断流在三条路径上都判为截断并带出 partial(含 reasoning、工具调用、签名);
+  `response.failed` 抛错; `response.incomplete` 判为 length
 
 `tools/llm_smoke.py` 打真实端点。2026-10-18 用 OpenCode Go 与 DeepSeek 官方各跑一遍
 (chat 走 `deepseek-v4.1-flash`, responses 走 `gpt-6-luna` 与 `deepseek-v4-flash`, anthropic 走 `claude-haiku-5-5`),
@@ -295,14 +325,16 @@ debug 级别单独开关, 截断长度可配。
 1. 一条 assistant 消息里出现多个 thinking 块(或 `redacted_thinking`、responses 的 `encrypted_content`)时怎么回传。
    现在只留了单块字段, 升级成有序块列表要动三个翻译层。
 2. Claude 的思维链为什么不出现: 是 `display` 取值不对、Go 中转把它剥掉了, 还是这个模型默认不流式吐 thinking。
-   签名回传的端到端验证卡在这里。
-3. Anthropic 侧 `temperature` 是否还能通过 `extra_body` 透传。SDK 类型层已移除, 服务端是否接受未验证。
+   签名回传的端到端验证卡在这里; 缺签名时当前实现只把 `thinking.signature` 记进 dropped, 不发这个块。
+3. Anthropic 侧 `temperature` / `top_p` 已经能按能力声明走 `extra_body`, 但服务端是否接受没有验证。
 4. 首 token 超时(TTFT)如何实现。SDK 只有请求级 `timeout`, 需要自己包一层 `asyncio.wait_for` 并在超时后关闭底层流。
 5. 429 的处理: 是换端点还是本端点退避。现在按"换端点 + 记冷却"处理, 单 key 场景下等于直接失败。
-6. 多 key 轮询的失败计数粒度: 按端点累计还是按(端点, 错误类型)累计。
+6. 多 key 轮询的失败计数粒度: 现在按端点累计, 要不要拆成(端点, 错误类型)。
 7. 是否需要会话粘性(为了 DeepSeek 的前缀缓存), 取决于真实用量里缓存命中的占比。
 8. 结构化输出与工具调用同时开启的行为, 三套协议都没有明确文档; 当前实现会照发, 由上游决定。
 9. `between_tools` 这种 thinking 配置语义未确认, 暂不暴露。
+10. 请求级日志与首 token 耗时还没做: 现在只有端点级统计(`Pool.stats()`)与失败时的 warning。
+11. `Retry-After` 只解析秒数, HTTP-date 形式会退回指数退避。
 
 ## 现状与下一步
 
