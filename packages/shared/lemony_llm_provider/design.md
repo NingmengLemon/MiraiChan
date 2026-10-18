@@ -231,71 +231,86 @@ debug 级别单独开关, 截断长度可配。
       "model": "deepseek-flash",
       "api_key_ref": "llm.ds_1.api_key",
       "quirks": "deepseek_chat",
+      "capabilities": {"json_schema": false},
+      "strict_params": false,
       "max_concurrency": 4,
-      "timeout": 120
+      "timeout": 120,
+      "session_header": null,
+      "extra_headers": {},
+      "extra_body": {}
     }
   }
 }
 ```
 
 `api_key_ref` 是凭据键名而不是密钥本身, 由 `lemony_settings.get_secret` 解析(环境变量优先, 其次凭据文件),
-`llm.ds_1.api_key` 对应的环境变量是 `MIRAICHAN_LLM_DS_1_API_KEY`。取不到就拒绝启动该端点, 而不是退回 SDK 的
-环境变量发现。没有鉴权的本地端点用 `api_key_ref: null`, 库传一个哨兵字符串给 SDK。
+`llm.ds_1.api_key` 对应的环境变量是 `MIRAICHAN_LLM_DS_1_API_KEY`。取不到就报错, 而不是退回 SDK 的环境变量发现。
+没有鉴权的本地端点用 `api_key_ref: null`, 库传一个哨兵字符串给 SDK。
 
-库导出 `LLMSettings` 与 `build_pool(settings)`, 由消费方插件自己
-`lemony_settings.require(identifier="llm", model=LLMSettings)` 取配置再构建; 库不替调用方猜标识符。
+库导出 `LLMSettings`、`EndpointSpec` 与 `build_specs(settings)`, 由消费方插件自己
+`lemony_settings.require(identifier="llm", model=LLMSettings)` 取配置再构建 `Pool`; 库不替调用方猜标识符。
 `timeout` 按端点配置, 默认连接 10 秒、读取 120 秒; 首 token 超时见未决问题。
 
 `quirks` 不是几个字符串而是三样东西:
 
-- 能力声明: 支持哪些协议参数(有没有 stop、有没有 json_schema、图片走哪种形态、能不能带内置工具)
-- 参数映射: `max_tokens` 还是 `max_completion_tokens`、三处 thinking 落点、tool_choice 形态、effort 折叠表
+- 能力声明: 支持哪些协议参数(有没有 stop、有没有 json_schema、图片走哪种形态、能不能带内置工具),
+  端点可以用 `capabilities` 覆盖其中一项, 用来吸收同一预设下个别模型的差异
+- 参数映射: `max_tokens` 还是 `max_completion_tokens`、thinking 的落点(chat 的 `thinking` / anthropic 的
+  `adaptive` 或 `enabled` / responses 的 `reasoning.effort`)、tool_choice 形态、effort 折叠表
 - 默认值与约束: chat 必须带 `stream_options={"include_usage": true}` 否则没有用量、Anthropic `max_tokens` 必填、
   `budget_tokens >= 1024 && < max_tokens`、base_url 要不要带 `/v1`、聚合站需要的额外头(
   OpenRouter 的 `HTTP-Referer` / `X-Title`)、`include=["reasoning.encrypted_content"]` 等
 
-随库提供的预设: `deepseek_chat` / `deepseek_responses` / `openai_chat` / `openai_responses` / `anthropic` / `generic`,
-端点可以用 `extra_body` 与 `capabilities` 覆盖。
+随库提供的预设: `deepseek_chat` / `deepseek_responses` / `deepseek_anthropic` / `openai_chat` / `openai_responses` /
+`anthropic` / `anthropic_budgeted` / `opencode_go_chat` / `opencode_go_responses` / `opencode_go_anthropic` / `generic`。
+`strict_params` 打开之后, 采样参数被丢弃不再是 debug 日志而是 `LLMConfigError`。
 
-## 原型验证
+## 验证
 
-`spike/` 下有一套可跑的验证: 本地假端点按三种协议的真实形状返回同一段内容(两段思维链、两段正文、两个工具调用、
-一份含缓存读写的用量), 再用真实的 `openai` / `anthropic` SDK 去打它。断言分四组:
+分两层。
+
+`tests/` 下的假端点按三种协议的真实 SSE 形状返回同一段内容(两段思维链、两段正文、两个工具调用、一份含缓存读写的
+用量), 再用真实的 `openai` / `anthropic` SDK 去打它, 断言覆盖:
 
 - 请求翻译: 三套协议的 system / 工具结构 / 结构化输出 / stop / 用量开关落点, 以及哪些参数被记为丢弃
-- effort 折叠与 thinking 开关: `minimal`/`xhigh`/`ultra` 的折叠、`none` 关掉 thinking、Anthropic 的预算约束提前报错
+- effort 折叠与 thinking 开关: `minimal`/`xhigh`/`ultra` 的折叠、`none` 关掉 thinking、Anthropic 预算约束提前报错
 - 回传: assistant 的 `reasoning_content`、带 signature 的 thinking 块、两个工具调用、合并后的 tool_result
+- 路由: 鉴权失败后端点被禁用并换到下一个、429 之后冷却不再被选中、能力缺失在发请求前就拒绝
 - 流式: 三条路径的语义(text / reasoning / 工具调用 / 结束原因 / 用量)一致, 工具调用 id 各自非空不重复;
   DeepSeek 末块 usage 形状; 断流在三条路径上都判为截断; `response.failed` 抛错; `response.incomplete` 判为 length
 
-过程中确认了几个只在真实形状下才暴露的点:
+`tools/llm_smoke.py` 打真实端点。2026-10-18 用 OpenCode Go 与 DeepSeek 官方各跑一遍
+(chat 走 `deepseek-v4.1-flash`, responses 走 `gpt-6-luna` 与 `deepseek-v4-flash`, anthropic 走 `claude-haiku-5-5`),
+五个端点全部通过: 文本流、reasoning、工具调用、工具结果回填后的第二轮、结构化输出。真端点暴露了三件假端点测不到的事:
 
-- 工具调用 index 必须重编号, 三套协议的 index 语义互相冲突
-- 两条路径的 usage 到达位置不同(chat 在 finish_reason 之后单独一块, DeepSeek 附在末块), `Completed` 只能在收流时产出
-- Anthropic 的输入 token 要加两个缓存字段才与 OpenAI 的 `prompt_tokens` 同口径, 而 OpenAI 侧再加一次就会翻倍
-- `signature_delta` 是独立事件, 不单独接就等于丢掉下一轮回传要用的签名
-- `response.failed` 与 `response.incomplete` 都是普通事件, SDK 不抛, 不显式处理就会把失败当正常结束
-
-局限: 假端点证明的是"解析与映射自洽", 证明不了真实端点行为。三份假数据的期望值来自各协议文档与 SDK 类型定义,
-不是从归一化结论反推, 但中转站与聚合站是否照做仍然只有真打一次才知道。下一轮需要一个由你手工执行的最小 smoke
-脚本, 用你的 key 打一遍真实端点, 我不接触任何凭据。
+- 新一代 Claude 拒绝 `thinking.type=enabled`, 要求 `thinking.type=adaptive` 加 `output_config.effort`。
+  于是 quirks 里加了 `anthropic_thinking_style`, 老模型才用 `enabled` 加 `budget_tokens`
+- DeepSeek 的 chat 侧不接受 `response_format: json_schema`(报 "This response_format type is unavailable now"),
+  只有 responses 的 `text.format` 认; 这条差异现在由 `deepseek_chat` 的能力声明表达, 请求会在发送前被拒
+- Claude 在 adaptive 加 `display=summarized` 下仍然没有吐出 thinking 块, 所以签名回传这条链路在真端点上还没被验证过
 
 ## 未决问题
 
 1. 一条 assistant 消息里出现多个 thinking 块(或 `redacted_thinking`、responses 的 `encrypted_content`)时怎么回传。
    现在只留了单块字段, 升级成有序块列表要动三个翻译层。
-2. Anthropic 侧 `temperature` 是否还能通过 `extra_body` 透传。SDK 类型层已移除, 服务端是否接受未验证。
-3. 首 token 超时(TTFT)如何实现。SDK 只有请求级 `timeout`, 需要自己包一层 `asyncio.wait_for` 并在超时后关闭底层流。
-4. 429 的处理: 是换端点还是本端点退避。现在按"换端点 + 记冷却"处理, 单 key 场景下等于直接失败。
-5. 多 key 轮询的失败计数粒度: 按端点累计还是按(端点, 错误类型)累计。
-6. 是否需要会话粘性(为了 DeepSeek 的前缀缓存), 取决于真实用量里缓存命中的占比。
-7. 结构化输出与工具调用同时开启的行为, 三套协议都没有明确文档; 当前实现会照发, 由上游决定。
-8. `between_tools` 这种 thinking 配置语义未确认, 暂不暴露。
+2. Claude 的思维链为什么不出现: 是 `display` 取值不对、Go 中转把它剥掉了, 还是这个模型默认不流式吐 thinking。
+   签名回传的端到端验证卡在这里。
+3. Anthropic 侧 `temperature` 是否还能通过 `extra_body` 透传。SDK 类型层已移除, 服务端是否接受未验证。
+4. 首 token 超时(TTFT)如何实现。SDK 只有请求级 `timeout`, 需要自己包一层 `asyncio.wait_for` 并在超时后关闭底层流。
+5. 429 的处理: 是换端点还是本端点退避。现在按"换端点 + 记冷却"处理, 单 key 场景下等于直接失败。
+6. 多 key 轮询的失败计数粒度: 按端点累计还是按(端点, 错误类型)累计。
+7. 是否需要会话粘性(为了 DeepSeek 的前缀缓存), 取决于真实用量里缓存命中的占比。
+8. 结构化输出与工具调用同时开启的行为, 三套协议都没有明确文档; 当前实现会照发, 由上游决定。
+9. `between_tools` 这种 thinking 配置语义未确认, 暂不暴露。
 
-## 落地顺序
+## 现状与下一步
 
-1. 拆模块: `protocols/`(三套 translate 与 parse), `client.py`(路由 + 调用 + 记账), `models.py`(内部模型),
-   `errors.py`, `quirks.py`, `settings.py`
-2. 把 `spike/` 的假端点搬成 `tests/` 里的 fixture, 让三套协议的翻译与归一路径有回归保护
-3. 再补真实端点的 smoke 脚本交给调用方跑
-4. 最后接第一个消费插件
+已经就位: `models.py`(统一模型与事件)、`errors.py`(错误层级与 SDK 映射)、`quirks.py`(预设与能力覆盖)、
+`protocols/`(三套 translate 与 parse)、`client.py`(端点池 + 轮询 + 冷却 + 记账)、`settings.py`(配置模型),
+配套 `tests/` 的假端点回归与 `tools/llm_smoke.py` 的真端点 smoke。
+
+下一步:
+
+1. 接第一个消费插件(LLM 聊天), 插件侧用 `require(identifier="llm", model=LLMSettings)` 取配置
+2. 在插件里补用量记账与按群/按用户的重试与截断策略
+3. 未决问题里第 2 条(Claude 思维链)解决之前, Anthropic 侧不保证 thinking 回传可用
