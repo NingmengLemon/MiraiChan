@@ -24,8 +24,8 @@
 
 ## 基础设施
 
-- MCP 接入: 新增一个 shared 子包, 把 MCP server 暴露的工具挂成插件能调用的工具集, server 侧先接隔壁的
-  `E:\Projects\Python\lemony_mcp_box`(`uv run` 起)。等第一个需要外部工具的消费插件出现时再做。
+- MCP 接入: 新增一个 shared 子包, 把 MCP server 暴露的工具挂成插件能调用的工具集,
+  server 侧先接隔壁的 `lemony_mcp_box` 仓库 (`uv run` 起)。等第一个需要外部工具的消费插件出现时再做。
 - 本地文件的读改写互斥 (`file_lock`): `atomic_write_*` 只保证读到完整的一次写入, 不含互斥,
   等出现真正的读改写消费者 (文件索引、资源覆盖表这类) 时再加, 用已在依赖里的 `filelock`,
   `.lock` 后缀与 `lemony_settings` 对齐。内容寻址命名与可覆盖资源解析已在
@@ -36,7 +36,7 @@
   save 时拒写 / 脱敏, 还是继续只走凭据存储。
 - 凭据层的可选加固 (参考 DSH 的凭据 seam, 本项目只保留文件 + 环境变量): `describe()` 式只读
   元信息 (configured / source / writable, 不返回值) 与子进程环境清洗 (`KEY|PASSWORD|SECRET|TOKEN`
-  这类变量名)。前者等 runbook 真需要排查凭据来源时再做, 后者等 bot 开始 spawn 外部程序时再加。
+  这类变量名)。前者等真需要排查凭据来源时再做, 后者等 bot 开始 spawn 外部程序时再加。
 - QQInfoCache 的事件联动: 用消息事件的 sender 调 `remember_member` 预热,
   在群名片变更 / 退群通知里调 `invalidate_member`。目前只靠 TTL 过期。
 - 远程插件加载 (`packages/miraichan/src/miraichan/loader.py`): 按 url 加载插件, 未实现。

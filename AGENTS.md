@@ -26,7 +26,11 @@
   这样用户可以在 `data/resources/<identifier>/` 下放同名文件覆盖 (`identifier` 是不带
   `mbplugin_` 前缀的插件名)。
 - 凭据 (access token、API key 等) 不进 `config.json` / `configs/`: 用 `lemony_settings.get_secret`
-  从凭据文件 (`credentials.json`) 或环境变量读, 见 `docs/deployment/runbook.md`。
+  从凭据文件 (`credentials.json`) 或环境变量读。
+- 文档跟着实现走: 同一阶段里改了行为、配置项、指令或协议事实, 就在同一批提交里更新对应文档;
+  文档不写本机绝对路径 (用仓库相对路径或"隔壁某仓库"这种说法)。
+- 完成一个大阶段后, 派发拥有*全新上下文*的子代理 (不能是当前会话的 fork) 对这一阶段的工作做 code review, 明确要求它先加载 `code-review`
+  技能 (来自 `mattpocock/skills`), 按技能里的"标准 + 需求"两轴分别审查; 评审发现的问题在合并前处理。
 
 ## 不要动的东西
 
@@ -39,5 +43,5 @@
 
 ## 线上
 
-旧实例仍在服务器上运行, 迁移计划见 `docs/deployment/legacy-migration.md`。对服务器的操作默认只读;
+线上实例的迁移与运维记录不进仓库 (放在本机 gitignored 的 `docs/deployment/` 下)。对服务器的操作默认只读;
 停启服务、改 unit、动服务器上的数据都要先和用户确认。
