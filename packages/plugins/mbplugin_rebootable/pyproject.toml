@@ -9,7 +9,7 @@ dependencies = [
     "lemony_checkers",
     "lemony_settings",
     "lemony_storage_helper",
-    "melobot[onebot]>=3.5.0",
+    "melobot[onebot]>=3.5.1",
 ]
 
 

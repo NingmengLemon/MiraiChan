@@ -1,6 +1,6 @@
 # melobot 框架概览：独特之处与优势对比
 
-> 本文档基于 melobot 3.5.0，综合了 `references/melobot/src/melobot` 的源代码与 `references/melobot/docs/source` 的开发者文档。
+> 本文档基于 melobot 3.5.1，综合了 `references/melobot/src/melobot` 的源代码与 `references/melobot/docs/source` 的开发者文档。
 > 主要对比对象：NoneBot v2、AstrBot。对比对象一侧的描述未逐条对照其源码核实，仅作定性参考。
 
 ---

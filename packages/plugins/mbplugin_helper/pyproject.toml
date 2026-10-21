@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "lemony_onebot_utils",
     "lemony_utils",
-    "melobot[onebot]>=3.5.0",
+    "melobot[onebot]>=3.5.1",
 ]
 
 [tool.setuptools]

@@ -21,10 +21,8 @@ Environment=HOME=<home-of-user>
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONIOENCODING=utf-8
 ExecStart=<path-to-uv> run --frozen --no-sync mb run miracle_entrance.py
-# systemd 默认的 control-group 会让 uv 和 mb 各收到一次 SIGTERM, uv 又会把它转发给 mb,
-# 于是 mb 的信号处理器可能重入并偶发 FileNotFoundError 退出 1。mixed 只给主进程发 SIGTERM,
-# 由 uv 转发一次给 mb; mb 的子进程靠 alive 文件退出。上游修复后可以去掉这一行。
-KillMode=mixed
+# 3.5.1 起 mb 的停止处理可安全应对重复 SIGTERM (systemd 的 cgroup 停止加 uv 的信号转发),
+# 不需要设置 KillMode, 用 systemd 默认值即可。
 Restart=on-failure
 RestartSec=10
 # 不写 core dump: 实现端或依赖崩溃时动辄几个 GB

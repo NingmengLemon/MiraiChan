@@ -695,7 +695,7 @@ dependencies = [
 requires-dist = [
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
-    { name = "melobot", specifier = ">=3.5.0" },
+    { name = "melobot", specifier = ">=3.5.1" },
     { name = "pydantic", specifier = ">=2.12.5" },
 ]
 
@@ -800,7 +800,7 @@ requires-dist = [
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
     { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
-    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "tenacity", specifier = ">=9.1.4" },
     { name = "yarl", specifier = ">=1.23.0" },
@@ -949,7 +949,7 @@ dependencies = [
 requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
-    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
 ]
 
 [[package]]
@@ -1001,7 +1001,7 @@ requires-dist = [
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", extras = ["sqlite"], editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
-    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
 ]
@@ -1037,7 +1037,7 @@ dependencies = [
 requires-dist = [
     { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
-    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
 ]
 
 [[package]]
@@ -1100,7 +1100,7 @@ requires-dist = [
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", extras = ["files"], editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
-    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
 ]
 
 [[package]]
@@ -1154,7 +1154,7 @@ requires-dist = [
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
-    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
 ]
 
 [[package]]
@@ -1196,7 +1196,7 @@ requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
-    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
 ]
 
 [[package]]
@@ -1249,7 +1249,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiogram", specifier = ">=3.26.0" },
-    { name = "melobot", specifier = ">=3.5.0" },
+    { name = "melobot", specifier = ">=3.5.1" },
 ]
 
 [package.metadata.requires-dev]
@@ -1287,7 +1287,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "json5", specifier = ">=0.13.0" },
-    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
     { name = "packaging", specifier = ">=26.2" },
     { name = "pydantic", specifier = ">=2.10.3" },
     { name = "typer", specifier = ">=0.24.1" },
@@ -1378,7 +1378,7 @@ requires-dist = [
     { name = "mbplugin-rebootable", editable = "packages/plugins/mbplugin_rebootable" },
     { name = "mbplugin-recorder", editable = "packages/plugins/mbplugin_recorder" },
     { name = "mbplugin-toolbox", editable = "packages/plugins/mbplugin_toolbox" },
-    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.0" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
     { name = "melobot-telegram-protocol", editable = "packages/shared/melobot_telegram_protocol" },
     { name = "miraichan", editable = "packages/miraichan" },
 ]

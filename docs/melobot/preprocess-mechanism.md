@@ -1,6 +1,6 @@
 # melobot 预处理机制详解：checker / matcher / parser
 
-> 本文档基于 melobot 3.5.0，依据 `references/melobot/src/melobot/handle/register.py`、
+> 本文档基于 melobot 3.5.1，依据 `references/melobot/src/melobot/handle/register.py`、
 > `references/melobot/src/melobot/handle/base.py`、`references/melobot/src/melobot/utils/check/base.py` 以及
 > `references/melobot/src/melobot/protocols/onebot/v11/utils/check.py` 的源代码分析。
 

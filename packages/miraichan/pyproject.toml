@@ -7,7 +7,7 @@ authors = [
 ]
 dependencies = [
     "json5>=0.13.0",
-    "melobot[onebot]>=3.5.0",
+    "melobot[onebot]>=3.5.1",
     "packaging>=26.2",
     "pydantic>=2.10.3",
     "typer>=0.24.1",

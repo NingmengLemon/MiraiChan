@@ -11,7 +11,7 @@ dependencies = [
     "lemony_settings",
     "lemony_storage_helper[files]",
     "lemony_utils",
-    "melobot[onebot]>=3.5.0",
+    "melobot[onebot]>=3.5.1",
 ]
 
 [tool.setuptools]
