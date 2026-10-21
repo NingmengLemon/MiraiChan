@@ -16,10 +16,7 @@
         "mbplugin_helper",
         "mbplugin_emergency_alerts",
         "mbplugin_toolbox",
-        "mbplugin_provenance"
-        // agent 插件需要额外配置 (configs/llm/default.json 与联网凭据), 配好之后再打开
-        // "mbplugin_group_history",
-        // "mbplugin_readcheck"
+        "mbplugin_provenance",
     ],
     "log_levels": {},
     "settings_format": "json",
