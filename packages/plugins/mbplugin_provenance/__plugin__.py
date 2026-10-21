@@ -32,7 +32,7 @@ CREDENTIAL_KEY = "provenance.api_key"
 
 
 class ProvenanceSettings(BaseSettings):
-    check_command: str = "核验"
+    check_command: str = "check"
     # 核验会花钱, 默认只给 owner 与管理员用
     allow_admins: bool = True
     max_images: int = 3

@@ -7,7 +7,7 @@ C2PA 清单或 SynthID 水印, 把每张图的结果与总体结论回给用户�
 
 ## 用法
 
-- 回复一条带图片的消息, 发送 `.核验` (`check_command` 可改)
+- 回复一条带图片的消息, 发送 `.check` (`check_command` 可改)
 - 一次最多核验 `max_images` 张, 默认只给 owner 与管理员用 (`allow_admins`)
 
 ## 凭据
