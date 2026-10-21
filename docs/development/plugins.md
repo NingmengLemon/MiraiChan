@@ -17,3 +17,15 @@ melobot 的命令解析器按命令起始符切分参数, 参数里出现 `.` �
 
 带链接、小数、缩写、区间这类参数的命令都要注意这一点。纯粹的单词参数 (子命令、开关) 用
 `CmdArgs` 没问题。
+
+## 入口模块不要用 postponed annotations
+
+`packages/plugins/*/__plugin__.py` 里写 `from __future__ import annotations` 会让 handler 的参数注解
+变成字符串, melobot 用 beartype 解析签名时拿不到真正的类型, 插件在加载阶段直接失败:
+
+```
+beartype.roar.BeartypeDoorNonpepException: Type hint 'MessageEvent' currently unsupported
+```
+
+单元测试发现不了, 因为测试不会 import 入口模块 (那需要 bot 实例)。`tests/plugins/test_plugin_entries.py`
+会静态检查所有入口模块, 不要在入口模块里加这一行; 其它模块用不用无所谓。
