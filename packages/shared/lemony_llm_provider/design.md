@@ -1,13 +1,13 @@
 # lemony_llm_provider 设计
 
-纯异步的进程内 LLM 访问层: 把三种主流协议归一化成一个内部模型, 在同一组端点上做多 key 轮询与冷却熔断。
+纯异步的进程内 LLM 访问层: 把四种主流协议归一化成一个内部模型, 在同一组端点上做多 key 轮询与冷却熔断。
 不做服务端, 不做跨协议代理, 只管"发请求 / 收流 / 记账 / 挑端点"。路线图条目见 `docs/roadmap.md`。
 
 ## 目标与边界
 
 做:
 
-- 三种协议: OpenAI chat completions, OpenAI responses, Anthropic messages
+- 四种协议: OpenAI chat completions, OpenAI responses, Anthropic messages, Gemini generateContent
 - 流式与整段两种调用方式, 共用一条归一化路径
 - 工具调用(由调用方执行)、图片输入、JSON Schema 结构化输出、reasoning 与正文分离
 - 多端点(多 key / 多 provider)轮询、冷却熔断、失败换端点
@@ -143,7 +143,7 @@ assistant 消息额外携带 `reasoning: str | None` 与 `signature: str | None`
 
 已知限制: 一条 assistant 消息里只建模一个 thinking 块。`redacted_thinking` 的不透明 `data` 与 responses 的
 `reasoning.encrypted_content` 都没有落点, 这两类历史想原样回传时只能走 `extra_body`。真正需要时把
-`parts` 改成有序块列表(Text / Thinking / Redacted / Opaque 混排)是升级路径, 但那会牵动三个协议的翻译层。
+`parts` 改成有序块列表(Text / Thinking / Redacted / Opaque 混排)是升级路径, 但那会牵动各协议的翻译层。
 
 `tool_result` 消息带 `is_error`; Anthropic 侧同一轮的多个结果合并进紧跟 assistant 的那条 user 消息,
 chat 侧是各自独立的 `role=tool` 消息, responses 侧是独立的 `function_call_output` item。
@@ -312,10 +312,10 @@ SDK 原生签名里没有的字段一律走 `extra_body`, 不能当关键字参�
 
 分两层。
 
-`tests/` 下的假端点按三种协议的真实 SSE 形状返回同一段内容(两段思维链、两段正文、两个工具调用、一份含缓存读写的
+`tests/` 下的假端点按各协议的真实 SSE 形状返回同一段内容(两段思维链、两段正文、两个工具调用、一份含缓存读写的
 用量), 再用真实的 `openai` / `anthropic` SDK 去打它, 断言覆盖:
 
-- 请求翻译: 三套协议的 system / 工具结构 / 结构化输出 / stop / 用量开关落点, 以及哪些参数被记为丢弃和哪些走
+- 请求翻译: 各协议的 system / 工具结构 / 结构化输出 / stop / 用量开关落点, 以及哪些参数被记为丢弃和哪些走
   `extra_body`; 响应侧固定带 `store: false`
 - effort 折叠与 thinking 开关: `minimal`/`xhigh`/`ultra` 的折叠、`none` 关掉 thinking、Anthropic 预算约束提前报错
 - 回传: assistant 的 `reasoning_content`、带 signature 的 thinking 块、两个工具调用、合并后的 tool_result
@@ -327,7 +327,7 @@ SDK 原生签名里没有的字段一律走 `extra_body`, 不能当关键字参�
 
 `tools/llm_smoke.py` 打真实端点。2026-10-18 用 OpenCode Go 与 DeepSeek 官方各跑一遍
 (chat 走 `deepseek-v4.1-flash`, responses 走 `gpt-6-luna` 与 `deepseek-v4-flash`, anthropic 走 `claude-haiku-5-5`),
-五个端点全部通过: 文本流、reasoning、图片输入(纯色小图三套协议都能答对颜色)、工具调用、工具结果回填后的第二轮、
+五个端点全部通过: 文本流、reasoning、图片输入(纯色小图四条协议都能答对颜色)、工具调用、工具结果回填后的第二轮、
 结构化输出。真端点暴露了三件假端点测不到的事:
 
 - 新一代 Claude 拒绝 `thinking.type=enabled`, 要求 `thinking.type=adaptive` 加 `output_config.effort`。
@@ -355,7 +355,7 @@ SDK 原生签名里没有的字段一律走 `extra_body`, 不能当关键字参�
 5. 429 的处理: 是换端点还是本端点退避。现在按"换端点 + 记冷却"处理, 单 key 场景下等于直接失败。
 6. 多 key 轮询的失败计数粒度: 现在按端点累计, 要不要拆成(端点, 错误类型)。
 7. 是否需要会话粘性(为了 DeepSeek 的前缀缓存), 取决于真实用量里缓存命中的占比。
-8. 结构化输出与工具调用同时开启的行为, 三套协议都没有明确文档; 当前实现会照发, 由上游决定。
+8. 结构化输出与工具调用同时开启的行为, 各协议都没有明确文档; 当前实现会照发, 由上游决定。
 9. `between_tools` 这种 thinking 配置语义未确认, 暂不暴露。
 10. 请求级日志与首 token 耗时还没做: 现在只有端点级统计(`Pool.stats()`)与失败时的 warning。
 11. `Retry-After` 只解析秒数, HTTP-date 形式会退回指数退避。
