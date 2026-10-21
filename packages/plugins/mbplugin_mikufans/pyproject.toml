@@ -1,0 +1,23 @@
+[project]
+name = "mbplugin_mikufans"
+version = "0.1.0"
+description = "Resolve mikufans short links and mini-app cards, with an optional private SDK for details."
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp",
+    "lemony_network",
+    "lemony_settings",
+    "lemony_utils",
+]
+
+[tool.setuptools]
+packages = ["mbplugin_mikufans"]
+
+[tool.setuptools.package-dir]
+mbplugin_mikufans = "."
+
+[tool.uv.sources]
+lemony_network = { workspace = true }
+lemony_settings = { workspace = true }
+lemony_utils = { workspace = true }

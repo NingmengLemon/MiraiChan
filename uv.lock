@@ -19,6 +19,7 @@ members = [
     "mbplugin-emergency-alerts",
     "mbplugin-forward-strip",
     "mbplugin-helper",
+    "mbplugin-mikufans",
     "mbplugin-moelottery",
     "mbplugin-provenance",
     "mbplugin-quote",
@@ -1040,6 +1041,25 @@ requires-dist = [
 ]
 
 [[package]]
+name = "mbplugin-mikufans"
+version = "0.1.0"
+source = { editable = "packages/plugins/mbplugin_mikufans" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "lemony-network" },
+    { name = "lemony-settings" },
+    { name = "lemony-utils" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiohttp" },
+    { name = "lemony-network", editable = "packages/shared/lemony_network" },
+    { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
+    { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+]
+
+[[package]]
 name = "mbplugin-moelottery"
 version = "1.0.0"
 source = { editable = "packages/plugins/mbplugin_moelottery" }
@@ -1307,6 +1327,7 @@ dependencies = [
     { name = "mbplugin-emergency-alerts" },
     { name = "mbplugin-forward-strip" },
     { name = "mbplugin-helper" },
+    { name = "mbplugin-mikufans" },
     { name = "mbplugin-moelottery" },
     { name = "mbplugin-provenance" },
     { name = "mbplugin-quote" },
@@ -1350,6 +1371,7 @@ requires-dist = [
     { name = "mbplugin-emergency-alerts", editable = "packages/plugins/mbplugin_emergency_alerts" },
     { name = "mbplugin-forward-strip", editable = "packages/plugins/mbplugin_forward_strip" },
     { name = "mbplugin-helper", editable = "packages/plugins/mbplugin_helper" },
+    { name = "mbplugin-mikufans", editable = "packages/plugins/mbplugin_mikufans" },
     { name = "mbplugin-moelottery", editable = "packages/plugins/mbplugin_moelottery" },
     { name = "mbplugin-provenance", editable = "packages/plugins/mbplugin_provenance" },
     { name = "mbplugin-quote", editable = "packages/plugins/mbplugin_quote" },

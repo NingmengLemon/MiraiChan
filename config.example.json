@@ -17,6 +17,8 @@
         "mbplugin_emergency_alerts",
         "mbplugin_toolbox",
         "mbplugin_provenance",
+        "mbplugin_forward_strip",
+        "mbplugin_mikufans"
     ],
     "log_levels": {},
     "settings_format": "json",

@@ -16,8 +16,8 @@
 - 能不能好好说话 (缩写翻译): 见 `packages/plugins/mbplugin_nbnhhsh/planning.md`。
 - LLM 接入: 纯异步多协议访问层已落地, 目标、协议对照与未决问题见 `packages/shared/lemony_llm_provider/design.md`;
   消费插件 (群史问答与精读核查) 已下架, 以后做成一个统一的通用 agent 插件。
-- B 站内容自动解析: 群里出现 B 站链接 / 小程序卡片 / BV 号时自动解析出标题、UP 主、简介等,
-  并去掉分享链接里的跟踪参数 (旧实例的 BiliLinkPurify 插件做的就是后者)。
+- mikufans 内容自动解析: 已在 `packages/plugins/mbplugin_mikufans/` 落地默认能力 (短链重定向、小程序卡片取链接、去跟踪参数);
+  标题与播放量摘要依赖可选的私有 SDK `citric-mikufans`, 没装时只做链接净化。
 - "手性碳验证码": 新成员入群时出题验证 (给出分子结构, 找出手性碳), 可以和群聊管理的入群审核放在一起。
 - 待定的旧插件: gitignored 的 `packages/plugins/_to_be_migrated/` 下还有 VVTTS (语音合成) 与
   WhatToListenToday, 以及 VVTTS 依赖的 `lemony_utils_legacy` (拼音转片假名)。
