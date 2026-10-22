@@ -6,9 +6,17 @@
 from __future__ import annotations
 
 from mbplugin_provenance.client import ProvenanceResult
-from mbplugin_provenance.runtime import CheckRegistry, Cooldown
+from mbplugin_provenance.runtime import CheckRegistry, Cooldown, access_level
 
 RESULTS = (ProvenanceResult(type="c2pa", outcome="not_detected"),)
+
+
+def test_access_level() -> None:
+    # allow_all 优先; 默认 (False, True) 对应现网只开管理员
+    assert access_level(True, False) == "all"
+    assert access_level(True, True) == "all"
+    assert access_level(False, True) == "admins"
+    assert access_level(False, False) == "owner"
 
 
 def test_cooldown_remaining() -> None:

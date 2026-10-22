@@ -25,7 +25,7 @@ from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 from .client import ProvenanceError, ProvenanceResult, check_image
 from .images import image_payloads, local_candidates, mime_of
 from .report import format_report
-from .runtime import CheckRegistry, Cooldown
+from .runtime import CheckRegistry, Cooldown, access_level
 
 PLUGIN_IDENTIFIER = "mbplugin_provenance"
 # 凭据键: 值放在 credentials.json 的 refs 里, 或环境变量 MIRAICHAN_PROVENANCE_API_KEY
@@ -36,6 +36,8 @@ class ProvenanceSettings(BaseSettings):
     check_command: str = "check"
     # 核验会花钱, 默认只给 owner 与管理员用
     allow_admins: bool = True
+    # 连普通用户也开放; 默认关, 打开后所有群成员都能用 (仍受 user_cooldown 限制)
+    allow_all: bool = False
     max_images: int = 3
     max_image_bytes: int = 10 * 1024 * 1024
     timeout: float = 30.0
@@ -57,17 +59,18 @@ plugin = PluginPlanner(
 cfgloader = require(model=ProvenanceSettings, identifier=PLUGIN_IDENTIFIER)
 cfgloader.load()
 
-_who = "owner 与 bot 管理员" if cfgloader.value.allow_admins else "owner"
+_access = access_level(cfgloader.value.allow_all, cfgloader.value.allow_admins)
+_WHO = {"all": "所有群成员", "admins": "owner 与 bot 管理员", "owner": "owner"}
 register_help(
     PLUGIN_IDENTIFIER,
     title="内容核验",
-    summary=f"核验图片是否带 AI 生成信号, 仅 {_who} 可用",
+    summary=f"核验图片是否带 AI 生成信号, 仅 {_WHO[_access]} 可用",
     aliases=["provenance"],
     commands=[
         Command(
             f".{cfgloader.value.check_command}",
             "回复一条带图片的消息, 检查 C2PA 清单与 SynthID 水印",
-            admin_only=True,
+            admin_only=_access != "all",
         )
     ],
 )
@@ -76,7 +79,10 @@ _factory = get_checker_factory()
 
 
 def _privileged_checker():
-    if cfgloader.value.allow_admins:
+    # allow_all 打开时返回 None, melobot 视为不设权限检查
+    if _access == "all":
+        return None
+    if _access == "admins":
         return checker_factory.get_admin_checker()
     return checker_factory.get_owner_checker()
 

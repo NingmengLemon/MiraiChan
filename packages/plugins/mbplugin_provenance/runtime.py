@@ -8,10 +8,21 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from typing import Literal
 
 from .client import ProvenanceResult
 
-__all__ = ["CachedCheck", "CheckRegistry", "Cooldown"]
+__all__ = ["AccessLevel", "CachedCheck", "CheckRegistry", "Cooldown", "access_level"]
+
+#: 指令的开放范围; ``all`` 是给普通用户开放的模式, 默认不走
+AccessLevel = Literal["all", "admins", "owner"]
+
+
+def access_level(allow_all: bool, allow_admins: bool) -> AccessLevel:
+    """谁能用核验指令: 全部用户 / owner 与管理员 / 仅 owner"""
+    if allow_all:
+        return "all"
+    return "admins" if allow_admins else "owner"
 
 
 class Cooldown:
