@@ -5,12 +5,13 @@
 """
 
 import asyncio
+import hashlib
 from collections.abc import Mapping
 from logging import getLogger
 from typing import Any
 
 import aiohttp
-from lemony_checkers import get_checker_factory_wrapper
+from lemony_checkers import get_checker_factory, get_checker_factory_wrapper
 from lemony_network.qqntmedia_sslcontext import QQNTMEDIA_SSL_CONTEXT
 from lemony_network.request import HTTP_HEADERS
 from lemony_settings import BaseSettings, get_secret, require
@@ -21,10 +22,10 @@ from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 
-from .client import ProvenanceError, check_image
+from .client import ProvenanceError, ProvenanceResult, check_image
 from .images import image_payloads, local_candidates, mime_of
 from .report import format_report
-from .runtime import Cooldown, InFlight
+from .runtime import CheckRegistry, Cooldown
 
 PLUGIN_IDENTIFIER = "mbplugin_provenance"
 # 凭据键: 值放在 credentials.json 的 refs 里, 或环境变量 MIRAICHAN_PROVENANCE_API_KEY
@@ -39,6 +40,8 @@ class ProvenanceSettings(BaseSettings):
     max_image_bytes: int = 10 * 1024 * 1024
     timeout: float = 30.0
     user_cooldown: float = 10.0
+    # 同一张图在这个时间窗内查过就复用结果 (秒)
+    image_cache_ttl: float = 900.0
     api_base: str = "https://api.openai.com/v1"
     # 服务器不能直连 OpenAI 时填 HTTP 代理, 例如 http://172.16.40.20:17890
     api_proxy: str | None = None
@@ -69,6 +72,7 @@ register_help(
     ],
 )
 checker_factory = get_checker_factory_wrapper(plugin_name=PLUGIN_IDENTIFIER)
+_factory = get_checker_factory()
 
 
 def _privileged_checker():
@@ -77,9 +81,14 @@ def _privileged_checker():
     return checker_factory.get_owner_checker()
 
 
+def _is_owner(event: MessageEvent) -> bool:
+    user = _factory.extract_user(event)
+    return user is not None and _factory.is_owner(user)
+
+
 _gate = asyncio.Semaphore(2)
 _cooldown = Cooldown(seconds=cfgloader.value.user_cooldown)
-_in_flight = InFlight()
+_registry = CheckRegistry(ttl=cfgloader.value.image_cache_ttl)
 
 
 def _cooldown_remaining(user_id: int) -> float:
@@ -155,16 +164,10 @@ async def check_command(event: MessageEvent, adapter: Adapter) -> None:
         return
     user_id = event.user_id
     left = _cooldown_remaining(user_id)
-    if left > 0:
+    if left > 0 and not _is_owner(event):
         await adapter.send_reply(f"太快了, {int(left) + 1} 秒后再试")
         return
-    if not _in_flight.try_enter(user_id):
-        await adapter.send_reply("上一条还在检查, 等结果出来再试")
-        return
-    try:
-        await _run_check(adapter, base_id=base_id, user_id=user_id)
-    finally:
-        _in_flight.leave(user_id)
+    await _run_check(adapter, base_id=base_id, user_id=user_id)
 
 
 async def _run_check(adapter: Adapter, *, base_id: str, user_id: int) -> None:
@@ -196,6 +199,35 @@ async def _run_check(adapter: Adapter, *, base_id: str, user_id: int) -> None:
         for index, seg_data in enumerate(images, start=1):
             try:
                 data, mime = await _image_bytes(seg_data, session)
+            except ProvenanceError as exc:
+                reports.append(f"图片 {index}/{len(images)}: {exc}")
+                continue
+            except aiohttp.ClientError as exc:
+                logger.debug("图片下载失败", exc_info=True)
+                reports.append(
+                    f"图片 {index}/{len(images)}: 下载失败 ({type(exc).__name__})"
+                )
+                continue
+
+            # 按内容摘要去重: 刚查过直接复用, 正在查的跳过, 避免重复花钱
+            digest = hashlib.sha256(data).hexdigest()
+            cached = _registry.cached(digest)
+            if cached is not None:
+                logger.info("复用刚查过的结果: %s", digest[:12])
+                reports.append(
+                    format_report(
+                        index, len(images), mime=mime, size=len(data), results=cached
+                    )
+                    + "\n(这张图刚查过, 直接复用上次结果)"
+                )
+                continue
+            if not _registry.begin(digest):
+                logger.info("跳过正在检查的图片: %s", digest[:12])
+                reports.append(f"图片 {index}/{len(images)}: 这张图正在检查中, 跳过")
+                continue
+
+            checked: tuple[ProvenanceResult, ...] | None = None
+            try:
                 checked = await check_image(
                     session,
                     data,
@@ -208,12 +240,8 @@ async def _run_check(adapter: Adapter, *, base_id: str, user_id: int) -> None:
             except ProvenanceError as exc:
                 reports.append(f"图片 {index}/{len(images)}: {exc}")
                 continue
-            except aiohttp.ClientError as exc:
-                logger.debug("图片下载失败", exc_info=True)
-                reports.append(
-                    f"图片 {index}/{len(images)}: 下载失败 ({type(exc).__name__})"
-                )
-                continue
+            finally:
+                _registry.finish(digest, checked)
             reports.append(
                 format_report(
                     index, len(images), mime=mime, size=len(data), results=checked

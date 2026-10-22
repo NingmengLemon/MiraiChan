@@ -1,4 +1,4 @@
-"""核验插件的运行期状态
+"""核验插件的运行期状态: 冷却、图片级去重与缓存
 
 放在单独模块里是为了能脱离 bot 实例测试: 入口模块 import 时就要 `get_bot()`,
 测试没法直接导入。
@@ -7,27 +7,11 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 
-__all__ = ["Cooldown", "InFlight"]
+from .client import ProvenanceResult
 
-
-class InFlight:
-    """按用户去重: 同一个人的上一条核验没结束时, 新请求直接拒绝"""
-
-    def __init__(self) -> None:
-        self._users: set[int] = set()
-
-    def try_enter(self, user_id: int) -> bool:
-        if user_id in self._users:
-            return False
-        self._users.add(user_id)
-        return True
-
-    def leave(self, user_id: int) -> None:
-        self._users.discard(user_id)
-
-    def __contains__(self, user_id: object) -> bool:
-        return user_id in self._users
+__all__ = ["CachedCheck", "CheckRegistry", "Cooldown"]
 
 
 class Cooldown:
@@ -46,3 +30,62 @@ class Cooldown:
             return 0.0
         current = time.monotonic() if now is None else now
         return max(self.seconds - (current - last), 0.0)
+
+
+@dataclass(frozen=True, slots=True)
+class CachedCheck:
+    results: tuple[ProvenanceResult, ...]
+    checked_at: float
+
+
+class CheckRegistry:
+    """按内容摘要去重: 刚查过的图片直接复用结果, 正在检查的跳过"""
+
+    def __init__(self, ttl: float) -> None:
+        self.ttl = ttl
+        self._cache: dict[str, CachedCheck] = {}
+        self._running: set[str] = set()
+
+    def cached(
+        self, digest: str, *, now: float | None = None
+    ) -> tuple[ProvenanceResult, ...] | None:
+        entry = self._cache.get(digest)
+        if entry is None:
+            return None
+        current = time.monotonic() if now is None else now
+        if current - entry.checked_at > self.ttl:
+            self._cache.pop(digest, None)
+            return None
+        return entry.results
+
+    def begin(self, digest: str) -> bool:
+        """占住一张图; 已经在检查时返回 False"""
+        if digest in self._running:
+            return False
+        self._running.add(digest)
+        return True
+
+    def finish(
+        self,
+        digest: str,
+        results: tuple[ProvenanceResult, ...] | None = None,
+        *,
+        now: float | None = None,
+    ) -> None:
+        """结束占位; 有结果才写缓存, 失败不缓存"""
+        current = time.monotonic() if now is None else now
+        self._running.discard(digest)
+        if results is None:
+            return
+        self._cache[digest] = CachedCheck(results=results, checked_at=current)
+        self._prune(now=current)
+
+    def _prune(self, *, now: float | None = None) -> None:
+        current = time.monotonic() if now is None else now
+        stale = [
+            digest
+            for digest, entry in self._cache.items()
+            if current - entry.checked_at > self.ttl
+        ]
+        for digest in stale:
+            self._cache.pop(digest, None)
