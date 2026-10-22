@@ -8,7 +8,13 @@ C2PA 清单或 SynthID 水印, 把每张图的结果与总体结论回给用户�
 ## 用法
 
 - 回复一条带图片的消息, 发送 `.check` (`check_command` 可改)
+- 收到后先回一句"正在检查 N 张图片...", 结果另发一条
 - 一次最多核验 `max_images` 张, 默认只给 owner 与管理员用 (`allow_admins`)
+- 同一个人上一条还没检查完时, 新请求回"上一条还在检查"; 成功进入后还有 `user_cooldown` 秒冷却
+
+`check_command` 写进配置文件之后, 改默认值不会覆盖已有配置: 老实例如果保留着旧值,
+指令会按配置里的名字注册, 需要把 `configs/mbplugin_provenance/default.json` 里的
+`check_command` 一起改掉再重启。
 
 ## 凭据
 

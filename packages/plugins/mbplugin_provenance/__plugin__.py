@@ -5,7 +5,6 @@
 """
 
 import asyncio
-import time
 from collections.abc import Mapping
 from logging import getLogger
 from typing import Any
@@ -25,6 +24,7 @@ from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 from .client import ProvenanceError, check_image
 from .images import image_payloads, local_candidates, mime_of
 from .report import format_report
+from .runtime import Cooldown, InFlight
 
 PLUGIN_IDENTIFIER = "mbplugin_provenance"
 # 凭据键: 值放在 credentials.json 的 refs 里, 或环境变量 MIRAICHAN_PROVENANCE_API_KEY
@@ -78,15 +78,12 @@ def _privileged_checker():
 
 
 _gate = asyncio.Semaphore(2)
-_cooldown: dict[int, float] = {}
+_cooldown = Cooldown(seconds=cfgloader.value.user_cooldown)
+_in_flight = InFlight()
 
 
 def _cooldown_remaining(user_id: int) -> float:
-    last = _cooldown.get(user_id)
-    if last is None:
-        return 0.0
-    left = cfgloader.value.user_cooldown - (time.monotonic() - last)
-    return max(left, 0.0)
+    return _cooldown.remaining(user_id)
 
 
 def _reply_target(event: MessageEvent) -> str | None:
@@ -161,6 +158,16 @@ async def check_command(event: MessageEvent, adapter: Adapter) -> None:
     if left > 0:
         await adapter.send_reply(f"太快了, {int(left) + 1} 秒后再试")
         return
+    if not _in_flight.try_enter(user_id):
+        await adapter.send_reply("上一条还在检查, 等结果出来再试")
+        return
+    try:
+        await _run_check(adapter, base_id=base_id, user_id=user_id)
+    finally:
+        _in_flight.leave(user_id)
+
+
+async def _run_check(adapter: Adapter, *, base_id: str, user_id: int) -> None:
     api_key = get_secret(CREDENTIAL_KEY)
     if not api_key:
         await adapter.send_reply(
@@ -180,7 +187,10 @@ async def check_command(event: MessageEvent, adapter: Adapter) -> None:
     images = images[: cfgloader.value.max_images]
     note = f"只核验前 {len(images)} 张图片" if total > len(images) else ""
 
-    _cooldown[user_id] = time.monotonic()
+    # 下载与请求都要几秒, 先回一句让用户知道指令生效了
+    await adapter.send_reply(f"正在检查 {len(images)} 张图片...")
+    logger.info("开始核验图片: 用户 %s, %d 张", user_id, len(images))
+    _cooldown.touch(user_id)
     reports: list[str] = []
     async with _gate, aiohttp.ClientSession() as session:
         for index, seg_data in enumerate(images, start=1):
