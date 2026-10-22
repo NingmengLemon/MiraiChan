@@ -64,8 +64,11 @@ def make_brief(*, timeout: float = 15.0) -> Brief | None:
         from citric_mikufans.api.web.video import get_video_detail  # ty: ignore[unresolved-import]
         from citric_mikufans.net.backends.curl_cffi_backend import create_transport  # ty: ignore[unresolved-import]
         from citric_mikufans.net.client import HttpClient  # ty: ignore[unresolved-import]
+    except ImportError:
+        # 没装是可预期的部署状态, 由插件自己报一句即可, 不输出回溯
+        return None
     except Exception:
-        logger.info("详情 SDK 不可用, 只做链接净化", exc_info=True)
+        logger.warning("详情 SDK 加载失败, 只做链接净化", exc_info=True)
         return None
 
     async def brief(bvid: str) -> str | None:
