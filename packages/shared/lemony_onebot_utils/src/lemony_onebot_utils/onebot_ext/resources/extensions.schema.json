@@ -1,0 +1,42 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/NingmengLemon/MiraiChan/lemony_onebot_utils/onebot_ext/extensions.schema.json",
+    "title": "OneBot 11 implementation extensions",
+    "description": "实现端在 OneBot 11 标准之外提供的 action / event / segment 清单",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "kind", "summary"],
+        "properties": {
+            "name": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_.]*$",
+                "description": "OneBot action / notice_type / segment type 原名"
+            },
+            "kind": {
+                "enum": ["action", "event", "segment"]
+            },
+            "summary": {
+                "type": "string",
+                "minLength": 1
+            },
+            "impls": {
+                "type": "array",
+                "items": {
+                    "enum": ["snowluma", "napcat", "lagrange", "llonebot"]
+                },
+                "uniqueItems": true,
+                "description": "有源码或实测证据支持的实现端; 没有证据就不写"
+            },
+            "notes": {
+                "type": "string",
+                "description": "参数/字段形状、实现差异、未确认事项"
+            },
+            "source": {
+                "type": "string",
+                "description": "最初核对来源的实现端标识或源码路径"
+            }
+        }
+    }
+}

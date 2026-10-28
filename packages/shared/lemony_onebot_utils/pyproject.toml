@@ -35,4 +35,9 @@ dev = [
     "pytest-cov>=6.2.1",
     "pytest-sqlalchemy>=0.3.0",
     "pytest-sqlalchemy-mock>=0.1.7",
+    "jsonschema>=4.23",
 ]
+
+[tool.setuptools.package-data]
+"lemony_onebot_utils.onebot_ext" = ["resources/*.json"]
+

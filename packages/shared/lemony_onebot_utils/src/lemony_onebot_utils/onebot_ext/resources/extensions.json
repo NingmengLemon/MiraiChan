@@ -1,0 +1,229 @@
+[
+  {
+    "name": "set_msg_emoji_like",
+    "kind": "action",
+    "summary": "在一条消息上添加或移除表情回应",
+    "impls": [
+      "snowluma"
+    ],
+    "notes": "参数 message_id / emoji_id / set; emoji_id 是 Unicode 码位字符串",
+    "source": "snowluma"
+  },
+  {
+    "name": "set_group_reaction",
+    "kind": "action",
+    "summary": "给群消息贴一个 QQ 表情 (code 为表情编号)",
+    "impls": [
+      "snowluma"
+    ],
+    "notes": "参数 group_id / message_id / code / is_set",
+    "source": "snowluma"
+  },
+  {
+    "name": "friend_poke",
+    "kind": "action",
+    "summary": "拍一拍好友",
+    "impls": [
+      "snowluma",
+      "lagrange"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "group_poke",
+    "kind": "action",
+    "summary": "拍一拍群成员",
+    "impls": [
+      "snowluma",
+      "lagrange"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "get_group_msg_history",
+    "kind": "action",
+    "summary": "拉取群消息历史",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "get_friend_msg_history",
+    "kind": "action",
+    "summary": "拉取好友消息历史",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "upload_group_file",
+    "kind": "action",
+    "summary": "上传群文件",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "upload_private_file",
+    "kind": "action",
+    "summary": "上传私聊文件",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "create_group_file_folder",
+    "kind": "action",
+    "summary": "新建群文件夹",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "get_group_root_files",
+    "kind": "action",
+    "summary": "列出群文件根目录",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "get_group_files_by_folder",
+    "kind": "action",
+    "summary": "列出群文件夹内容",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "get_group_file_url",
+    "kind": "action",
+    "summary": "获取群文件下载地址",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "set_essence_msg",
+    "kind": "action",
+    "summary": "设为精华消息",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "delete_essence_msg",
+    "kind": "action",
+    "summary": "移出精华消息",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "get_essence_msg_list",
+    "kind": "action",
+    "summary": "列出精华消息",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "fetch_custom_face",
+    "kind": "action",
+    "summary": "列出收藏的表情",
+    "impls": [
+      "snowluma",
+      "lagrange"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "group_msg_emoji_like",
+    "kind": "event",
+    "summary": "群消息被贴表情回应",
+    "impls": [
+      "snowluma"
+    ],
+    "notes": "notice_type=group_msg_emoji_like; sub_type 为 add/remove, likes 里带 emoji_id 与 count",
+    "source": "snowluma"
+  },
+  {
+    "name": "group_card",
+    "kind": "event",
+    "summary": "群名片变更通知",
+    "impls": [
+      "snowluma"
+    ],
+    "notes": "NapCat 也有同名字段, 未在 SnowLuma 之外的实现上实测",
+    "source": "snowluma"
+  },
+  {
+    "name": "bot_offline",
+    "kind": "event",
+    "summary": "bot 掉线通知",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "message_sent",
+    "kind": "event",
+    "summary": "bot 自己发出的消息 (post_type=message_sent)",
+    "impls": [
+      "snowluma"
+    ],
+    "notes": "melobot 目前把它当未知 post_type 的通用事件, 用 event.raw 读",
+    "source": "snowluma"
+  },
+  {
+    "name": "mface",
+    "kind": "segment",
+    "summary": "商城表情消息段",
+    "impls": [
+      "snowluma"
+    ],
+    "notes": "解析优先用 lemony_mface, 这里只登记形状",
+    "source": "snowluma"
+  },
+  {
+    "name": "poke",
+    "kind": "segment",
+    "summary": "拍一拍消息段",
+    "impls": [
+      "snowluma"
+    ],
+    "notes": "通常同时伴随 notify 事件",
+    "source": "snowluma"
+  },
+  {
+    "name": "flash_file",
+    "kind": "segment",
+    "summary": "闪传文件消息段",
+    "impls": [
+      "snowluma"
+    ],
+    "source": "snowluma"
+  },
+  {
+    "name": "forward",
+    "kind": "segment",
+    "summary": "合并转发引用段",
+    "impls": [
+      "snowluma"
+    ],
+    "notes": "发送侧用 send_group_forward_msg 的 nodes",
+    "source": "snowluma"
+  }
+]

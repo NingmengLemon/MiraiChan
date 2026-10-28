@@ -40,8 +40,22 @@ if (liked := GroupMsgEmojiLike.from_raw(event.raw)) is not None:
 4. 回包有结构 (历史消息、精华消息、收藏表情) 时加专用 `Echo`, 否则用通用 `Echo`;
 5. 扩展 segment 先登记到 `catalog`, 需要真正解析时再写类型 (表情优先用 `lemony_mface`)。
 
-当前收录的条目见 `catalog.py` 的 `EXTENSIONS`; 新增条目时同一条提交里补 `tests/shared/test_onebot_ext.py`
-的形状断言。
+## 数据与校验
+
+收录清单是数据, 不是代码:
+
+- `onebot_ext/resources/extensions.json`: 条目数组, 字段为 `name` / `kind` / `summary` /
+  `impls` / `notes` / `source`;
+- `onebot_ext/resources/extensions.schema.json`: JSON Schema (draft 2020-12), 约束 kind 枚举、
+  `impls` 只能是已知实现端、名字格式与未知字段;
+- `catalog.py` 用 `importlib.resources` 读取包内资源, 转成 `ExtensionSpec`; `EXTENSIONS` /
+  `SPECS` / `find` / `for_impl` 的 API 不变, 插件侧不感知数据来源。
+
+加载时只做轻量检查 (顶层类型、`kind` 枚举、重名), 校验失败直接抛错; 完整的 schema 校验放在
+`tests/shared/test_onebot_ext.py`, 用 `jsonschema` 作为测试依赖, 运行时不引入这个依赖。
+
+新增条目的步骤: 改 JSON -> 在 `tests/shared/test_onebot_ext.py` 补形状断言 (需要类型化时再加
+action 类与 echo) -> 跑 `uv run pytest tests/shared/test_onebot_ext.py`。
 
 ## 已移除的旧模块
 

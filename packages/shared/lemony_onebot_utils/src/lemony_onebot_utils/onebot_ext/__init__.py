@@ -40,11 +40,12 @@ from .actions import (
     UploadPrivateFile,
 )
 from .base import ExtensionAction, ExtensionError, call_extension, try_extension
-from .catalog import EXTENSIONS, ExtensionSpec, find, for_impl
+from .catalog import EXTENSIONS, SPECS, ExtensionSpec, find, for_impl, load_entries
 from .events import EmojiLike, GroupMsgEmojiLike, is_message_sent
 
 __all__ = [
     "EXTENSIONS",
+    "SPECS",
     "DeleteEssenceMsg",
     "EmojiLike",
     "ExtensionAction",
@@ -72,5 +73,6 @@ __all__ = [
     "find",
     "for_impl",
     "is_message_sent",
+    "load_entries",
     "try_extension",
 ]

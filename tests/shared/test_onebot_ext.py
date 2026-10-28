@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from lemony_onebot_utils.onebot_ext import (
     EXTENSIONS,
+    SPECS,
     ExtensionError,
     GetGroupMsgHistory,
     GroupMsgEmojiLike,
@@ -109,11 +110,33 @@ async def test_try_extension_returns_none_without_echo() -> None:
     )
 
 
-def test_catalog_has_no_duplicate_names() -> None:
-    # 重复名字会静默覆盖, 收录表就少一条
-    from lemony_onebot_utils.onebot_ext.catalog import _ITEMS
+def test_catalog_data_matches_schema() -> None:
+    import json
+    from importlib.resources import files
 
-    assert len(EXTENSIONS) == len(_ITEMS)
+    from jsonschema import Draft202012Validator
+
+    base = files("lemony_onebot_utils.onebot_ext").joinpath("resources")
+    schema = json.loads(base.joinpath("extensions.schema.json").read_text("utf-8"))
+    data = json.loads(base.joinpath("extensions.json").read_text("utf-8"))
+    Draft202012Validator(schema).validate(data)
+    # 数据里的名字都应该被加载成条目, 不多不少
+    assert len(data) == len(SPECS)
+    assert {item["name"] for item in data} == set(EXTENSIONS)
+
+
+def test_loader_rejects_duplicates_and_bad_kind() -> None:
+    from lemony_onebot_utils.onebot_ext.catalog import load_entries
+
+    with pytest.raises(ValueError):
+        load_entries(
+            [
+                {"name": "x", "kind": "action", "summary": "a"},
+                {"name": "x", "kind": "event", "summary": "b"},
+            ]
+        )
+    with pytest.raises(ValueError):
+        load_entries([{"name": "x", "kind": "unknown", "summary": "a"}])
 
 
 def test_catalog() -> None:
