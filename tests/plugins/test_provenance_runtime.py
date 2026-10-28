@@ -6,7 +6,12 @@
 from __future__ import annotations
 
 from mbplugin_provenance.client import ProvenanceResult
-from mbplugin_provenance.runtime import CheckRegistry, Cooldown, access_level
+from mbplugin_provenance.runtime import (
+    CheckRegistry,
+    Cooldown,
+    access_level,
+    reaction_params,
+)
 
 RESULTS = (ProvenanceResult(type="c2pa", outcome="not_detected"),)
 
@@ -17,6 +22,15 @@ def test_access_level() -> None:
     assert access_level(True, True) == "all"
     assert access_level(False, True) == "admins"
     assert access_level(False, False) == "owner"
+
+
+def test_reaction_params_shape() -> None:
+    # SnowLuma 的 set_msg_emoji_like 收 message_id / emoji_id / set
+    assert reaction_params(42, "128077") == {
+        "message_id": 42,
+        "emoji_id": "128077",
+        "set": True,
+    }
 
 
 def test_cooldown_remaining() -> None:

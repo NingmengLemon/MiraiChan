@@ -19,13 +19,14 @@ from lemony_utils.help import Command, register_help
 from melobot import PluginInfo, PluginPlanner, on_command
 from melobot.bot import get_bot
 from melobot.protocols.onebot.v11.adapter import Adapter
+from melobot.protocols.onebot.v11.adapter.action import Action as OneBotAction
 from melobot.protocols.onebot.v11.adapter.event import MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 
 from .client import ProvenanceError, ProvenanceResult, check_image
 from .images import image_payloads, local_candidates, mime_of
 from .report import format_report
-from .runtime import CheckRegistry, Cooldown, access_level
+from .runtime import CheckRegistry, Cooldown, access_level, reaction_params
 
 PLUGIN_IDENTIFIER = "mbplugin_provenance"
 # 凭据键: 值放在 credentials.json 的 refs 里, 或环境变量 MIRAICHAN_PROVENANCE_API_KEY
@@ -44,8 +45,10 @@ class ProvenanceSettings(BaseSettings):
     user_cooldown: float = 10.0
     # 同一张图在这个时间窗内查过就复用结果 (秒)
     image_cache_ttl: float = 900.0
+    # 收到请求后在指令消息上贴的表情回应 (QQ 表情 id); 空字符串关闭, 退回文字回执
+    ack_reaction: str = "128077"
     api_base: str = "https://api.openai.com/v1"
-    # 服务器不能直连 OpenAI 时填 HTTP 代理, 例如 http://172.16.40.20:17890
+    # 服务器不能直连 OpenAI 时填 HTTP 代理, 例如 http://127.0.0.1:7890
     api_proxy: str | None = None
 
 
@@ -173,10 +176,33 @@ async def check_command(event: MessageEvent, adapter: Adapter) -> None:
     if left > 0 and not _is_owner(event):
         await adapter.send_reply(f"太快了, {int(left) + 1} 秒后再试")
         return
-    await _run_check(adapter, base_id=base_id, user_id=user_id)
+    await _run_check(
+        adapter, base_id=base_id, user_id=user_id, message_id=event.message_id
+    )
 
 
-async def _run_check(adapter: Adapter, *, base_id: str, user_id: int) -> None:
+async def _ack(adapter: Adapter, message_id: int, *, count: int, emoji_id: str) -> bool:
+    """给指令消息贴一个表情回应; 贴不上就退回文字回执"""
+    if emoji_id:
+        try:
+            group = await adapter.call_output(
+                OneBotAction(
+                    "set_msg_emoji_like", reaction_params(message_id, emoji_id)
+                )
+            )
+            echo = await group.unwrap(0)
+        except Exception:
+            logger.debug("贴 reaction 失败", exc_info=True)
+        else:
+            if echo is not None and echo.is_ok():
+                return True
+    await adapter.send_reply(f"正在检查 {count} 张图片...")
+    return False
+
+
+async def _run_check(
+    adapter: Adapter, *, base_id: str, user_id: int, message_id: int
+) -> None:
     api_key = get_secret(CREDENTIAL_KEY)
     if not api_key:
         await adapter.send_reply(
@@ -196,8 +222,13 @@ async def _run_check(adapter: Adapter, *, base_id: str, user_id: int) -> None:
     images = images[: cfgloader.value.max_images]
     note = f"只核验前 {len(images)} 张图片" if total > len(images) else ""
 
-    # 下载与请求都要几秒, 先回一句让用户知道指令生效了
-    await adapter.send_reply(f"正在检查 {len(images)} 张图片...")
+    # 下载与请求都要几秒; 用表情回应表示"已收到, 正在处理", 贴不上才发文字
+    await _ack(
+        adapter,
+        message_id,
+        count=len(images),
+        emoji_id=cfgloader.value.ack_reaction,
+    )
     logger.info("开始核验图片: 用户 %s, %d 张", user_id, len(images))
     _cooldown.touch(user_id)
     reports: list[str] = []

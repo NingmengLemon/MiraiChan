@@ -12,7 +12,14 @@ from typing import Literal
 
 from .client import ProvenanceResult
 
-__all__ = ["AccessLevel", "CachedCheck", "CheckRegistry", "Cooldown", "access_level"]
+__all__ = [
+    "AccessLevel",
+    "CachedCheck",
+    "CheckRegistry",
+    "Cooldown",
+    "access_level",
+    "reaction_params",
+]
 
 #: 指令的开放范围; ``all`` 是给普通用户开放的模式, 默认不走
 AccessLevel = Literal["all", "admins", "owner"]
@@ -23,6 +30,11 @@ def access_level(allow_all: bool, allow_admins: bool) -> AccessLevel:
     if allow_all:
         return "all"
     return "admins" if allow_admins else "owner"
+
+
+def reaction_params(message_id: int, emoji_id: str) -> dict[str, object]:
+    """``set_msg_emoji_like`` 的参数; SnowLuma 用 ``emoji_id`` 字符串 + ``set``"""
+    return {"message_id": message_id, "emoji_id": emoji_id, "set": True}
 
 
 class Cooldown:
