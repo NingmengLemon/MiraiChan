@@ -47,7 +47,7 @@
 ## 基础设施
 
 - MCP 接入: 新增一个 shared 子包, 把 MCP server 暴露的工具挂成插件能调用的工具集,
-  server 侧先接隔壁的 `lemony_mcp_box` 仓库 (`uv run` 起)。等第一个需要外部工具的消费插件出现时再做。
+  server 侧先用 `uv run` 起一个本地 stdio MCP server 跑通。等第一个需要外部工具的消费插件出现时再做。
 - 本地文件的读改写互斥 (`file_lock`): `atomic_write_*` 只保证读到完整的一次写入, 不含互斥,
   等出现真正的读改写消费者 (文件索引、资源覆盖表这类) 时再加, 用已在依赖里的 `filelock`,
   `.lock` 后缀与 `lemony_settings` 对齐。内容寻址命名与可覆盖资源解析已在
