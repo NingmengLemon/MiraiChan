@@ -109,6 +109,13 @@ async def test_try_extension_returns_none_without_echo() -> None:
     )
 
 
+def test_catalog_has_no_duplicate_names() -> None:
+    # 重复名字会静默覆盖, 收录表就少一条
+    from lemony_onebot_utils.onebot_ext.catalog import _ITEMS
+
+    assert len(EXTENSIONS) == len(_ITEMS)
+
+
 def test_catalog() -> None:
     spec = find("set_msg_emoji_like")
     assert spec is not None and spec.kind == "action"
@@ -149,6 +156,11 @@ def test_group_msg_emoji_like() -> None:
     assert (parsed.group_id, parsed.message_id, parsed.sub_type) == (1, 3, "add")
     assert [(like.emoji_id, like.count) for like in parsed.likes] == [("424", 2)]
     assert GroupMsgEmojiLike.from_raw({"notice_type": "group_upload"}) is None
+    # 字段缺失或类型畸形时退回 0/None, 不应抛异常
+    empty = GroupMsgEmojiLike.from_raw({"notice_type": "group_msg_emoji_like"})
+    assert empty is not None
+    assert (empty.group_id, empty.message_id, empty.message_seq) == (0, 0, None)
+    assert empty.likes == ()
 
 
 def test_message_sent() -> None:

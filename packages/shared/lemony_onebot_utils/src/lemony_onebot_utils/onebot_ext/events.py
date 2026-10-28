@@ -39,24 +39,34 @@ class GroupMsgEmojiLike:
             return None
         likes = tuple(
             EmojiLike(
-                emoji_id=str(item.get("emoji_id", "")), count=int(item.get("count", 0))
+                emoji_id=str(item.get("emoji_id", "")), count=_int(item.get("count"))
             )
             for item in raw.get("likes") or ()
             if isinstance(item, dict)
         )
         return cls(
-            group_id=int(raw.get("group_id", 0)),
-            user_id=int(raw.get("user_id", 0)),
-            operator_id=int(raw.get("operator_id", raw.get("user_id", 0))),
-            message_id=int(raw.get("message_id", 0)),
+            group_id=_int(raw.get("group_id")),
+            user_id=_int(raw.get("user_id")),
+            operator_id=_int(raw.get("operator_id", raw.get("user_id"))),
+            message_id=_int(raw.get("message_id")),
             sub_type=str(raw.get("sub_type", "")),
             likes=likes,
-            message_seq=(
-                int(raw["message_seq"])
-                if isinstance(raw.get("message_seq"), int)
-                else None
-            ),
+            message_seq=_int(raw.get("message_seq")) or None,
         )
+
+
+def _int(value: object) -> int:
+    """载荷字段可能是数字或数字字符串, 缺失/畸形时退回 0, 不让事件解析炸掉"""
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    return 0
 
 
 def is_message_sent(raw: dict[str, Any]) -> bool:
