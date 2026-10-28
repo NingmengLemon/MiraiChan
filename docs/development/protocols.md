@@ -11,14 +11,15 @@ OneBot 侧的扩展清单与实现端差异见 `packages/shared/lemony_onebot_ut
 | 完全通用 | `lemony_settings`、`lemony_storage_helper`、`lemony_network`、`lemony_images`、`lemony_media`、`lemony_llm_provider`、`lemony_utils` | 不 import melobot 或 onebot, 可直接复用 |
 | 协议无关核心 + 可插适配 | `lemony_checkers` | 规则、权限、身份模型是通用的; `adapters/ob11.py` 是 OneBot 身份适配器, 注册在 `registry` 上 |
 | 通用启动流程 | `packages/miraichan/src/miraichan/` (CLI、loader、日志桥、配置模型) | 除 IO 接线与配置里的 `websocket` 段外, 与协议无关 |
-| OneBot 11 专用 | `lemony_onebot_utils` 全部 (botutils、forward、qq、onebot_ext)、`miraichan/validation_patches/ob11.py`、所有插件的 handler 与消息段处理 | 依赖 v11 的 Adapter / 事件 / 段 / handle |
-| QQ 语义专用但协议中立 | `lemony_mface` | 解析 QQ 商城表情, 不依赖适配器, 换协议后仍可用于 QQ 数据 |
+| OneBot 11 专用 | `lemony_onebot_utils` 的 botutils / forward / onebot_ext、`miraichan/validation_patches/ob11.py`、所有插件的 handler 与消息段处理 | 依赖 v11 的 Adapter / 事件 / 段 / handle |
+| QQ 语义专用但协议中立 | `lemony_mface`、`lemony_onebot_utils/qq.py` 里的身份/资料工具 | 处理 QQ 数据语义, 不依赖适配器, Milky 这类 QQ 协议可复用 |
 
 ## 插件现状
 
-`packages/plugins/` 下 13 个有入口的插件全部直接 import `melobot.protocols.onebot.v11`:
+`packages/plugins/` 下已跟踪的 12 个插件入口全部直接 import `melobot.protocols.onebot.v11`:
 `checker_manager`、`deeeer`、`emergency_alerts`、`forward_strip`、`helper`、`mikufans`、`moelottery`、
-`provenance`、`quote`、`rebootable`、`recorder`、`test_forward_msg`、`toolbox`。
+`provenance`、`quote`、`rebootable`、`recorder`、`toolbox`。另有本地实验插件 `mbplugin_test_forward_msg` 被目录内
+`.gitignore` 忽略, 同样绑定 v11, 不计入已跟踪数量。
 
 这是多协议迁移的主要成本所在: handler 的类型注解、消息段拆分、`send_reply`、群号字段都绑定 v11。
 

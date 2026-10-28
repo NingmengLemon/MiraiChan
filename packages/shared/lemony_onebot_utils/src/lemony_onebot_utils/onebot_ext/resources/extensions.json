@@ -60,7 +60,7 @@
       "snowluma",
       "napcat"
     ],
-    "notes": "起始游标不同：SnowLuma 用 message_id，NapCat 用 message_seq；count 默认 20，均有 reverse_order。返回 {messages}",
+    "notes": "起始游标不同：SnowLuma 用 message_id，NapCat 用 message_seq；count 默认 20，均有 reverse_order。返回 {messages}; reverse_order 不传时由实现端决定 (SnowLuma 默认 true, NapCat 默认 false), 需要一致行为时显式传值. NapCat 另有 disable_get_url / parse_mult_msg / quick_reply",
     "source": "snowluma:extended.ts:967; napcat:A/go-cqhttp/GetGroupMsgHistory.ts:30"
   },
   {
@@ -71,7 +71,7 @@
       "snowluma",
       "napcat"
     ],
-    "notes": "同样有 message_id / message_seq 两种游标；返回 {messages}",
+    "notes": "同样有 message_id / message_seq 两种游标；返回 {messages}; reverse_order 不传时由实现端决定 (SnowLuma 默认 true, NapCat 默认 false), 需要一致行为时显式传值. NapCat 另有 disable_get_url / parse_mult_msg / quick_reply",
     "source": "snowluma:extended.ts:1019; napcat:A/go-cqhttp/GetFriendMsgHistory.ts:31"
   },
   {
@@ -156,10 +156,9 @@
     "kind": "action",
     "summary": "只上传合并转发，拿到 res_id",
     "impls": [
-      "snowluma",
-      "napcat"
+      "snowluma"
     ],
-    "notes": "SnowLuma 另有拼写别名 upload_foward_msg",
+    "notes": "SnowLuma 另有拼写别名 upload_foward_msg; NapCat 的路由里该 action 被注释掉, 当前版本不提供",
     "source": "snowluma:extended.ts:1399; napcat:A/go-cqhttp/UploadForwardMsg.ts"
   },
   {
@@ -879,5 +878,27 @@
     ],
     "notes": "返回含 msg_seq/msg_random；NapCat 的 content 是消息段数组",
     "source": "snowluma:extended.ts:712; napcat:A/group/GetGroupEssence.ts:33"
+  },
+  {
+    "name": "send_flash_msg",
+    "kind": "action",
+    "summary": "发送闪传消息",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "fileset_id + user_id?/group_id?；对端收到 flashtransfer/flash_file 卡片",
+    "source": "snowluma:extended.ts:5319; napcat:A/file/flash/SendFlashMsg.ts:15"
+  },
+  {
+    "name": "click_inline_keyboard_button",
+    "kind": "action",
+    "summary": "点击内联键盘按钮",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id / bot_appid / msg_seq / button_id / callback_data?；配合 inline_keyboard 段",
+    "source": "snowluma:extended.ts:4723; napcat:A/extends/ClickInlineKeyboardButton.ts:20"
   }
 ]

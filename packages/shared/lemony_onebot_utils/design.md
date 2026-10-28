@@ -40,6 +40,10 @@ if (liked := GroupMsgEmojiLike.from_raw(event.raw)) is not None:
 4. 回包有结构 (历史消息、精华消息、收藏表情) 时加专用 `Echo`, 否则用通用 `Echo`;
 5. 扩展 segment 先登记到 `catalog`, 需要真正解析时再写类型 (表情优先用 `lemony_mface`)。
 
+清单是精简子集, 不是实现端的完整能力表: SnowLuma 约 181 个扩展 action, NapCat 约 156 个,
+这里只收现有插件会用到或通用价值高、且至少一个活跃实现端有源码证据的条目; QQ 空间、群相册、
+流式传输、空实现/stub 以及只在冻结实现上存在的 action 不收。以后需要新能力时按同一规则追加。
+
 ## 数据与校验
 
 收录清单是数据, 不是代码:
@@ -68,9 +72,9 @@ action 类与 echo) -> 跑 `uv run pytest packages/shared/lemony_onebot_utils/te
 
 ## 实现端支持情况
 
-清单目前合并了两个实现端的源码核对结果: SnowLuma v2.2.1 (`8ffd3142`) 与 NapCat v4.18.41
-(`ba0a53dd`), 核对日期 2026-10-28。`impls` 只写有源码位置或实测证据的**活跃**实现端;
-未核实的实现端先留空, 补证据后再加。
+清单目前合并了两个实现端的源码核对结果: SnowLuma v2.2.1 (`8ffd3142`) 与 NapCat main
+(`ba0a53dd`, 2026-10-27, 当时最新 release 为 v4.18.41), 核对日期 2026-10-28。`impls` 只写有
+源码位置或实测证据的**活跃**实现端; 未核实的实现端先留空, 补证据后再加。
 
 Lagrange 的 OneBot 11 线已经冻结: `Lagrange.OneBot` 仓库 404, OneBot 代码只剩 `Lagrange.Core`
 的 `v1` 分支 (最后提交 2025-10-10, README 有 Termination Notice), master 转向 V2/Milky。

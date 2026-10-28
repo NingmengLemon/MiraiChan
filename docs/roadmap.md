@@ -41,7 +41,7 @@
   `Adapter`; 改成列表并允许每项带协议标识, 插件可以声明只在某些协议上启用。
 - checker 身份适配器: 每个新协议补 `lemony_checkers/adapters/<protocol>.py`; 把 `migration.py`、
   `models.py` 里对 ob11 常量的硬引用收进适配器, 让规则与权限层保持协议无关。
-- 插件迁移与降级: 13 个插件按使用面从易到难迁移 (先 helper / deeeer 这类纯文本交互),
+- 插件迁移与降级: 12 个已跟踪插件按使用面从易到难迁移 (先 helper / deeeer 这类纯文本交互),
   recorder 的消息存储模型要单独设计, 不能直接沿用 v11 消息段形状。
 
 ## 基础设施

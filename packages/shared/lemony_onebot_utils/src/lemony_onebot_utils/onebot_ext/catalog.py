@@ -31,7 +31,9 @@ ExtensionKind = Literal["action", "event", "segment"]
 ExtensionImpl = Literal["snowluma", "napcat", "lagrange", "llonebot"]
 
 _KINDS = get_args(ExtensionKind)
-_IMPLS = get_args(ExtensionImpl)
+#: 旧版本暴露过的元组别名, 保留给外部直接 import
+IMPLS = get_args(ExtensionImpl)
+_IMPLS = IMPLS
 
 
 @dataclass(frozen=True, slots=True)
