@@ -69,8 +69,14 @@ action 类与 echo) -> 跑 `uv run pytest tests/shared/test_onebot_ext.py`。
 ## 实现端支持情况
 
 清单目前合并了两个实现端的源码核对结果: SnowLuma v2.2.1 (`8ffd3142`) 与 NapCat v4.18.41
-(`ba0a53dd`), 核对日期 2026-10-28。`impls` 只写有源码位置或实测证据的实现端; 未核实的实现端
-（例如当时的 Lagrange）先留空, 补证据后再加。
+(`ba0a53dd`), 核对日期 2026-10-28。`impls` 只写有源码位置或实测证据的**活跃**实现端;
+未核实的实现端先留空, 补证据后再加。
+
+Lagrange 的 OneBot 11 线已经冻结: `Lagrange.OneBot` 仓库 404, OneBot 代码只剩 `Lagrange.Core`
+的 `v1` 分支 (最后提交 2025-10-10, README 有 Termination Notice), master 转向 V2/Milky。
+因此清单不把 `lagrange` 写进 `impls`; 需要兼容存量部署时, 按冻结源码单独建适配档案
+(`set_group_reaction` 用 `is_add`、没有 `set_msg_emoji_like`、没有 `message_sent`、
+`send_forward_msg` 只上传不发送), 不要按 action 名统一抽象。
 
 同名扩展的参数或返回差异写在该条目的 `notes` 里, 最需要注意的是:
 

@@ -44,3 +44,13 @@
 3. `lemony_checkers` 补同协议的 `adapters/<protocol>.py`, 提供唯一身份提取;
 4. 插件逐步迁移, 由能力声明决定功能隐藏或降级, 不假装支持;
 5. 启动配置改成多 IO / 多 adapter, 插件可以声明只在某些协议上启用。
+
+## 实现端现状 (2026-10)
+
+- SnowLuma 与 NapCat 仍在活跃更新, 扩展清单以这两家为核对对象;
+- Lagrange 的 OneBot 11 线已冻结: `Lagrange.OneBot` 仓库 404, OneBot 代码只剩 `Lagrange.Core`
+  的 `v1` 分支 (最后提交 2025-10-10, README 有终止说明), master 转向 V2/Milky.
+  因此 OneBot 扩展清单不把 Lagrange 当活跃目标; 需要兼容存量部署时按冻结源码单独建适配档案,
+  `set_group_reaction` 用 `is_add`、没有 `set_msg_emoji_like`、没有 `message_sent`、
+  `send_forward_msg` 只上传资源不发送.
+- 这意味着 Milky 适配器不只是"再加一个协议", 也是 Lagrange 生态的接续方向.
