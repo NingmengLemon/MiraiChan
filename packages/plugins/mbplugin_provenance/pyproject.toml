@@ -8,6 +8,7 @@ dependencies = [
     "aiohttp>=3.12.0",
     "lemony_checkers",
     "lemony_network",
+    "lemony_onebot_utils",
     "lemony_settings",
     "lemony_storage_helper[files]",
     "lemony_utils",
@@ -23,6 +24,7 @@ mbplugin_provenance = "."
 [tool.uv.sources]
 lemony_checkers = { workspace = true }
 lemony_network = { workspace = true }
+lemony_onebot_utils = { workspace = true }
 lemony_settings = { workspace = true }
 lemony_storage_helper = { workspace = true }
 lemony_utils = { workspace = true }

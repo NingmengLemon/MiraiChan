@@ -14,19 +14,19 @@ import aiohttp
 from lemony_checkers import get_checker_factory, get_checker_factory_wrapper
 from lemony_network.qqntmedia_sslcontext import QQNTMEDIA_SSL_CONTEXT
 from lemony_network.request import HTTP_HEADERS
+from lemony_onebot_utils.onebot_ext import SetGroupReaction, try_extension
 from lemony_settings import BaseSettings, get_secret, require
 from lemony_utils.help import Command, register_help
 from melobot import PluginInfo, PluginPlanner, on_command
 from melobot.bot import get_bot
 from melobot.protocols.onebot.v11.adapter import Adapter
-from melobot.protocols.onebot.v11.adapter.action import Action as OneBotAction
-from melobot.protocols.onebot.v11.adapter.event import MessageEvent
+from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 
 from .client import ProvenanceError, ProvenanceResult, check_image
 from .images import image_payloads, local_candidates, mime_of
 from .report import format_report
-from .runtime import CheckRegistry, Cooldown, access_level, reaction_params
+from .runtime import CheckRegistry, Cooldown, access_level
 
 PLUGIN_IDENTIFIER = "mbplugin_provenance"
 # 凭据键: 值放在 credentials.json 的 refs 里, 或环境变量 MIRAICHAN_PROVENANCE_API_KEY
@@ -45,8 +45,8 @@ class ProvenanceSettings(BaseSettings):
     user_cooldown: float = 10.0
     # 同一张图在这个时间窗内查过就复用结果 (秒)
     image_cache_ttl: float = 900.0
-    # 收到请求后在指令消息上贴的表情回应 (QQ 表情 id); 空字符串关闭, 退回文字回执
-    ack_reaction: str = "128077"
+    # 收到请求后在指令消息上贴的 QQ 表情编号 (424 是续标识); 空字符串关闭, 退回文字回执
+    ack_reaction: str = "424"
     api_base: str = "https://api.openai.com/v1"
     # 服务器不能直连 OpenAI 时填 HTTP 代理, 例如 http://127.0.0.1:7890
     api_proxy: str | None = None
@@ -177,31 +177,43 @@ async def check_command(event: MessageEvent, adapter: Adapter) -> None:
         await adapter.send_reply(f"太快了, {int(left) + 1} 秒后再试")
         return
     await _run_check(
-        adapter, base_id=base_id, user_id=user_id, message_id=event.message_id
+        adapter,
+        base_id=base_id,
+        user_id=user_id,
+        message_id=event.message_id,
+        group_id=event.group_id if isinstance(event, GroupMessageEvent) else None,
     )
 
 
-async def _ack(adapter: Adapter, message_id: int, *, count: int, emoji_id: str) -> bool:
-    """给指令消息贴一个表情回应; 贴不上就退回文字回执"""
-    if emoji_id:
-        try:
-            group = await adapter.call_output(
-                OneBotAction(
-                    "set_msg_emoji_like", reaction_params(message_id, emoji_id)
-                )
-            )
-            echo = await group.unwrap(0)
-        except Exception:
-            logger.debug("贴 reaction 失败", exc_info=True)
-        else:
-            if echo is not None and echo.is_ok():
-                return True
+async def _ack(
+    adapter: Adapter,
+    message_id: int,
+    *,
+    group_id: int | None,
+    count: int,
+    code: str,
+) -> bool:
+    """给指令消息贴一个 QQ 表情回应; 群聊以外或贴不上就退回文字回执"""
+    if code and group_id is not None:
+        echo = await try_extension(
+            adapter,
+            SetGroupReaction(
+                group_id=group_id, message_id=message_id, code=code, is_set=True
+            ),
+        )
+        if echo is not None:
+            return True
     await adapter.send_reply(f"正在检查 {count} 张图片...")
     return False
 
 
 async def _run_check(
-    adapter: Adapter, *, base_id: str, user_id: int, message_id: int
+    adapter: Adapter,
+    *,
+    base_id: str,
+    user_id: int,
+    message_id: int,
+    group_id: int | None,
 ) -> None:
     api_key = get_secret(CREDENTIAL_KEY)
     if not api_key:
@@ -226,8 +238,9 @@ async def _run_check(
     await _ack(
         adapter,
         message_id,
+        group_id=group_id,
         count=len(images),
-        emoji_id=cfgloader.value.ack_reaction,
+        code=cfgloader.value.ack_reaction,
     )
     logger.info("开始核验图片: 用户 %s, %d 张", user_id, len(images))
     _cooldown.touch(user_id)
