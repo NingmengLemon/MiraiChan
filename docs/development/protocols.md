@@ -4,6 +4,8 @@
 哪些是 OneBot 11 专用, 以及新增协议适配器时要动哪里; 后续迁移按这里列出的边界做。
 OneBot 侧的扩展清单与实现端差异见 `packages/shared/lemony_onebot_utils/design.md`,
 插件门面的设计见 `docs/development/protocol-facade.md`。
+melobot 框架侧的协议层能力与限制见 `docs/melobot/protocol-layer.md`: 官方目前只有 OneBot v11 与
+Console 两个协议实现, 没有跨协议的消息模型、能力声明或统一出站动作。
 
 ## 总览
 

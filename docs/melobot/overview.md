@@ -180,9 +180,9 @@ async def handler(event: TextEvent = ref()) -> None:
 
 ---
 
-## 四、多协议多路 IO（真正的多协议并行）
+## 四、多协议多路 IO（协议并行，不是消息模型统一）
 
-来自 `references/melobot/docs/source/dive_in/source_adapter.md` 与 `bot.md`，这是 melobot 相对于 NoneBot 最独特的架构能力之一。
+来自 `references/melobot/docs/source/dive_in/source_adapter.md` 与 `bot.md`，这是 melobot 相对于 NoneBot 最独特的架构能力之一。需要区分两层：协议层可以并行接入，但消息语义（会话、发送者、消息标识、能力）仍由各协议自己定义。
 
 ```python
 from melobot import Bot
@@ -202,6 +202,8 @@ bot.add_protocol(ConsoleProtocol())
 # bot.add_adapter(SomeAdapter(...))
 ```
 
+同一协议只能有一个适配器，多账号靠同一适配器挂多路源；不同协议各有一个适配器，共享同一个分发器。插件的处理流是全局注册的，不按协议分区，事件来自哪个协议要自己在 checker 或依赖注入里区分。
+
 源和适配器必须在配置期绑定：首次调用 `load_plugin` 系列方法就会初始化 bot 核心组件，此后 `add_input` / `add_output` / `add_io` / `add_adapter` / `add_protocol` 都不能再调用。这些方法都返回 bot 本身，可以链式调用。
 
 输出时默认使用产生该事件的输入源（若它也是该协议的输出源），否则使用该协议的全部输出源。需要手动选择输出源时，用顶级函数 `filter_out` 包一层上下文：
@@ -213,12 +215,18 @@ with filter_out(lambda src: src.name == "account-a"):
     await send_text("只从 account-a 发出")
 ```
 
+`filter_out` 只筛当前协议的输出源，不能把行为转到另一个协议。要让另一个协议输出，必须拿到目标协议的适配器对象（例如 `bot.get_adapter("Console-v1@Meloland")`）再调用它的协议方法；通用 `send_text()` 一类的函数只走当前事件所属协议，也没有指定会话的参数。
+
 | 能力 | NoneBot | melobot |
 |------|---------|---------|
 | 多协议同时接入 | 同进程内协议独立隔离 | 同一 bot 实例多协议并行 |
 | 同协议多账号 | 需要多个驱动 | 同一适配器绑定多个源 |
-| 跨协议通用行为方法 | 否 | `send_text()` 等通用操作自动适配 |
+| 通用输出（当前事件协议） | 否 | `send_text()` 等自动使用当前事件所属协议；指定其他协议需取目标适配器 |
 | 通用内容实体 `TextContent` | 否 | 屏蔽协议差异的内容层 |
+| 统一消息模型（会话/发送者/消息 id） | 否 | 否（只有通用内容与文本事件，消息语义由各协议或上层门面补） |
+
+协议层的完整分析（事件、内容、适配器、输出路由、回应语义与官方/三方实现现状）见
+[`protocol-layer.md`](./protocol-layer.md)。
 
 ---
 

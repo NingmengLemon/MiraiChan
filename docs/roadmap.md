@@ -24,7 +24,8 @@
 
 ## 多协议
 
-现状与边界清单见 `docs/development/protocols.md`, 门面设计见 `docs/development/protocol-facade.md`。
+现状与边界清单见 `docs/development/protocols.md`, 门面设计见 `docs/development/protocol-facade.md`,
+melobot 框架侧的协议能力与限制见 `docs/melobot/protocol-layer.md`。
 顺序上先把插件门面定下来, 再逐个接协议; 每个适配器都要同时补 melobot 侧接线、checker 身份适配与能力声明。
 
 - 协议无关插件门面 (阻塞项): 按 `docs/development/protocol-facade.md` 实现 `lemony_chat` 与 OneBot 11 端口,
