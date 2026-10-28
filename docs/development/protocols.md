@@ -2,7 +2,8 @@
 
 现状的协议相关代码集中在 melobot 的 OneBot v11 适配器上。这份文档记录哪些部分已经与协议无关,
 哪些是 OneBot 11 专用, 以及新增协议适配器时要动哪里; 后续迁移按这里列出的边界做。
-OneBot 侧的扩展清单与实现端差异见 `packages/shared/lemony_onebot_utils/design.md`。
+OneBot 侧的扩展清单与实现端差异见 `packages/shared/lemony_onebot_utils/design.md`,
+插件门面的设计见 `docs/development/protocol-facade.md`。
 
 ## 总览
 
@@ -40,7 +41,7 @@ OneBot 侧的扩展清单与实现端差异见 `packages/shared/lemony_onebot_ut
 
 1. 先定义插件用的协议无关门面: 入站 (群/私聊文本事件、发送者、图片与其他消息段) 与出站
    (回复、发消息、发图、撤回、禁言、转发) 两类, 能复用的 melobot 泛型 `Event` / `TextEvent` /
-   `Content` 就不再造一套;
+   `Content` 就不再造一套; 设计见 `protocol-facade.md`;
 2. 每协议一个 adapter 子包: melobot IO 与 Adapter 接线、事件转换到门面、出站动作实现、
    能力声明 (有没有表情回应、合并转发、群文件等);
 3. `lemony_checkers` 补同协议的 `adapters/<protocol>.py`, 提供唯一身份提取;

@@ -10,5 +10,6 @@
   - `logging.md`: 日志约定与 debug 开关
   - `plugins.md`: 插件开发的坑 (命令参数切分等)
   - `protocols.md`: 协议边界与多协议准备 (哪些是通用、哪些绑定 OneBot 11)
+  - `protocol-facade.md`: 协议无关插件门面设计 (入站模型、端口契约、能力声明)
 - `deployment/`: 部署与运维, gitignored, 不随仓库分发
 - `discussions/`: 设计讨论、评审与现场记录, gitignored, 不随仓库分发

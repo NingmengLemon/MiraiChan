@@ -24,12 +24,11 @@
 
 ## 多协议
 
-现状与边界清单见 `docs/development/protocols.md`。顺序上先把插件门面定下来, 再逐个接协议;
-每个适配器都要同时补 melobot 侧接线、checker 身份适配与能力声明。
+现状与边界清单见 `docs/development/protocols.md`, 门面设计见 `docs/development/protocol-facade.md`。
+顺序上先把插件门面定下来, 再逐个接协议; 每个适配器都要同时补 melobot 侧接线、checker 身份适配与能力声明。
 
-- 协议无关插件门面 (阻塞项): 入站统一成"群/私聊文本事件 + 发送者 + 消息段", 出站统一成
-  回复/发消息/发图/撤回/禁言/转发, 尽量复用 melobot 的泛型 `Event` / `TextEvent` / `Content`,
-  不再造第三套模型; 同时给每协议一份能力声明, 插件据此隐藏或降级 QQ 特有功能。
+- 协议无关插件门面 (阻塞项): 按 `docs/development/protocol-facade.md` 实现 `lemony_chat` 与 OneBot 11 端口,
+  再迁移 `moelottery` / `helper` 两个试点插件。
 - Milky 适配器: 第一个新协议, 目标是让现有插件在 QQ 场景下能跑; 它同时是 Lagrange 生态的接续
   (Lagrange.Core 的 OneBot 11 线已冻结, master 转向 V2/Milky), 需要先确认它对合并转发、
   表情回应、群文件这些扩展的覆盖, 缺的能力在门面里显式标成不支持。
