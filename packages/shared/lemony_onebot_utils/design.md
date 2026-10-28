@@ -68,6 +68,24 @@ action 类与 echo) -> 跑 `uv run pytest tests/shared/test_onebot_ext.py`。
 
 ## 实现端支持情况
 
-`impls` 字段当前只覆盖已核对的 SnowLuma (1.14.x)。NapCat 与 Lagrange 的同名 action 大多存在但未逐项实测,
-条目里用 `notes` 标注, 不写进 `impls`。使用前用 `find(name)` / `for_impl(impl)` 查表, 不要在插件里
-硬编码"某实现端一定支持"。
+清单目前合并了两个实现端的源码核对结果: SnowLuma v2.2.1 (`8ffd3142`) 与 NapCat v4.18.41
+(`ba0a53dd`), 核对日期 2026-10-28。`impls` 只写有源码位置或实测证据的实现端; 未核实的实现端
+（例如当时的 Lagrange）先留空, 补证据后再加。
+
+同名扩展的参数或返回差异写在该条目的 `notes` 里, 最需要注意的是:
+
+- `set_group_reaction` 只有 SnowLuma 实现, NapCat 没有; NapCat 发送表情回应只能用
+  `set_msg_emoji_like`;
+- 表情回应的 `emoji_id` / `code` 是同一套编号: 1 到 3 位数字是 QQ 系统表情编号, 4 位及以上是
+  Unicode 码位（SnowLuma 协议层按字符串长度判定）;
+- `message_sent` 两家都默认不推送, 需要实现端打开 `reportSelfMessage`;
+- `group_msg_emoji_like` 的字段不同: SnowLuma 用 `sub_type=add/remove` 与 `operator_id`,
+  NapCat 用 `is_add`, 没有 `sub_type`/`operator_id`;
+- 历史消息起始游标不同: SnowLuma 用 `message_id`, NapCat 用 `message_seq`;
+- `mface` 在 NapCat 只在发送时出现, 接收时是 `image` 段挂 `emoji_id`/`emoji_package_id`/`key`;
+- 闪传段命名不同: SnowLuma 是 `flash_file` + `file_set_id`, NapCat 是 `flashtransfer` + `fileSetId`;
+- `get_forward_msg` 虽不在扩展清单里（标准 action）, 但两家返回形状不同: SnowLuma 是
+  `{messages: [消息事件]}`, NapCat 是 `{messages: [node]}`;
+- `poke` 与 `forward` 属于 OneBot 11 标准消息段, 不登记为扩展。
+
+使用前用 `find(name)` / `for_impl(impl)` 查表, 不要在插件里硬编码"某实现端一定支持"。

@@ -2,22 +2,385 @@
   {
     "name": "set_msg_emoji_like",
     "kind": "action",
-    "summary": "在一条消息上添加或移除表情回应",
+    "summary": "给消息添加或移除表情回应",
     "impls": [
-      "snowluma"
+      "snowluma",
+      "napcat"
     ],
-    "notes": "参数 message_id / emoji_id / set; emoji_id 是 Unicode 码位字符串",
-    "source": "snowluma"
+    "notes": "参数 message_id / emoji_id / set。emoji 编号按长度判定：1-3 位数字是 QQ 系统表情编号，4 位及以上是 Unicode 码位（如 128077=👍）。SnowLuma 返回 null，NapCat 原样透传",
+    "source": "snowluma:extended.ts:1870; napcat:A/msg/SetMsgEmojiLike.ts:19"
   },
   {
     "name": "set_group_reaction",
     "kind": "action",
-    "summary": "给群消息贴一个 QQ 表情 (code 为表情编号)",
+    "summary": "给群消息贴 QQ 表情（code 为表情编号）",
     "impls": [
       "snowluma"
     ],
-    "notes": "参数 group_id / message_id / code / is_set",
-    "source": "snowluma"
+    "notes": "参数 group_id? / message_id / code / is_set。NapCat 未实现；SnowLuma 不写本地 reactionStore，get_msg_emoji_likes 是否能看到取决于服务端回声（未确认）",
+    "source": "snowluma:extended.ts:798"
+  },
+  {
+    "name": "get_msg_emoji_likes",
+    "kind": "action",
+    "summary": "读取一条消息的全部表情回应",
+    "impls": [
+      "snowluma"
+    ],
+    "notes": "参数 message_id；返回 [{emoji_id, emoji_type, count, last_reaction_time, users}]。读本地 store",
+    "source": "snowluma:extended.ts:2592"
+  },
+  {
+    "name": "fetch_emoji_like",
+    "kind": "action",
+    "summary": "分页读取表情回应详情",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "SnowLuma: message_id / emojiId / count / cookie；NapCat: message_id / emojiId / emojiType / count / cookie。返回 emojiLikesList + cookie + isLastPage/isFirstPage",
+    "source": "snowluma:extended.ts:2526; napcat:A/extends/FetchEmojiLike.ts:32"
+  },
+  {
+    "name": "get_emoji_likes",
+    "kind": "action",
+    "summary": "读取表情回应的用户列表",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "参数 message_id / emoji_id（NapCat 还可带 group_id、count，0 表示拉全部，上限 200）；返回 emoji_like_list",
+    "source": "snowluma:extended.ts:2478; napcat:A/extends/GetEmojiLikes.ts:28"
+  },
+  {
+    "name": "get_group_msg_history",
+    "kind": "action",
+    "summary": "拉取群消息历史",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "起始游标不同：SnowLuma 用 message_id，NapCat 用 message_seq；count 默认 20，均有 reverse_order。返回 {messages}",
+    "source": "snowluma:extended.ts:967; napcat:A/go-cqhttp/GetGroupMsgHistory.ts:30"
+  },
+  {
+    "name": "get_friend_msg_history",
+    "kind": "action",
+    "summary": "拉取好友消息历史",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "同样有 message_id / message_seq 两种游标；返回 {messages}",
+    "source": "snowluma:extended.ts:1019; napcat:A/go-cqhttp/GetFriendMsgHistory.ts:31"
+  },
+  {
+    "name": "mark_msg_as_read",
+    "kind": "action",
+    "summary": "标记消息已读",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "SnowLuma: message_id + target_id；NapCat 由 action 名区分私聊/群，参数用 user_id? / group_id?",
+    "source": "snowluma:extended.ts:1160; napcat:A/msg/MarkMsgAsRead.ts:67"
+  },
+  {
+    "name": "mark_group_msg_as_read",
+    "kind": "action",
+    "summary": "标记群消息已读",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "参数 message_id / group_id?",
+    "source": "snowluma:extended.ts:1074; napcat:A/msg/MarkMsgAsRead.ts:81"
+  },
+  {
+    "name": "mark_private_msg_as_read",
+    "kind": "action",
+    "summary": "标记私聊消息已读",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "参数 message_id / user_id?",
+    "source": "snowluma:extended.ts:1117; napcat:A/msg/MarkMsgAsRead.ts:74"
+  },
+  {
+    "name": "_mark_all_as_read",
+    "kind": "action",
+    "summary": "全部会话标记已读",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "无参数",
+    "source": "snowluma:extended.ts:1899; napcat:A/msg/MarkMsgAsRead.ts:86"
+  },
+  {
+    "name": "send_forward_msg",
+    "kind": "action",
+    "summary": "发送合并转发（自动路由）",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "params messages/message + group_id?/user_id?；NapCat 节点兼容 uin/name 别名与 source/news/summary/prompt/time",
+    "source": "snowluma:extended.ts:4183; napcat:A/go-cqhttp/SendForwardMsg.ts:15"
+  },
+  {
+    "name": "send_group_forward_msg",
+    "kind": "action",
+    "summary": "发送群合并转发",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id + messages；返回 {message_id, res_id, forward_id}",
+    "source": "snowluma:extended.ts:4290; napcat:A/go-cqhttp/SendForwardMsg.ts:34"
+  },
+  {
+    "name": "send_private_forward_msg",
+    "kind": "action",
+    "summary": "发送私聊合并转发",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "user_id + messages",
+    "source": "snowluma:extended.ts:4358; napcat:A/go-cqhttp/SendForwardMsg.ts:52"
+  },
+  {
+    "name": "upload_forward_msg",
+    "kind": "action",
+    "summary": "只上传合并转发，拿到 res_id",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "SnowLuma 另有拼写别名 upload_foward_msg",
+    "source": "snowluma:extended.ts:1399; napcat:A/go-cqhttp/UploadForwardMsg.ts"
+  },
+  {
+    "name": "forward_friend_single_msg",
+    "kind": "action",
+    "summary": "转发单条消息给好友",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "message_id + user_id",
+    "source": "snowluma:extended.ts:2286; napcat:A/msg/ForwardSingleMsg.ts:61"
+  },
+  {
+    "name": "forward_group_single_msg",
+    "kind": "action",
+    "summary": "转发单条消息到群",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "message_id + group_id",
+    "source": "snowluma:extended.ts:2310; napcat:A/msg/ForwardSingleMsg.ts:67"
+  },
+  {
+    "name": "_send_group_notice",
+    "kind": "action",
+    "summary": "发布群公告",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id / content / image? / pinned / type / confirm_required / is_show_edit_card / tip_window_type；SnowLuma 还支持 send_to_new_members。没有公告事件，只能用 action",
+    "source": "snowluma:extended.ts:1205; napcat:A/go-cqhttp/SendGroupNotice.ts:22"
+  },
+  {
+    "name": "_get_group_notice",
+    "kind": "action",
+    "summary": "获取群公告列表",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id；返回 notice 数组（message 为对象）",
+    "source": "snowluma:extended.ts:1282; napcat:A/group/GetGroupNotice.ts:33"
+  },
+  {
+    "name": "_del_group_notice",
+    "kind": "action",
+    "summary": "删除群公告",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "SnowLuma 用 fid 或 notice_id 二选一；NapCat 只收 notice_id",
+    "source": "snowluma:extended.ts:4150; napcat:A/group/DelGroupNotice.ts:19"
+  },
+  {
+    "name": "upload_group_file",
+    "kind": "action",
+    "summary": "上传群文件",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id / file / name / folder?；NapCat 还支持 folder_id? 与 upload_file?",
+    "source": "snowluma:group-file.ts:21; napcat:A/go-cqhttp/UploadGroupFile.ts:28"
+  },
+  {
+    "name": "upload_private_file",
+    "kind": "action",
+    "summary": "上传私聊文件",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "user_id / file / name",
+    "source": "snowluma:group-file.ts:68; napcat:A/go-cqhttp/UploadPrivateFile.ts:27"
+  },
+  {
+    "name": "get_file",
+    "kind": "action",
+    "summary": "按 file_id 或路径取文件信息",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "返回 file / url / file_size / file_name；NapCat 的 file_id 是编码串",
+    "source": "snowluma:extended.ts:3639; napcat:A/file/GetFile.ts:125"
+  },
+  {
+    "name": "get_private_file_url",
+    "kind": "action",
+    "summary": "获取私聊文件下载链接",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "SnowLuma: user_id? / file_id / file_hash?；NapCat: 只有 file_id",
+    "source": "snowluma:group-file.ts:566; napcat:A/file/GetPrivateFileUrl.ts:21"
+  },
+  {
+    "name": "get_group_file_url",
+    "kind": "action",
+    "summary": "获取群文件下载链接",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "SnowLuma: group_id / file_id / busid；NapCat 不收 busid",
+    "source": "snowluma:group-file.ts:142; napcat:A/file/GetGroupFileUrl.ts:22"
+  },
+  {
+    "name": "get_group_root_files",
+    "kind": "action",
+    "summary": "列出群文件根目录",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "NapCat 多一个 file_count（默认 50）",
+    "source": "snowluma:group-file.ts:176; napcat:A/go-cqhttp/GetGroupRootFiles.ts:22"
+  },
+  {
+    "name": "get_group_files_by_folder",
+    "kind": "action",
+    "summary": "列出群文件夹内容",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "NapCat 多 file_count，且 folder/folder_id 二选一",
+    "source": "snowluma:group-file.ts:240; napcat:A/go-cqhttp/GetGroupFilesByFolder.ts:24"
+  },
+  {
+    "name": "get_group_file_system_info",
+    "kind": "action",
+    "summary": "群文件容量信息",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id",
+    "source": "snowluma:extended.ts:1921; napcat:A/go-cqhttp/GetGroupFileSystemInfo.ts:22"
+  },
+  {
+    "name": "create_group_file_folder",
+    "kind": "action",
+    "summary": "新建群文件夹",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "SnowLuma: group_id / name / parent_id；NapCat: folder_name? 或 name?，没有 parent_id",
+    "source": "snowluma:group-file.ts:411; napcat:A/go-cqhttp/CreateGroupFileFolder.ts:23"
+  },
+  {
+    "name": "delete_group_file",
+    "kind": "action",
+    "summary": "删除群文件",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "NapCat 还可带 bus_id?/busid?",
+    "source": "snowluma:group-file.ts:308; napcat:A/go-cqhttp/DeleteGroupFile.ts:21"
+  },
+  {
+    "name": "delete_group_folder",
+    "kind": "action",
+    "summary": "删除群文件夹",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "NapCat folder_id?/folder? 二选一",
+    "source": "snowluma:extended.ts:3728; napcat:A/go-cqhttp/DeleteGroupFileFolder.ts:19"
+  },
+  {
+    "name": "move_group_file",
+    "kind": "action",
+    "summary": "移动群文件",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id / file_id / 源目录 / 目标目录",
+    "source": "snowluma:group-file.ts:332; napcat:A/extends/MoveGroupFile.ts:22"
+  },
+  {
+    "name": "rename_group_file",
+    "kind": "action",
+    "summary": "重命名群文件",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id / file_id / current_parent_directory / new_name",
+    "source": "snowluma:group-file.ts:369; napcat:A/extends/RenameGroupFile.ts:22"
+  },
+  {
+    "name": "trans_group_file",
+    "kind": "action",
+    "summary": "转存群文件",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id / file_id",
+    "source": "snowluma:extended.ts:3596; napcat:A/extends/TransGroupFile.ts:20"
+  },
+  {
+    "name": "send_poke",
+    "kind": "action",
+    "summary": "拍一拍（群聊/私聊自动路由）",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "NapCat: group_id? / user_id / target_id?；SnowLuma: user_id / group_id?",
+    "source": "snowluma:extended.ts:633; napcat:A/packet/SendPoke.ts:38"
   },
   {
     "name": "friend_poke",
@@ -25,9 +388,10 @@
     "summary": "拍一拍好友",
     "impls": [
       "snowluma",
-      "lagrange"
+      "napcat"
     ],
-    "source": "snowluma"
+    "notes": "user_id（NapCat 还接受 target_id）",
+    "source": "snowluma:extended.ts:584; napcat:A/packet/SendPoke.ts:41"
   },
   {
     "name": "group_poke",
@@ -35,195 +399,452 @@
     "summary": "拍一拍群成员",
     "impls": [
       "snowluma",
-      "lagrange"
+      "napcat"
     ],
-    "source": "snowluma"
+    "notes": "group_id / user_id（NapCat 的 target_id 可替代 user_id）",
+    "source": "snowluma:extended.ts:610; napcat:A/packet/SendPoke.ts:44"
   },
   {
-    "name": "get_group_msg_history",
+    "name": "get_group_detail_info",
     "kind": "action",
-    "summary": "拉取群消息历史",
+    "summary": "获取群详细信息",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "SnowLuma 多 no_cache",
+    "source": "snowluma:extended.ts:3569; napcat:A/group/GetGroupDetailInfo.ts:25"
+  },
+  {
+    "name": "get_group_info_ex",
+    "kind": "action",
+    "summary": "获取群扩展信息",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "SnowLuma 多 no_cache；NapCat 原样返回 groupExtInfo",
+    "source": "snowluma:extended.ts:3542; napcat:A/extends/GetGroupInfoEx.ts:15"
+  },
+  {
+    "name": "get_group_share_link",
+    "kind": "action",
+    "summary": "获取群分享链接",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id / need_short_url? / src_id? / additional_param?",
+    "source": "snowluma:group-info.ts:34; napcat:A/extends/GetGroupShareLink.ts:21"
+  },
+  {
+    "name": "set_group_remark",
+    "kind": "action",
+    "summary": "设置群备注",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id / remark",
+    "source": "snowluma:extended.ts:1843; napcat:A/extends/SetGroupRemark.ts:17"
+  },
+  {
+    "name": "set_group_kick_members",
+    "kind": "action",
+    "summary": "批量踢出群成员",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id / user_id 数组 / reject_add_request?",
+    "source": "snowluma:group-admin.ts:34; napcat:A/extends/SetGroupKickMembers.ts:20"
+  },
+  {
+    "name": "set_group_sign",
+    "kind": "action",
+    "summary": "群签到（别名 send_group_sign）",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id；两个名字同参",
+    "source": "snowluma:extended.ts:4782; napcat:A/extends/SetGroupSign.ts:32"
+  },
+  {
+    "name": "get_group_signed_list",
+    "kind": "action",
+    "summary": "群今日打卡列表",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id",
+    "source": "snowluma:extended.ts:2246; napcat:A/extends/GetGroupSignedList.ts:24"
+  },
+  {
+    "name": "get_group_shut_list",
+    "kind": "action",
+    "summary": "群禁言列表",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id",
+    "source": "snowluma:extended.ts:2207; napcat:A/group/GetGroupShutList.ts:16"
+  },
+  {
+    "name": "get_group_system_msg",
+    "kind": "action",
+    "summary": "群系统消息",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "NapCat 只收 count； SnowLuma 支持 group_id? / only_pending? / count?",
+    "source": "snowluma:group-info.ts:565; napcat:A/system/GetSystemMsg.ts:22"
+  },
+  {
+    "name": "set_group_todo",
+    "kind": "action",
+    "summary": "设置群待办",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id / message_id 或 message_seq",
+    "source": "snowluma:extended.ts:4965; napcat:A/packet/BaseGroupTodoAction.ts:7"
+  },
+  {
+    "name": "complete_group_todo",
+    "kind": "action",
+    "summary": "完成群待办",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "同 set_group_todo",
+    "source": "snowluma:extended.ts:4986; napcat:A/packet/BaseGroupTodoAction.ts:7"
+  },
+  {
+    "name": "cancel_group_todo",
+    "kind": "action",
+    "summary": "取消群待办",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "同 set_group_todo",
+    "source": "snowluma:extended.ts:5008; napcat:A/packet/BaseGroupTodoAction.ts:7"
+  },
+  {
+    "name": "get_group_todo_list",
+    "kind": "action",
+    "summary": "群待办列表",
     "impls": [
       "snowluma"
     ],
-    "source": "snowluma"
+    "notes": "group_id",
+    "source": "snowluma:extended.ts:4861"
   },
   {
-    "name": "get_friend_msg_history",
+    "name": "get_group_at_all_remain",
     "kind": "action",
-    "summary": "拉取好友消息历史",
+    "summary": "@全体剩余次数",
     "impls": [
-      "snowluma"
+      "snowluma",
+      "napcat"
     ],
-    "source": "snowluma"
+    "notes": "group_id",
+    "source": "snowluma:extended.ts:2903; napcat:A/go-cqhttp/GetGroupAtAllRemain.ts:21"
   },
   {
-    "name": "upload_group_file",
+    "name": "set_input_status",
     "kind": "action",
-    "summary": "上传群文件",
+    "summary": "设置「正在输入」状态",
     "impls": [
-      "snowluma"
+      "snowluma",
+      "napcat"
     ],
-    "source": "snowluma"
+    "notes": "user_id / event_type（1 输入中，3 录音中）",
+    "source": "snowluma:extended.ts:3513; napcat:A/extends/SetInputStatus.ts:18"
   },
   {
-    "name": "upload_private_file",
+    "name": "nc_get_user_status",
     "kind": "action",
-    "summary": "上传私聊文件",
+    "summary": "用户在线/扩展状态",
     "impls": [
-      "snowluma"
+      "snowluma",
+      "napcat"
     ],
-    "source": "snowluma"
+    "notes": "user_id；返回 status / ext_status",
+    "source": "snowluma:extended.ts:3753; napcat:A/extends/GetUserStatus.ts:19"
   },
   {
-    "name": "create_group_file_folder",
+    "name": "set_online_status",
     "kind": "action",
-    "summary": "新建群文件夹",
+    "summary": "设置在线状态",
     "impls": [
-      "snowluma"
+      "snowluma",
+      "napcat"
     ],
-    "source": "snowluma"
+    "notes": "status / ext_status? / battery_status?",
+    "source": "snowluma:extended.ts:2013; napcat:A/extends/SetOnlineStatus.ts:18"
   },
   {
-    "name": "get_group_root_files",
+    "name": "set_diy_online_status",
     "kind": "action",
-    "summary": "列出群文件根目录",
+    "summary": "自定义在线状态",
     "impls": [
-      "snowluma"
+      "snowluma",
+      "napcat"
     ],
-    "source": "snowluma"
+    "notes": "face_id / face_type? / wording?",
+    "source": "snowluma:extended.ts:2046; napcat:A/extends/SetDiyOnlineStatus.ts:18"
   },
   {
-    "name": "get_group_files_by_folder",
+    "name": "get_profile_like",
     "kind": "action",
-    "summary": "列出群文件夹内容",
+    "summary": "资料点赞",
     "impls": [
-      "snowluma"
+      "snowluma",
+      "napcat"
     ],
-    "source": "snowluma"
+    "notes": "user_id? / start / count",
+    "source": "snowluma:extended.ts:2334; napcat:A/extends/GetProfileLike.ts:34"
   },
   {
-    "name": "get_group_file_url",
+    "name": "get_recent_contact",
     "kind": "action",
-    "summary": "获取群文件下载地址",
+    "summary": "最近会话列表",
     "impls": [
-      "snowluma"
+      "snowluma",
+      "napcat"
     ],
-    "source": "snowluma"
-  },
-  {
-    "name": "set_essence_msg",
-    "kind": "action",
-    "summary": "设为精华消息",
-    "impls": [
-      "snowluma"
-    ],
-    "source": "snowluma"
-  },
-  {
-    "name": "delete_essence_msg",
-    "kind": "action",
-    "summary": "移出精华消息",
-    "impls": [
-      "snowluma"
-    ],
-    "source": "snowluma"
-  },
-  {
-    "name": "get_essence_msg_list",
-    "kind": "action",
-    "summary": "列出精华消息",
-    "impls": [
-      "snowluma"
-    ],
-    "source": "snowluma"
+    "notes": "NapCat 返回真实数据；SnowLuma 当前恒空（占位）",
+    "source": "snowluma:extended.ts:2737; napcat:A/user/GetRecentContact.ts:27"
   },
   {
     "name": "fetch_custom_face",
     "kind": "action",
-    "summary": "列出收藏的表情",
+    "summary": "收藏表情列表（URL）",
     "impls": [
       "snowluma",
-      "lagrange"
+      "napcat"
     ],
-    "source": "snowluma"
+    "notes": "SnowLuma: count? / return_type?；NapCat: count 默认 48",
+    "source": "snowluma:extended.ts:2398; napcat:A/extends/FetchCustomFace.ts:16"
+  },
+  {
+    "name": "fetch_custom_face_detail",
+    "kind": "action",
+    "summary": "收藏表情详情",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "返回 emoji_id / resId / url / md5 / desc",
+    "source": "snowluma:extended.ts:2431; napcat:A/extends/CustomFace.ts:19"
+  },
+  {
+    "name": "send_custom_face",
+    "kind": "action",
+    "summary": "发送账号收藏表情",
+    "impls": [
+      "snowluma"
+    ],
+    "notes": "emoji_id / group_id? / user_id? / reply_to?",
+    "source": "snowluma:message.ts:25"
+  },
+  {
+    "name": "message_sent",
+    "kind": "event",
+    "summary": "bot 自己发出的消息（post_type=message_sent）",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "两家都默认不推送，需实现端配置 reportSelfMessage=true。NapCat 带 message_sent_type/target_id；SnowLuma 带 message_seq，自身私聊回声带 target_id。melobot 会当未知 post_type 的通用事件，读 event.raw",
+    "source": "snowluma:to-message.ts:34; napcat:T/message.ts:384"
   },
   {
     "name": "group_msg_emoji_like",
     "kind": "event",
     "summary": "群消息被贴表情回应",
     "impls": [
-      "snowluma"
+      "snowluma",
+      "napcat"
     ],
-    "notes": "notice_type=group_msg_emoji_like; sub_type 为 add/remove, likes 里带 emoji_id 与 count",
-    "source": "snowluma"
+    "notes": "SnowLuma: sub_type=add/remove + operator_id + message_seq + likes[{emoji_id,count}]；NapCat: 无 sub_type/operator_id，用 is_add 与 user_id，message_seq 字段声明但可能未赋值",
+    "source": "snowluma:to-notice.ts:277; napcat:E/notice/OB11MsgEmojiLikeEvent.ts:9"
   },
   {
     "name": "group_card",
     "kind": "event",
     "summary": "群名片变更通知",
     "impls": [
-      "snowluma"
+      "snowluma",
+      "napcat"
     ],
-    "notes": "NapCat 也有同名字段, 未在 SnowLuma 之外的实现上实测",
-    "source": "snowluma"
+    "notes": "group_id / user_id / card_new / card_old；go-cqhttp 扩展",
+    "source": "snowluma:to-notice.ts:197; napcat:E/notice/OB11GroupCardEvent.ts:4"
   },
   {
     "name": "bot_offline",
     "kind": "event",
     "summary": "bot 掉线通知",
     "impls": [
-      "snowluma"
+      "snowluma",
+      "napcat"
     ],
-    "source": "snowluma"
+    "notes": "user_id（自身）/ tag / message",
+    "source": "snowluma:to-notice.ts:209; napcat:E/notice/BotOfflineEvent.ts:4"
   },
   {
-    "name": "message_sent",
+    "name": "bot_status",
     "kind": "event",
-    "summary": "bot 自己发出的消息 (post_type=message_sent)",
+    "summary": "bot 连接状态边沿（SnowLuma 独有）",
     "impls": [
       "snowluma"
     ],
-    "notes": "melobot 目前把它当未知 post_type 的通用事件, 用 event.raw 读",
-    "source": "snowluma"
+    "notes": "sub_type=online/offline；与 bot_offline 区分：后者带掉线原因",
+    "source": "snowluma:instance.ts:870"
+  },
+  {
+    "name": "essence",
+    "kind": "event",
+    "summary": "精华消息变更通知",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "SnowLuma sub_type=add/delete；NapCat 构造函数默认 add，未找到 delete 上报路径（未确认）",
+    "source": "snowluma:to-notice.ts:152; napcat:E/notice/OB11GroupEssenceEvent.ts:4"
+  },
+  {
+    "name": "notify/profile_like",
+    "kind": "event",
+    "summary": "资料被点赞（notify 子类型）",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "operator_id / operator_nick / times",
+    "source": "snowluma:to-notice.ts:220; napcat:E/notice/OB11ProfileLikeEvent.ts:4"
+  },
+  {
+    "name": "notify/title",
+    "kind": "event",
+    "summary": "群头衔变更（notify 子类型）",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id / user_id / title",
+    "source": "snowluma:to-notice.ts:235; napcat:E/notice/OB11GroupTitleEvent.ts:4"
+  },
+  {
+    "name": "notify/group_name",
+    "kind": "event",
+    "summary": "群名变更（notify 子类型）",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "group_id / user_id / name_new",
+    "source": "snowluma:to-notice.ts:250; napcat:E/notice/OB11GroupNameEvent.ts:4"
+  },
+  {
+    "name": "notify/input_status",
+    "kind": "event",
+    "summary": "输入状态（notify 子类型）",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "user_id / event_type / status_text；NapCat 的 group_id 恒 0",
+    "source": "snowluma:to-notice.ts:262; napcat:E/notice/OB11InputStatusEvent.ts:5"
+  },
+  {
+    "name": "notify/gray_tip",
+    "kind": "event",
+    "summary": "未知灰条上报（NapCat 独有）",
+    "impls": [
+      "napcat"
+    ],
+    "notes": "group_id / user_id / message_id / busi_id / content / raw_info",
+    "source": "napcat:E/notice/OB11GroupGrayTipEvent.ts:8"
+  },
+  {
+    "name": "file",
+    "kind": "segment",
+    "summary": "文件消息段",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "收：file / file_id / file_size / url；NapCat 的 file_id 是 FileNapCatOneBotUUID 编码串，不是裸 uuid",
+    "source": "snowluma:element-codecs.ts:537; napcat:T/message.ts:89"
   },
   {
     "name": "mface",
     "kind": "segment",
     "summary": "商城表情消息段",
     "impls": [
-      "snowluma"
+      "snowluma",
+      "napcat"
     ],
-    "notes": "解析优先用 lemony_mface, 这里只登记形状",
-    "source": "snowluma"
-  },
-  {
-    "name": "poke",
-    "kind": "segment",
-    "summary": "拍一拍消息段",
-    "impls": [
-      "snowluma"
-    ],
-    "notes": "通常同时伴随 notify 事件",
-    "source": "snowluma"
+    "notes": "SnowLuma 有独立 mface 收发；NapCat 只在发送时用 mface，接收时走 image 段并挂 emoji_id/emoji_package_id/key/summary",
+    "source": "snowluma:element-codecs.ts:607; napcat:T/message.ts:49"
   },
   {
     "name": "flash_file",
     "kind": "segment",
-    "summary": "闪传文件消息段",
+    "summary": "闪传文件消息段（SnowLuma 命名）",
     "impls": [
       "snowluma"
     ],
-    "source": "snowluma"
+    "notes": "字段 title / file_set_id / scene_type / thumb；只在接收侧出现，发送用 send_flash_msg",
+    "source": "snowluma:element-codecs.ts:668"
   },
   {
-    "name": "forward",
+    "name": "flashtransfer",
     "kind": "segment",
-    "summary": "合并转发引用段",
+    "summary": "闪传文件消息段（NapCat 命名）",
+    "impls": [
+      "napcat"
+    ],
+    "notes": "字段 fileSetId（camelCase），只接收",
+    "source": "napcat:T/message.ts:266"
+  },
+  {
+    "name": "markdown",
+    "kind": "segment",
+    "summary": "markdown 卡片消息段",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "data.content；发送时通常紧跟一个 text 段",
+    "source": "snowluma:element-codecs.ts:700; napcat:T/message.ts:236"
+  },
+  {
+    "name": "inline_keyboard",
+    "kind": "segment",
+    "summary": "内联键盘消息段",
     "impls": [
       "snowluma"
     ],
-    "notes": "发送侧用 send_group_forward_msg 的 nodes",
-    "source": "snowluma"
+    "notes": "仅接收；配合 click_inline_keyboard_button 使用，buttons 字段较多",
+    "source": "snowluma:element-codecs.ts:715"
+  },
+  {
+    "name": "onlinefile",
+    "kind": "segment",
+    "summary": "在线文件消息段（NapCat 独有）",
+    "impls": [
+      "napcat"
+    ],
+    "notes": "msgId / elementId / fileName / fileSize / isDir，仅接收",
+    "source": "napcat:T/message.ts:254"
   }
 ]

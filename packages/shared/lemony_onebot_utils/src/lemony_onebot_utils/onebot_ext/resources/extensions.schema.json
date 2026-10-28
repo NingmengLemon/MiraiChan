@@ -11,7 +11,7 @@
         "properties": {
             "name": {
                 "type": "string",
-                "pattern": "^[a-z][a-z0-9_.]*$",
+                "pattern": "^[a-z_][a-z0-9_./]*$",
                 "description": "OneBot action / notice_type / segment type 原名"
             },
             "kind": {

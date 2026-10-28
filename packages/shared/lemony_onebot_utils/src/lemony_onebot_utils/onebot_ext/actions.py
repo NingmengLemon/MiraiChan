@@ -27,6 +27,7 @@ __all__ = [
     "GetGroupRootFiles",
     "GroupPoke",
     "HistoryEcho",
+    "SendPoke",
     "SetEssenceMsg",
     "SetGroupReaction",
     "SetMsgEmojiLike",
@@ -39,7 +40,10 @@ __all__ = [
 
 
 class SetMsgEmojiLike(ExtensionAction):
-    """在消息上添加/移除表情回应; ``emoji_id`` 是 Unicode 码位的十进制字符串"""
+    """在消息上添加/移除表情回应
+
+    ``emoji_id`` 的取值按长度判定: 1-3 位数字是 QQ 系统表情编号, 4 位及以上是 Unicode 码位。
+    """
 
     action_name = "set_msg_emoji_like"
 
@@ -53,11 +57,21 @@ class SetGroupReaction(ExtensionAction):
     action_name = "set_group_reaction"
 
     def __init__(
-        self, *, group_id: int, message_id: int, code: str, is_set: bool = True
+        self,
+        *,
+        message_id: int,
+        code: str,
+        group_id: int | None = None,
+        is_set: bool = True,
     ) -> None:
-        super().__init__(
-            group_id=group_id, message_id=message_id, code=code, is_set=is_set
-        )
+        params: dict[str, Any] = {
+            "message_id": message_id,
+            "code": code,
+            "is_set": is_set,
+        }
+        if group_id is not None:
+            params["group_id"] = group_id
+        super().__init__(**params)
 
 
 # ---------------------------------------------------------------- 拍一拍
@@ -73,8 +87,35 @@ class FriendPoke(ExtensionAction):
 class GroupPoke(ExtensionAction):
     action_name = "group_poke"
 
-    def __init__(self, *, group_id: int, user_id: int) -> None:
-        super().__init__(group_id=group_id, user_id=user_id)
+    def __init__(
+        self, *, group_id: int, user_id: int | None = None, target_id: int | None = None
+    ) -> None:
+        params: dict[str, Any] = {"group_id": group_id}
+        if user_id is not None:
+            params["user_id"] = user_id
+        if target_id is not None:
+            params["target_id"] = target_id
+        super().__init__(**params)
+
+
+class SendPoke(ExtensionAction):
+    action_name = "send_poke"
+
+    def __init__(
+        self,
+        *,
+        user_id: int | None = None,
+        group_id: int | None = None,
+        target_id: int | None = None,
+    ) -> None:
+        params: dict[str, Any] = {}
+        if user_id is not None:
+            params["user_id"] = user_id
+        if group_id is not None:
+            params["group_id"] = group_id
+        if target_id is not None:
+            params["target_id"] = target_id
+        super().__init__(**params)
 
 
 # ---------------------------------------------------------------- 历史消息
@@ -83,15 +124,45 @@ class GroupPoke(ExtensionAction):
 class GetGroupMsgHistory(ExtensionAction):
     action_name = "get_group_msg_history"
 
-    def __init__(self, *, group_id: int, message_id: int, count: int) -> None:
-        super().__init__(group_id=group_id, message_id=message_id, count=count)
+    def __init__(
+        self,
+        *,
+        group_id: int,
+        message_id: int | None = None,
+        message_seq: int | None = None,
+        count: int = 20,
+        reverse_order: bool = False,
+    ) -> None:
+        params: dict[str, Any] = {"group_id": group_id, "count": count}
+        if message_id is not None:
+            params["message_id"] = message_id
+        if message_seq is not None:
+            params["message_seq"] = message_seq
+        if reverse_order:
+            params["reverse_order"] = True
+        super().__init__(**params)
 
 
 class GetFriendMsgHistory(ExtensionAction):
     action_name = "get_friend_msg_history"
 
-    def __init__(self, *, user_id: int, message_id: int, count: int) -> None:
-        super().__init__(user_id=user_id, message_id=message_id, count=count)
+    def __init__(
+        self,
+        *,
+        user_id: int,
+        message_id: int | None = None,
+        message_seq: int | None = None,
+        count: int = 20,
+        reverse_order: bool = False,
+    ) -> None:
+        params: dict[str, Any] = {"user_id": user_id, "count": count}
+        if message_id is not None:
+            params["message_id"] = message_id
+        if message_seq is not None:
+            params["message_seq"] = message_seq
+        if reverse_order:
+            params["reverse_order"] = True
+        super().__init__(**params)
 
 
 class HistoryEcho(Echo):

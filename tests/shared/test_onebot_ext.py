@@ -13,6 +13,7 @@ from lemony_onebot_utils.onebot_ext import (
     GroupMsgEmojiLike,
     GroupPoke,
     HistoryEcho,
+    SendPoke,
     SetGroupReaction,
     SetMsgEmojiLike,
     UploadGroupFile,
@@ -69,12 +70,26 @@ def test_action_params() -> None:
         "code": "424",
         "is_set": False,
     }
+    # group_id 可省略 (SnowLuma 的 group_id 是可选参数)
+    assert SetGroupReaction(message_id=2, code="424").params == {
+        "message_id": 2,
+        "code": "424",
+        "is_set": True,
+    }
     assert GroupPoke(group_id=1, user_id=2).params == {"group_id": 1, "user_id": 2}
+    # 只有 target_id 时不能把 user_id 写成 null
+    assert GroupPoke(group_id=1, target_id=2).params == {"group_id": 1, "target_id": 2}
+    assert SendPoke(user_id=2).params == {"user_id": 2}
     # folder 不传就不出现在参数里
     assert "folder" not in UploadGroupFile(group_id=1, file="a", name="a").params
     assert GetGroupMsgHistory(group_id=1, message_id=2, count=3).action_name == (
         "get_group_msg_history"
     )
+    # 两种起始游标互斥地出现: SnowLuma 用 message_id, NapCat 用 message_seq
+    by_id = GetGroupMsgHistory(group_id=1, message_id=2)
+    by_seq = GetGroupMsgHistory(group_id=1, message_seq=2)
+    assert "message_id" in by_id.params and "message_seq" not in by_id.params
+    assert "message_seq" in by_seq.params and "message_id" not in by_seq.params
 
 
 @pytest.mark.asyncio
