@@ -1,0 +1,46 @@
+# 协议边界与多协议准备
+
+现状的协议相关代码集中在 melobot 的 OneBot v11 适配器上。这份文档记录哪些部分已经与协议无关,
+哪些是 OneBot 11 专用, 以及新增协议适配器时要动哪里; 后续迁移按这里列出的边界做。
+
+## 总览
+
+| 类别 | 位置 | 状态 |
+| --- | --- | --- |
+| 完全通用 | `lemony_settings`、`lemony_storage_helper`、`lemony_network`、`lemony_images`、`lemony_media`、`lemony_llm_provider`、`lemony_utils` | 不 import melobot 或 onebot, 可直接复用 |
+| 协议无关核心 + 可插适配 | `lemony_checkers` | 规则、权限、身份模型是通用的; `adapters/ob11.py` 是 OneBot 身份适配器, 注册在 `registry` 上 |
+| 通用启动流程 | `packages/miraichan/src/miraichan/` (CLI、loader、日志桥、配置模型) | 除 IO 接线与配置里的 `websocket` 段外, 与协议无关 |
+| OneBot 11 专用 | `lemony_onebot_utils` 全部 (botutils、forward、qq、onebot_ext)、`miraichan/validation_patches/ob11.py`、所有插件的 handler 与消息段处理 | 依赖 v11 的 Adapter / 事件 / 段 / handle |
+| QQ 语义专用但协议中立 | `lemony_mface` | 解析 QQ 商城表情, 不依赖适配器, 换协议后仍可用于 QQ 数据 |
+
+## 插件现状
+
+`packages/plugins/` 下 13 个有入口的插件全部直接 import `melobot.protocols.onebot.v11`:
+`checker_manager`、`deeeer`、`emergency_alerts`、`forward_strip`、`helper`、`mikufans`、`moelottery`、
+`provenance`、`quote`、`rebootable`、`recorder`、`test_forward_msg`、`toolbox`。
+
+这是多协议迁移的主要成本所在: handler 的类型注解、消息段拆分、`send_reply`、群号字段都绑定 v11。
+
+## 已知的混合点
+
+1. `miraichan/config.py` 的 `GlobalConfigModel` 只有单个 `websocket` 段
+   (forward / reverse 二选一), `main.py` 固定 `add_io(...)` + `add_adapter(Adapter())`。
+   多实现端或多协议同时在线需要改成列表并允许每项带 `protocol`。
+2. `lemony_checkers` 的主体是通用的, 但 `migration.py` 直接 import ob11 常量, `models.py` 里也写了
+   ob11 的 protocol 字面量; 新协议的身份适配应仿照 `adapters/ob11.py`, 同时把这些硬引用收进适配器。
+3. 插件把 OneBot 字段当作业务模型: 例如 recorder 存的是 v11 消息段形状, quote / forward_strip 依赖
+   `message_id` / `get_msg` / 合并转发结构, provenance 依赖群表情回应。换协议时这些字段没有等价物。
+4. `lemony_onebot_utils` 里的 `onebot_ext` 是实现端扩展清单, 天然只服务 OneBot; 但 `qq.py` 等
+   QQ 语义工具与协议无关, 可被其他 QQ 协议复用。
+5. `melobot_telegram_protocol` 目前只有一个占位 `__init__.py`, 还没有实现。
+
+## 新增协议时的建议顺序
+
+1. 先定义插件用的协议无关门面: 入站 (群/私聊文本事件、发送者、图片与其他消息段) 与出站
+   (回复、发消息、发图、撤回、禁言、转发) 两类, 能复用的 melobot 泛型 `Event` / `TextEvent` /
+   `Content` 就不再造一套;
+2. 每协议一个 adapter 子包: melobot IO 与 Adapter 接线、事件转换到门面、出站动作实现、
+   能力声明 (有没有表情回应、合并转发、群文件等);
+3. `lemony_checkers` 补同协议的 `adapters/<protocol>.py`, 提供唯一身份提取;
+4. 插件逐步迁移, 由能力声明决定功能隐藏或降级, 不假装支持;
+5. 启动配置改成多 IO / 多 adapter, 插件可以声明只在某些协议上启用。

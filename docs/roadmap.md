@@ -22,6 +22,27 @@
 - 待定的旧插件: gitignored 的 `packages/plugins/_to_be_migrated/` 下还有 VVTTS (语音合成) 与
   WhatToListenToday, 以及 VVTTS 依赖的 `lemony_utils_legacy` (拼音转片假名)。
 
+## 多协议
+
+现状与边界清单见 `docs/development/protocols.md`。顺序上先把插件门面定下来, 再逐个接协议;
+每个适配器都要同时补 melobot 侧接线、checker 身份适配与能力声明。
+
+- 协议无关插件门面 (阻塞项): 入站统一成"群/私聊文本事件 + 发送者 + 消息段", 出站统一成
+  回复/发消息/发图/撤回/禁言/转发, 尽量复用 melobot 的泛型 `Event` / `TextEvent` / `Content`,
+  不再造第三套模型; 同时给每协议一份能力声明, 插件据此隐藏或降级 QQ 特有功能.
+- Milky 适配器: 第一个新协议, 目标是让现有插件在 QQ 场景下能跑; 需要先确认它对合并转发、
+  表情回应、群文件这些扩展的覆盖, 缺的能力在门面里显式标成不支持.
+- Satori 适配器: 事件与动作语义和 OneBot 差得最多, 适合用来验证门面是否真的协议中立;
+  先做消息收发与身份, 再评估图片、引用与转发.
+- Telegram 适配器: `melobot_telegram_protocol` 目前只有占位 `__init__.py`; 复用 aiogram 依赖,
+  按门面补齐文本/图片/回复与群组身份, 作为非 QQ 的验证样本.
+- 多 IO / 多 adapter 启动: `miraichan/config.py` 目前只有单个 `websocket` 段, `main.py` 固定一个
+  `Adapter`; 改成列表并允许每项带协议标识, 插件可以声明只在某些协议上启用.
+- checker 身份适配器: 每个新协议补 `lemony_checkers/adapters/<protocol>.py`; 把 `migration.py`、
+  `models.py` 里对 ob11 常量的硬引用收进适配器, 让规则与权限层保持协议无关.
+- 插件迁移与降级: 13 个插件按使用面从易到难迁移 (先 helper / deeeer 这类纯文本交互),
+  recorder 的消息存储模型要单独设计, 不能直接沿用 v11 消息段形状.
+
 ## 基础设施
 
 - MCP 接入: 新增一个 shared 子包, 把 MCP server 暴露的工具挂成插件能调用的工具集,
