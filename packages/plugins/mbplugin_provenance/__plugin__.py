@@ -26,7 +26,7 @@ from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 from .client import ProvenanceError, ProvenanceResult, check_image
 from .images import image_payloads, local_candidates, mime_of
 from .report import format_report
-from .runtime import CheckRegistry, Cooldown, access_level
+from .runtime import CheckRegistry, Cooldown, access_level, reaction_code
 
 PLUGIN_IDENTIFIER = "mbplugin_provenance"
 # 凭据键: 值放在 credentials.json 的 refs 里, 或环境变量 MIRAICHAN_PROVENANCE_API_KEY
@@ -194,11 +194,12 @@ async def _ack(
     code: str,
 ) -> bool:
     """给指令消息贴一个 QQ 表情回应; 群聊以外或贴不上就退回文字回执"""
-    if code and group_id is not None:
+    emoji = reaction_code(code, group_id)
+    if emoji is not None:
         echo = await try_extension(
             adapter,
             SetGroupReaction(
-                group_id=group_id, message_id=message_id, code=code, is_set=True
+                group_id=group_id, message_id=message_id, code=emoji, is_set=True
             ),
         )
         if echo is not None:

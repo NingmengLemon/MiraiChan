@@ -15,20 +15,38 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Protocol
 
+from melobot.exceptions import ActionHandleError
 from melobot.protocols.onebot.v11.adapter.action import Action
 from melobot.protocols.onebot.v11.adapter.echo import Echo
 
-__all__ = ["ExtensionAction", "ExtensionError", "call_extension", "try_extension"]
+__all__ = [
+    "CallOutput",
+    "ExtensionAction",
+    "ExtensionError",
+    "call_extension",
+    "try_extension",
+]
 
 logger = logging.getLogger(__name__)
 
 
+class CallOutput(Protocol):
+    """只要求 ``call_output`` 的适配器协议, 测试可以传假件"""
+
+    async def call_output(self, action: Action) -> Any: ...
+
+
 class ExtensionAction(Action):
-    """一个实现端扩展 action 的基类"""
+    """一个实现端扩展 action 的基类
+
+    ``echo_cls`` 用于声明专用回应类型: adapter 只按标准 action 名分派 echo, 未知 action 一律
+    返回通用 :class:`Echo`, 所以带结构的回应要靠这里重新组装。
+    """
 
     action_name: ClassVar[str]
+    echo_cls: ClassVar[type[Echo] | None] = None
 
     def __init__(self, **params: object) -> None:
         super().__init__(self.action_name, params)
@@ -44,20 +62,26 @@ class ExtensionError(RuntimeError):
         super().__init__(f"{action} 调用失败 ({detail})")
 
 
-async def call_extension(adapter: Any, action: ExtensionAction) -> Echo:
+async def call_extension(adapter: CallOutput, action: ExtensionAction) -> Echo:
     """调用一个扩展 action, 失败抛 :class:`ExtensionError`"""
     group = await adapter.call_output(action)
-    echo = await group.unwrap(0)
+    try:
+        echo = await group.unwrap(0)
+    except ActionHandleError as exc:
+        raise ExtensionError(action.action_name, None) from exc
     if echo is None:
         raise ExtensionError(action.action_name, None)
     if not echo.is_ok():
-        # Echo 没有公开 retcode 属性, 原始回包里有
-        retcode = echo.raw.get("retcode") if isinstance(echo.raw, dict) else None
-        raise ExtensionError(action.action_name, retcode)
+        # 根 Echo.status 存的就是 OneBot 的 retcode
+        raise ExtensionError(action.action_name, echo.status)
+    if (echo_cls := action.echo_cls) is not None and not isinstance(echo, echo_cls):
+        raw = dict(echo.raw)
+        raw["action_type"] = action.action_name
+        echo = echo_cls(**raw)
     return echo
 
 
-async def try_extension(adapter: Any, action: ExtensionAction) -> Echo | None:
+async def try_extension(adapter: CallOutput, action: ExtensionAction) -> Echo | None:
     """调用一个扩展 action; 失败或实现端不支持时返回 ``None``
 
     适合"贴个 reaction 之类, 失败就退回别的表现"的场景。

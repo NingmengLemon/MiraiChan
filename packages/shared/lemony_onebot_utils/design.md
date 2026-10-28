@@ -52,10 +52,10 @@ if (liked := GroupMsgEmojiLike.from_raw(event.raw)) is not None:
   `SPECS` / `find` / `for_impl` 的 API 不变, 插件侧不感知数据来源。
 
 加载时只做轻量检查 (顶层类型、`kind` 枚举、重名), 校验失败直接抛错; 完整的 schema 校验放在
-`tests/shared/test_onebot_ext.py`, 用 `jsonschema` 作为测试依赖, 运行时不引入这个依赖。
+`packages/shared/lemony_onebot_utils/tests/test_onebot_ext.py`, 用 `jsonschema` 作为测试依赖, 运行时不引入这个依赖。
 
-新增条目的步骤: 改 JSON -> 在 `tests/shared/test_onebot_ext.py` 补形状断言 (需要类型化时再加
-action 类与 echo) -> 跑 `uv run pytest tests/shared/test_onebot_ext.py`。
+新增条目的步骤: 改 JSON -> 在 `packages/shared/lemony_onebot_utils/tests/test_onebot_ext.py` 补形状断言 (需要类型化时再加
+action 类与 echo) -> 跑 `uv run pytest packages/shared/lemony_onebot_utils/tests/test_onebot_ext.py`。
 
 ## 已移除的旧模块
 

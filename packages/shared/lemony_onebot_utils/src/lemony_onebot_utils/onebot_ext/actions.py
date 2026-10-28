@@ -1,11 +1,12 @@
 """已收录的扩展 action
 
 每个类只负责 action 名与参数形状, 发送与错误处理交给 :func:`~.base.call_extension`。
+可选参数统一用 :func:`_compact` 丢掉 None, 避免把 ``null`` 发给实现端。
 """
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 from melobot.protocols.onebot.v11.adapter.echo import Echo
 from melobot.protocols.onebot.v11.adapter.segment import Segment
@@ -36,13 +37,18 @@ __all__ = [
 ]
 
 
+def _compact(**kwargs: object) -> dict[str, object]:
+    """丢掉值为 None 的参数; 实现端对多余 null 的容忍度不一致"""
+    return {key: value for key, value in kwargs.items() if value is not None}
+
+
 # ---------------------------------------------------------------- 表情回应
 
 
 class SetMsgEmojiLike(ExtensionAction):
     """在消息上添加/移除表情回应
 
-    ``emoji_id`` 的取值按长度判定: 1-3 位数字是 QQ 系统表情编号, 4 位及以上是 Unicode 码位。
+    ``emoji_id`` 的取值按字符串长度判定: 1-3 位数字是 QQ 系统表情编号, 4 位及以上是 Unicode 码位。
     """
 
     action_name = "set_msg_emoji_like"
@@ -52,7 +58,11 @@ class SetMsgEmojiLike(ExtensionAction):
 
 
 class SetGroupReaction(ExtensionAction):
-    """给群消息贴 QQ 表情; ``code`` 是表情编号 (如 ``"76"``), 和 emoji 码位不是一套"""
+    """给群消息贴 QQ 表情
+
+    ``code`` 与 ``set_msg_emoji_like`` 的 ``emoji_id`` 是同一套编号: 1-3 位数字是 QQ 表情编号,
+    4 位及以上是 Unicode 码位。
+    """
 
     action_name = "set_group_reaction"
 
@@ -64,14 +74,14 @@ class SetGroupReaction(ExtensionAction):
         group_id: int | None = None,
         is_set: bool = True,
     ) -> None:
-        params: dict[str, Any] = {
-            "message_id": message_id,
-            "code": code,
-            "is_set": is_set,
-        }
-        if group_id is not None:
-            params["group_id"] = group_id
-        super().__init__(**params)
+        super().__init__(
+            **_compact(
+                message_id=message_id,
+                code=code,
+                group_id=group_id,
+                is_set=is_set,
+            )
+        )
 
 
 # ---------------------------------------------------------------- 拍一拍
@@ -90,12 +100,9 @@ class GroupPoke(ExtensionAction):
     def __init__(
         self, *, group_id: int, user_id: int | None = None, target_id: int | None = None
     ) -> None:
-        params: dict[str, Any] = {"group_id": group_id}
-        if user_id is not None:
-            params["user_id"] = user_id
-        if target_id is not None:
-            params["target_id"] = target_id
-        super().__init__(**params)
+        super().__init__(
+            **_compact(group_id=group_id, user_id=user_id, target_id=target_id)
+        )
 
 
 class SendPoke(ExtensionAction):
@@ -108,14 +115,9 @@ class SendPoke(ExtensionAction):
         group_id: int | None = None,
         target_id: int | None = None,
     ) -> None:
-        params: dict[str, Any] = {}
-        if user_id is not None:
-            params["user_id"] = user_id
-        if group_id is not None:
-            params["group_id"] = group_id
-        if target_id is not None:
-            params["target_id"] = target_id
-        super().__init__(**params)
+        super().__init__(
+            **_compact(user_id=user_id, group_id=group_id, target_id=target_id)
+        )
 
 
 # ---------------------------------------------------------------- 历史消息
@@ -131,16 +133,17 @@ class GetGroupMsgHistory(ExtensionAction):
         message_id: int | None = None,
         message_seq: int | None = None,
         count: int = 20,
-        reverse_order: bool = False,
+        reverse_order: bool | None = None,
     ) -> None:
-        params: dict[str, Any] = {"group_id": group_id, "count": count}
-        if message_id is not None:
-            params["message_id"] = message_id
-        if message_seq is not None:
-            params["message_seq"] = message_seq
-        if reverse_order:
-            params["reverse_order"] = True
-        super().__init__(**params)
+        super().__init__(
+            **_compact(
+                group_id=group_id,
+                message_id=message_id,
+                message_seq=message_seq,
+                count=count,
+                reverse_order=reverse_order,
+            )
+        )
 
 
 class GetFriendMsgHistory(ExtensionAction):
@@ -153,16 +156,17 @@ class GetFriendMsgHistory(ExtensionAction):
         message_id: int | None = None,
         message_seq: int | None = None,
         count: int = 20,
-        reverse_order: bool = False,
+        reverse_order: bool | None = None,
     ) -> None:
-        params: dict[str, Any] = {"user_id": user_id, "count": count}
-        if message_id is not None:
-            params["message_id"] = message_id
-        if message_seq is not None:
-            params["message_seq"] = message_seq
-        if reverse_order:
-            params["reverse_order"] = True
-        super().__init__(**params)
+        super().__init__(
+            **_compact(
+                user_id=user_id,
+                message_id=message_id,
+                message_seq=message_seq,
+                count=count,
+                reverse_order=reverse_order,
+            )
+        )
 
 
 class HistoryEcho(Echo):
@@ -182,12 +186,25 @@ class UploadGroupFile(ExtensionAction):
     action_name = "upload_group_file"
 
     def __init__(
-        self, *, group_id: int, file: str, name: str, folder: str | None = None
+        self,
+        *,
+        group_id: int,
+        file: str,
+        name: str,
+        folder: str | None = None,
+        folder_id: str | None = None,
+        upload_file: bool | None = None,
     ) -> None:
-        params: dict[str, Any] = {"group_id": group_id, "file": file, "name": name}
-        if folder is not None:
-            params["folder"] = folder
-        super().__init__(**params)
+        super().__init__(
+            **_compact(
+                group_id=group_id,
+                file=file,
+                name=name,
+                folder=folder,
+                folder_id=folder_id,
+                upload_file=upload_file,
+            )
+        )
 
 
 class UploadPrivateFile(ExtensionAction):
@@ -200,29 +217,47 @@ class UploadPrivateFile(ExtensionAction):
 class CreateGroupFileFolder(ExtensionAction):
     action_name = "create_group_file_folder"
 
-    def __init__(self, *, group_id: int, name: str, parent_id: str) -> None:
-        super().__init__(group_id=group_id, name=name, parent_id=parent_id)
+    def __init__(
+        self, *, group_id: int, name: str, parent_id: str | None = None
+    ) -> None:
+        super().__init__(**_compact(group_id=group_id, name=name, parent_id=parent_id))
 
 
 class GetGroupRootFiles(ExtensionAction):
     action_name = "get_group_root_files"
 
-    def __init__(self, *, group_id: int) -> None:
-        super().__init__(group_id=group_id)
+    def __init__(self, *, group_id: int, file_count: int | None = None) -> None:
+        super().__init__(**_compact(group_id=group_id, file_count=file_count))
 
 
 class GetGroupFilesByFolder(ExtensionAction):
     action_name = "get_group_files_by_folder"
 
-    def __init__(self, *, group_id: int, folder_id: str) -> None:
-        super().__init__(group_id=group_id, folder_id=folder_id)
+    def __init__(
+        self,
+        *,
+        group_id: int,
+        folder_id: str | None = None,
+        folder: str | None = None,
+        file_count: int | None = None,
+    ) -> None:
+        super().__init__(
+            **_compact(
+                group_id=group_id,
+                folder_id=folder_id,
+                folder=folder,
+                file_count=file_count,
+            )
+        )
 
 
 class GetGroupFileUrl(ExtensionAction):
     action_name = "get_group_file_url"
 
-    def __init__(self, *, group_id: int, file_id: str, busid: int) -> None:
-        super().__init__(group_id=group_id, file_id=file_id, busid=busid)
+    def __init__(
+        self, *, group_id: int, file_id: str, busid: int | None = None
+    ) -> None:
+        super().__init__(**_compact(group_id=group_id, file_id=file_id, busid=busid))
 
 
 # ---------------------------------------------------------------- 精华消息
@@ -272,10 +307,10 @@ class GetEssenceMsgListEcho(Echo):
         super().__init__(**kv_pairs)
         if self.data is None:
             return
-        raw: list[dict[str, Any]] = kv_pairs["data"]
-        for msg in raw:
+        for msg in cast(list[dict[str, Any]], self.data):
+            content = msg.get("content") or []
             msg["content"] = [
-                Segment.resolve(seg["type"], seg["data"]) for seg in msg["content"]
+                Segment.resolve(seg["type"], seg["data"]) for seg in content
             ]
 
 
@@ -285,9 +320,13 @@ class GetEssenceMsgListEcho(Echo):
 class FetchCustomFace(ExtensionAction):
     action_name = "fetch_custom_face"
 
-    def __init__(self) -> None:
-        super().__init__()
-
 
 class FetchCustomFaceEcho(Echo):
     data: list[str] | None
+
+
+# adapter 只按标准 action 名分派 echo, 这些专用回应由 call_extension 组装
+GetGroupMsgHistory.echo_cls = HistoryEcho
+GetFriendMsgHistory.echo_cls = HistoryEcho
+GetEssenceMsgList.echo_cls = GetEssenceMsgListEcho
+FetchCustomFace.echo_cls = FetchCustomFaceEcho

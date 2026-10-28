@@ -846,5 +846,38 @@
     ],
     "notes": "msgId / elementId / fileName / fileSize / isDir，仅接收",
     "source": "napcat:T/message.ts:254"
+  },
+  {
+    "name": "set_essence_msg",
+    "kind": "action",
+    "summary": "设置精华消息",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "message_id；两家返回都不固定（SnowLuma null，NapCat 原样返回）",
+    "source": "snowluma:extended.ts:666; napcat:A/group/SetEssenceMsg.ts:19"
+  },
+  {
+    "name": "delete_essence_msg",
+    "kind": "action",
+    "summary": "移出精华消息",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "NapCat 还接受 msg_seq / msg_random / group_id",
+    "source": "snowluma:extended.ts:689; napcat:A/group/DelEssenceMsg.ts:22"
+  },
+  {
+    "name": "get_essence_msg_list",
+    "kind": "action",
+    "summary": "列出精华消息",
+    "impls": [
+      "snowluma",
+      "napcat"
+    ],
+    "notes": "返回含 msg_seq/msg_random；NapCat 的 content 是消息段数组",
+    "source": "snowluma:extended.ts:712; napcat:A/group/GetGroupEssence.ts:33"
   }
 ]

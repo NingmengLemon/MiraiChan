@@ -2,6 +2,7 @@
 
 现状的协议相关代码集中在 melobot 的 OneBot v11 适配器上。这份文档记录哪些部分已经与协议无关,
 哪些是 OneBot 11 专用, 以及新增协议适配器时要动哪里; 后续迁移按这里列出的边界做。
+OneBot 侧的扩展清单与实现端差异见 `packages/shared/lemony_onebot_utils/design.md`。
 
 ## 总览
 
@@ -49,8 +50,8 @@
 
 - SnowLuma 与 NapCat 仍在活跃更新, 扩展清单以这两家为核对对象;
 - Lagrange 的 OneBot 11 线已冻结: `Lagrange.OneBot` 仓库 404, OneBot 代码只剩 `Lagrange.Core`
-  的 `v1` 分支 (最后提交 2025-10-10, README 有终止说明), master 转向 V2/Milky.
+  的 `v1` 分支 (最后提交 2025-10-10, README 有终止说明), master 转向 V2/Milky。
   因此 OneBot 扩展清单不把 Lagrange 当活跃目标; 需要兼容存量部署时按冻结源码单独建适配档案,
   `set_group_reaction` 用 `is_add`、没有 `set_msg_emoji_like`、没有 `message_sent`、
-  `send_forward_msg` 只上传资源不发送.
-- 这意味着 Milky 适配器不只是"再加一个协议", 也是 Lagrange 生态的接续方向.
+  `send_forward_msg` 只上传资源不发送。
+- 这意味着 Milky 适配器不只是"再加一个协议", 也是 Lagrange 生态的接续方向。

@@ -20,6 +20,7 @@ melobot 只内置标准 action, 而实现端 (SnowLuma / NapCat / Lagrange) 各�
 from __future__ import annotations
 
 from .actions import (
+    CreateGroupFileFolder,
     DeleteEssenceMsg,
     FetchCustomFace,
     FetchCustomFaceEcho,
@@ -40,17 +41,37 @@ from .actions import (
     UploadGroupFile,
     UploadPrivateFile,
 )
-from .base import ExtensionAction, ExtensionError, call_extension, try_extension
-from .catalog import EXTENSIONS, SPECS, ExtensionSpec, find, for_impl, load_entries
+from .base import (
+    CallOutput,
+    ExtensionAction,
+    ExtensionError,
+    call_extension,
+    try_extension,
+)
+from .catalog import (
+    EXTENSIONS,
+    SPECS,
+    ExtensionImpl,
+    ExtensionKind,
+    ExtensionSpec,
+    find,
+    for_impl,
+    load_entries,
+    parse_payload,
+)
 from .events import EmojiLike, GroupMsgEmojiLike, is_message_sent
 
 __all__ = [
     "EXTENSIONS",
     "SPECS",
+    "CallOutput",
+    "CreateGroupFileFolder",
     "DeleteEssenceMsg",
     "EmojiLike",
     "ExtensionAction",
     "ExtensionError",
+    "ExtensionImpl",
+    "ExtensionKind",
     "ExtensionSpec",
     "FetchCustomFace",
     "FetchCustomFaceEcho",
@@ -76,5 +97,6 @@ __all__ = [
     "for_impl",
     "is_message_sent",
     "load_entries",
+    "parse_payload",
     "try_extension",
 ]

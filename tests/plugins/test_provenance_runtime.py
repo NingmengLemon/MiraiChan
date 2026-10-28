@@ -10,6 +10,7 @@ from mbplugin_provenance.runtime import (
     CheckRegistry,
     Cooldown,
     access_level,
+    reaction_code,
 )
 
 RESULTS = (ProvenanceResult(type="c2pa", outcome="not_detected"),)
@@ -72,3 +73,10 @@ def test_registry_prunes_expired_entries() -> None:
     # 落后 TTL 的条目在写入新结果时被清掉
     assert registry.cached("old", now=100.0) is None
     assert registry.cached("new", now=105.0) == RESULTS
+
+
+def test_reaction_code_only_in_group() -> None:
+    assert reaction_code("424", 1) == "424"
+    # 私聊没有 group_id, 空配置时不应该发起贴表情请求
+    assert reaction_code("424", None) is None
+    assert reaction_code("", 1) is None

@@ -18,6 +18,7 @@ __all__ = [
     "CheckRegistry",
     "Cooldown",
     "access_level",
+    "reaction_code",
 ]
 
 #: 指令的开放范围; ``all`` 是给普通用户开放的模式, 默认不走
@@ -29,6 +30,13 @@ def access_level(allow_all: bool, allow_admins: bool) -> AccessLevel:
     if allow_all:
         return "all"
     return "admins" if allow_admins else "owner"
+
+
+def reaction_code(code: str, group_id: int | None) -> str | None:
+    """群聊且有配置时才贴表情; 私聊和空配置返回 None, 由调用方退回文字回执"""
+    if not code or group_id is None:
+        return None
+    return code
 
 
 class Cooldown:
