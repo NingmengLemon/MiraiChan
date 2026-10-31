@@ -46,17 +46,41 @@ def test_local_candidates_resolves_relative_paths_under_the_data_root(
     tmp_path: Path,
 ) -> None:
     set_data_root(tmp_path)
-    target = tmp_path / "media" / "a.png"
-    target.parent.mkdir(parents=True)
-    target.write_bytes(PNG)
-    assert local_candidates({"file": "media/a.png"}) == [target]
-    assert local_candidates({"file": str(target)}) == [target]
-    assert local_candidates({"file": f"file://{target}"}) == [target]
-    # 不存在的文件、空值、data root 没设置时都返回空列表
-    assert local_candidates({"file": "media/missing.png"}) == []
-    assert local_candidates({"file": None}) == []
-    set_data_root(None)
+    try:
+        target = tmp_path / "media" / "a.png"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(PNG)
+        assert local_candidates({"file": "media/a.png"}) == [target]
+        assert local_candidates({"file": str(target)}) == [target]
+        assert local_candidates({"file": f"file://{target}"}) == [target]
+        # 不存在的文件、空值、data root 没设置时都返回空列表
+        assert local_candidates({"file": "media/missing.png"}) == []
+        assert local_candidates({"file": None}) == []
+    finally:
+        set_data_root(None)
     assert local_candidates({"file": str(target)}) == []
+
+
+def test_local_candidates_requires_roots_outside_data_root(
+    tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    set_data_root(tmp_path)
+    try:
+        outside_dir = tmp_path_factory.mktemp("outside")
+        outside = outside_dir / "b.png"
+        outside.write_bytes(PNG)
+        # 绝对路径与 file:// 都不能绕过允许目录
+        assert local_candidates({"file": str(outside)}) == []
+        assert local_candidates({"file": f"file://{outside}"}) == []
+        # 显式允许的绝对目录
+        assert local_candidates({"file": str(outside)}, [outside_dir]) == [outside]
+        # 相对 data root 的允许目录
+        cache = tmp_path / "cache" / "c.png"
+        cache.parent.mkdir()
+        cache.write_bytes(PNG)
+        assert local_candidates({"file": str(cache)}, ["cache"]) == [cache]
+    finally:
+        set_data_root(None)
 
 
 def test_mime_of_prefers_magic_bytes_and_falls_back_to_the_suffix() -> None:

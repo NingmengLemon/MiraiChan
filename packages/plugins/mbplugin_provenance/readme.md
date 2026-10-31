@@ -30,6 +30,21 @@ owner 豁免, 缓存与并发上限 (`_gate`, 同时 2 个请求) 也对所有�
 指令会按配置里的名字注册, 需要把 `configs/mbplugin_provenance/default.json` 里的
 `check_command` 一起改掉再重启。
 
+## 本地图片路径
+
+默认只读取 data root 内的本地文件。实现端把图片放在别的绝对目录时, 在
+`configs/mbplugin_provenance/default.json` 的 `image_dirs` 里列出允许的目录
+(绝对路径, 或相对 data root 的路径), 例如:
+
+```json
+{
+    "image_dirs": ["/var/lib/snowluma/cache/images"]
+}
+```
+
+`file` 里的绝对路径与 `file://` 都会经过同一套检查; 目录外的路径不会被读取,
+会退回使用图片的 `url`。
+
 ## 凭据
 
 API key 不进插件配置, 走凭据存储:

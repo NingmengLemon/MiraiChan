@@ -22,6 +22,7 @@ from melobot.bot import get_bot
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
+from pydantic import Field
 
 from .client import ProvenanceError, ProvenanceResult, check_image
 from .images import image_payloads, local_candidates, mime_of
@@ -42,6 +43,8 @@ class ProvenanceSettings(BaseSettings):
     max_images: int = 3
     max_image_bytes: int = 10 * 1024 * 1024
     timeout: float = 30.0
+    # 实现端把图片放在 data root 之外时, 这里列出允许读取的目录 (绝对路径或相对 data root)
+    image_dirs: list[str] = Field(default_factory=list)
     user_cooldown: float = 10.0
     # 同一张图在这个时间窗内查过就复用结果 (秒)
     image_cache_ttl: float = 900.0
@@ -144,7 +147,7 @@ async def _image_bytes(
 ) -> tuple[bytes, str]:
     """取一张图片的字节与 media type, 优先本地文件, 其次 url"""
     max_bytes = cfgloader.value.max_image_bytes
-    for path in local_candidates(seg_data):
+    for path in local_candidates(seg_data, cfgloader.value.image_dirs):
         try:
             data = await asyncio.to_thread(path.read_bytes)
         except OSError:

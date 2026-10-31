@@ -3,7 +3,7 @@
 这些都不依赖 melobot 的 bot 实例, 单测可以直接调。
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
@@ -51,11 +51,39 @@ def image_payloads(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     return images
 
 
-def local_candidates(seg_data: Mapping[str, Any]) -> list[Path]:
-    """图片段里可能的本地路径: file 可能是绝对路径, 也可能相对 data root"""
+def _under_roots(path: Path, roots: Sequence[Path]) -> bool:
+    try:
+        resolved = path.resolve()
+    except OSError:
+        return False
+    for root in roots:
+        try:
+            resolved.relative_to(root.resolve())
+        except (OSError, ValueError):
+            continue
+        return True
+    return False
+
+
+def local_candidates(
+    seg_data: Mapping[str, Any], allowed_dirs: Sequence[str | Path] = ()
+) -> list[Path]:
+    """图片段里可能的本地路径, 只接受 data root 或显式允许目录内的文件.
+
+    ``file`` 可能是绝对路径, 也可能相对 data root. 绝对路径不会无条件信任:
+    实现端把图片放在 data root 之外时, 需要在配置 ``image_dirs`` 里显式列出允许目录.
+    """
     raw = seg_data.get("file")
     if not isinstance(raw, str) or not raw or not is_data_root_set():
         return []
+    data_root = get_data_root()
+    roots = [data_root]
+    for allowed in allowed_dirs:
+        root = Path(allowed)
+        if not root.is_absolute():
+            root = data_root / root
+        roots.append(root)
+
     if raw.startswith("file://"):
         parts = urlparse(raw)
         # Windows 上 file://C:/x 的盘符会落进 netloc
@@ -66,11 +94,13 @@ def local_candidates(seg_data: Mapping[str, Any]) -> list[Path]:
     else:
         path = Path(raw)
         if not path.is_absolute():
-            path = get_data_root() / path
+            path = data_root / path
     try:
-        return [path] if path.is_file() else []
+        if not path.is_file() or not _under_roots(path, roots):
+            return []
     except OSError:
         return []
+    return [path]
 
 
 def mime_of(data: bytes, seg_data: Mapping[str, Any], url: str | None) -> str:
