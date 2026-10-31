@@ -15,20 +15,24 @@
 - 群聊管理: 入群审核等, 设想见 `packages/plugins/mbplugin_group_manager/planning.md`。
 - 能不能好好说话 (缩写翻译): 见 `packages/plugins/mbplugin_nbnhhsh/planning.md`。
 - LLM 接入: 纯异步多协议访问层已落地, 目标、协议对照与未决问题见 `packages/shared/lemony_llm_provider/design.md`;
-  消费插件 (群史问答与精读核查) 已下架, 以后做成一个统一的通用 agent 插件。
+  下一个消费方是通用 agent 插件 (工具调用、多轮状态、权限), 具体形态待设计;
+  旧的群史问答与精读核查消费插件不恢复。
 - mikufans 内容自动解析: 已在 `packages/plugins/mbplugin_mikufans/` 落地默认能力 (短链重定向、小程序卡片取链接、去跟踪参数);
   标题与播放量摘要依赖可选的私有 SDK `citric-mikufans`, 没装时只做链接净化。
 - "手性碳验证码": 新成员入群时出题验证 (给出分子结构, 找出手性碳), 可以和群聊管理的入群审核放在一起。
 - 待定的旧插件: gitignored 的 `packages/plugins/_to_be_migrated/` 下还有 VVTTS (语音合成) 与
   WhatToListenToday, 以及 VVTTS 依赖的 `lemony_utils_legacy` (拼音转片假名)。
 
-## 多协议
+## 多协议 (暂缓)
+
+暂不实施: 当前没有接其他协议的需求。调研与设计先留档, 恢复时从门面开始; 实现包名未定
+(草稿里的 `lemony_chat` 只是占位, 实施前重新命名)。
 
 现状与边界清单见 `docs/development/protocols.md`, 门面设计见 `docs/development/protocol-facade.md`,
 melobot 框架侧的协议能力与限制见 `docs/melobot/protocol-layer.md`。
 顺序上先把插件门面定下来, 再逐个接协议; 每个适配器都要同时补 melobot 侧接线、checker 身份适配与能力声明。
 
-- 协议无关插件门面 (阻塞项): 按 `docs/development/protocol-facade.md` 实现 `lemony_chat` 与 OneBot 11 端口,
+- 协议无关插件门面 (留档, 未排期): 按 `docs/development/protocol-facade.md` 实现门面包与 OneBot 11 端口,
   再迁移 `moelottery` / `helper` 两个试点插件。
 - Milky 适配器: 第一个新协议, 目标是让现有插件在 QQ 场景下能跑; 它同时是 Lagrange 生态的接续
   (Lagrange.Core 的 OneBot 11 线已冻结, master 转向 V2/Milky), 需要先确认它对合并转发、
@@ -66,8 +70,14 @@ melobot 框架侧的协议能力与限制见 `docs/melobot/protocol-layer.md`。
 - `lemony_checkers` 的 checker 工厂完全惰性加载 (`factory.py`)。
 - `lemony_utils` 的定位与拆分, 见 `packages/shared/lemony_utils/planning.md`。
 
+## 工程维护
+
+- 仓库异味巡检 (待做): 全仓只读巡检, 输出带文件与行号的清单, 再按批次修;
+  不在巡检提交里顺手改功能。至少覆盖: TODO / FIXME 与技术债、重复实现、异常吞噬与静默失败、
+  测试空洞与跳过、文档引用失效、依赖与 workspace 配置漂移、生成物或大文件误入仓库。
+
 ## 已知问题
 
-- 转发缩水遇到嵌套转发时, 外层气泡预览在 SnowLuma 1.14.22 上是坏的 (PC 打不开, 手机无预览但内容正常);
+- 转发裁剪遇到嵌套转发时, 外层气泡预览在 SnowLuma 1.14.22 上是坏的 (PC 打不开, 手机无预览但内容正常);
   待评估: 发送前展开嵌套层 (受 100 条节点上限约束, 超限应报错);
   内容本身正确, 属于实现端的嵌套转发预览问题, 见 `packages/plugins/mbplugin_forward_strip/readme.md`。

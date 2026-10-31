@@ -1,5 +1,8 @@
 # 协议无关插件门面设计
 
+> 状态: 设计留档, 暂缓实施。当前没有接其他协议的需求; 文中 `lemony_chat` 只是草稿占位名,
+> 恢复实施前先重新定名。
+
 `docs/development/protocols.md` 记录的协议边界是本文的前提。这里只定门面本身: 插件看到的入站与出站模型、
 端口契约、能力声明与迁移顺序。实现包暂定 `lemony_chat`, 第一版只接 OneBot 11, Milky / Satori / Telegram
 按同一份契约补齐。melobot 框架侧已经提供什么、边界在哪, 见 `docs/melobot/protocol-layer.md`。
