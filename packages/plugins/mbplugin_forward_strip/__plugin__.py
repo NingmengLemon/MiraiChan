@@ -1,4 +1,4 @@
-"""转发消息缩水: 回复一条合并转发, ``.strip [a:b]`` 截掉多余的部分再发回来
+"""转发消息裁剪: 回复一条合并转发, ``.strip [a:b]`` 截掉多余的部分再发回来
 
 昵称与头像靠原样回填每个节点的 uin/name, 不做任何伪造。
 """
@@ -58,7 +58,7 @@ cfgloader = require(model=StripSettings, identifier=PLUGIN_IDENTIFIER, auto_load
 
 register_help(
     PLUGIN_IDENTIFIER,
-    title="转发缩水",
+    title="转发消息裁剪",
     summary="把合并转发末尾的广告截掉, 昵称与头像保持原样",
     commands=[Command(".strip [a:b]", "回复一条合并转发, 按 Python 切片保留节点")],
 )
@@ -145,14 +145,14 @@ def _is_admin_or_owner(event: GroupMessageEvent) -> bool:
 @on_command(".", " ", ["strip"])
 async def strip_command(event: GroupMessageEvent, adapter: Adapter) -> None:
     if not state.ready:
-        await adapter.send_reply(TextSegment("转发缩水还没准备好"))
+        await adapter.send_reply(TextSegment("转发裁剪还没准备好"))
         return
     # 只有管理员及以上能调用, 其他人静默忽略
     if not _is_admin_or_owner(event):
         return
     settings = cfgloader.value
     if settings.enabled_groups and event.group_id not in settings.enabled_groups:
-        await adapter.send_reply(TextSegment("这个群没有开启转发缩水"))
+        await adapter.send_reply(TextSegment("这个群没有开启转发裁剪"))
         return
     spec = _argument_of(event)
     if not spec:
@@ -178,13 +178,13 @@ async def strip_command(event: GroupMessageEvent, adapter: Adapter) -> None:
         return
     except Exception:
         logger.exception(
-            "转发缩水失败: group=%s reply=%s spec=%s", event.group_id, reply_id, spec
+            "转发裁剪失败: group=%s reply=%s spec=%s", event.group_id, reply_id, spec
         )
         await adapter.send_reply(TextSegment("处理失败了"))
         return
     note = f"已保留 {result.kept}/{result.total} 条"
     logger.info(
-        "转发缩水完成: group=%s 保留 %s/%s 嵌套 %s",
+        "转发裁剪完成: group=%s 保留 %s/%s 嵌套 %s",
         event.group_id,
         result.kept,
         result.total,
