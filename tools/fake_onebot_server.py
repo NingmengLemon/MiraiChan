@@ -18,7 +18,8 @@ send_*_msg 与 get_msg, 其余 action 一律回 ok + 空数据。
      "events": [{OneBot 事件}, ...],
      "event_interval": 1.0}
 
-所有事件推送完、并且最后一个 action 之后 linger 秒内没有新 action 时退出 (退出码 0)。
+所有事件推送完、并且最后一个 action 之后 linger 秒内没有新 action 时退出 (退出码 0);
+超过 --timeout 仍在运行时退出码为 3。
 """
 
 import argparse
@@ -113,7 +114,10 @@ async def run(args: argparse.Namespace) -> int:
         finally:
             pumper.cancel()
 
+    timed_out = False
+
     async def watchdog() -> None:
+        nonlocal timed_out
         start = time.monotonic()
         # 至少等事件推完再开始计 linger
         floor = start + interval * (len(events) + 3)
@@ -121,6 +125,7 @@ async def run(args: argparse.Namespace) -> int:
             await asyncio.sleep(0.5)
             now = time.monotonic()
             if now > start + args.timeout:
+                timed_out = True
                 print("timeout", file=sys.stderr)
                 break
             if now > floor and now - max(last_action, floor) > args.linger:
@@ -131,7 +136,7 @@ async def run(args: argparse.Namespace) -> int:
         print(f"fake onebot listening on ws://{args.host}:{args.port}", flush=True)
         await asyncio.gather(watchdog(), done.wait())
     record.close()
-    return 0
+    return 3 if timed_out else 0
 
 
 if __name__ == "__main__":
