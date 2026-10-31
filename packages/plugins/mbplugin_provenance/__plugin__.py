@@ -42,6 +42,7 @@ class ProvenanceSettings(BaseSettings):
     allow_all: bool = False
     max_images: int = 3
     max_image_bytes: int = 10 * 1024 * 1024
+    # 单次核验请求与单张图片下载的超时 (秒)
     timeout: float = 30.0
     # 实现端把图片放在 data root 之外时, 这里列出允许读取的目录 (绝对路径或相对 data root)
     image_dirs: list[str] = Field(default_factory=list)
@@ -129,7 +130,10 @@ async def _get_msg(adapter: Adapter, message_id: str) -> Mapping[str, Any] | Non
 async def _download(session: aiohttp.ClientSession, url: str) -> bytes:
     # QQ NT 图床要特定的 TLS 设置; 其余地址用 aiohttp 默认校验
     ssl = QQNTMEDIA_SSL_CONTEXT if "multimedia.nt.qq.com.cn" in url else True
-    async with session.get(url, ssl=ssl, headers=dict(HTTP_HEADERS)) as response:
+    timeout = aiohttp.ClientTimeout(total=cfgloader.value.timeout)
+    async with session.get(
+        url, ssl=ssl, headers=dict(HTTP_HEADERS), timeout=timeout
+    ) as response:
         response.raise_for_status()
         max_bytes = cfgloader.value.max_image_bytes
         if (response.content_length or 0) > max_bytes:
