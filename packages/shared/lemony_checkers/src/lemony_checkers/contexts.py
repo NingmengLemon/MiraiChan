@@ -5,7 +5,10 @@ from typing import Any, Literal, Self
 from melobot.log import get_logger
 from pydantic import BaseModel
 
-from lemony_checkers.exceptions import LemonyProgrammingError
+from lemony_checkers.exceptions import (
+    CheckerSettingsSaveError,
+    LemonyProgrammingError,
+)
 
 from .factory import LemonyCheckerFactory
 from .models import (
@@ -59,11 +62,11 @@ class EditContext:
             self._exited = True
             # return None (or other falsey value) to propagate the exception
             return
-        if self._edited_global:
-            self._factory.save_global_settings()
-        for plugin_name in self._edited_plugins:
-            self._factory.save_plugin_settings(plugin_name)
+        failures = self._save_all()
         self._exited = True
+        if failures:
+            self._rollback_failed(failures)
+            raise CheckerSettingsSaveError(failures)
 
     async def __aenter__(self) -> Self:
         """异步上下文管理器入口，与同步版本行为相同."""
@@ -84,11 +87,11 @@ class EditContext:
             self._rollback()
             self._exited = True
             return
-        if self._edited_global:
-            await asyncio.to_thread(self._factory.save_global_settings)
-        for plugin_name in self._edited_plugins:
-            await asyncio.to_thread(self._factory.save_plugin_settings, plugin_name)
+        failures = await self._save_all_async()
         self._exited = True
+        if failures:
+            self._rollback_failed(failures)
+            raise CheckerSettingsSaveError(failures)
 
     @staticmethod
     def _restore_model_fields(target: BaseModel, snapshot: BaseModel) -> None:
@@ -96,21 +99,68 @@ class EditContext:
         for field_name in snapshot.__class__.model_fields:
             setattr(target, field_name, getattr(snapshot, field_name))
 
+    def _save_all(self) -> dict[str, BaseException]:
+        """同步保存所有修改, 返回失败目标与异常; 其他目标继续保存."""
+        failures: dict[str, BaseException] = {}
+        if self._edited_global:
+            try:
+                self._factory.save_global_settings()
+            except Exception as exc:  # noqa: BLE001 - 按目标收集并回滚
+                failures["global"] = exc
+        for plugin_name in self._edited_plugins:
+            try:
+                self._factory.save_plugin_settings(plugin_name)
+            except Exception as exc:  # noqa: BLE001 - 按目标收集并回滚
+                failures[plugin_name] = exc
+        return failures
+
+    async def _save_all_async(self) -> dict[str, BaseException]:
+        """异步保存所有修改, 文件操作放到线程池; 失败目标与异常同上."""
+        failures: dict[str, BaseException] = {}
+        if self._edited_global:
+            try:
+                await asyncio.to_thread(self._factory.save_global_settings)
+            except Exception as exc:  # noqa: BLE001 - 按目标收集并回滚
+                failures["global"] = exc
+        for plugin_name in self._edited_plugins:
+            try:
+                await asyncio.to_thread(self._factory.save_plugin_settings, plugin_name)
+            except Exception as exc:  # noqa: BLE001 - 按目标收集并回滚
+                failures[plugin_name] = exc
+        return failures
+
+    def _restore_global(self) -> None:
+        if self._global_snapshot is None:
+            return
+        self._restore_model_fields(self._factory.global_settings, self._global_snapshot)
+        logger.debug("Rolled back global settings to snapshot")
+
+    def _restore_plugin(self, plugin_name: str) -> None:
+        snapshot = self._plugin_snapshots.get(plugin_name)
+        if snapshot is None:
+            return
+        self._restore_model_fields(
+            self._factory.get_plugin_settings(plugin_name), snapshot
+        )
+        logger.debug(f"Rolled back plugin '{plugin_name}' settings to snapshot")
+
+    def _rollback_failed(self, failures: dict[str, BaseException]) -> None:
+        """只回滚保存失败的目标; 已成功写入的目标保留内存修改."""
+        for target in failures:
+            try:
+                if target == "global":
+                    self._restore_global()
+                else:
+                    self._restore_plugin(target)
+            except Exception:
+                logger.exception(f"Failed to rollback {target!r} settings")
+
     def _rollback(self) -> None:
         """回滚内存中的配置到进入上下文时的快照状态."""
-        # 回滚全局配置
-        if self._global_snapshot is not None:
-            self._restore_model_fields(
-                self._factory.global_settings, self._global_snapshot
-            )
-            logger.debug("Rolled back global settings to snapshot")
-
-        # 回滚插件配置
-        for plugin_name, snapshot in self._plugin_snapshots.items():
+        self._restore_global()
+        for plugin_name in self._plugin_snapshots:
             try:
-                ps = self._factory.get_plugin_settings(plugin_name)
-                self._restore_model_fields(ps, snapshot)
-                logger.debug(f"Rolled back plugin '{plugin_name}' settings to snapshot")
+                self._restore_plugin(plugin_name)
             except Exception:
                 # 尽力回滚, 一个插件失败不影响其余插件
                 logger.exception(f"Failed to rollback plugin '{plugin_name}' settings")

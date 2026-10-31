@@ -31,7 +31,13 @@ Checker Manager 插件
     uid 格式: 纯数字表示 user 规则, "数字:数字" 表示 user:group 规则.
 """
 
-from lemony_checkers import EditContext, Rule, get_checker_factory, require_admin
+from lemony_checkers import (
+    CheckerSettingsSaveError,
+    EditContext,
+    Rule,
+    get_checker_factory,
+    require_admin,
+)
 from lemony_checkers.adapters.ob11 import Ob11UniqueUser
 from lemony_checkers.factory import LemonyCheckerFactory
 from lemony_utils.help import Command, register_help
@@ -136,21 +142,29 @@ async def checker_command(adapter: Adapter, event: MessageEvent, args: CmdArgs):
     subcmd = args.vals[0].lower()
     sub_args = list(map(str, args.vals[1:]))
 
-    match subcmd:
-        case "status":
-            await _handle_status(adapter)
-        case "global":
-            await _handle_global(adapter, event, sub_args)
-        case "admin":
-            await _handle_admin(adapter, event, sub_args)
-        case "plugin":
-            await _handle_plugin(adapter, event, sub_args)
-        case "reload":
-            await _handle_reload(adapter, sub_args)
-        case "save":
-            await _handle_save(adapter, sub_args)
-        case _:
-            await adapter.send_reply(f"未知子命令: {subcmd}")
+    try:
+        match subcmd:
+            case "status":
+                await _handle_status(adapter)
+            case "global":
+                await _handle_global(adapter, event, sub_args)
+            case "admin":
+                await _handle_admin(adapter, event, sub_args)
+            case "plugin":
+                await _handle_plugin(adapter, event, sub_args)
+            case "reload":
+                await _handle_reload(adapter, sub_args)
+            case "save":
+                await _handle_save(adapter, sub_args)
+            case _:
+                await adapter.send_reply(f"未知子命令: {subcmd}")
+    except CheckerSettingsSaveError as exc:
+        targets = ", ".join(sorted(exc.failures))
+        logger.exception(f"保存 checker 配置失败: {targets}")
+        await adapter.send_reply(
+            f"配置保存失败, 以下目标已回滚: {targets}\n"
+            "其余已写入的目标保持生效; 请检查配置目录权限或日志"
+        )
 
 
 async def _handle_status(adapter: Adapter):

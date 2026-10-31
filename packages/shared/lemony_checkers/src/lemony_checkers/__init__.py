@@ -11,6 +11,7 @@ from .core import (
     match_rules,
     matches_unique_user,
 )
+from .exceptions import CheckerSettingsSaveError
 from .factory import (
     get_checker_factory,
     get_checker_factory_wrapper,
@@ -27,6 +28,7 @@ from .nodes import (
 __all__ = [
     "AdminChecker",
     "CheckResult",
+    "CheckerSettingsSaveError",
     "EditContext",
     "LemonyChecker",
     "OwnerChecker",
