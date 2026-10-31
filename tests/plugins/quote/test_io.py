@@ -172,6 +172,31 @@ async def test_archive_roundtrip(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_delete_keeps_index_when_file_cannot_be_moved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = SqliteDatabaseHelper("quote.db", quote_metadata, relative_path_base=tmp_path)
+    await db.startup()
+    try:
+        archive = QuoteArchive(db, tmp_path / "artifacts")
+        art = await archive.save(_record(), b"jpegdata", "jpg")
+        await archive.attach_sent_message(art.id, "sent-locked")
+
+        def deny_replace(self: Path, target: Path) -> Path:
+            raise PermissionError("file is locked")
+
+        monkeypatch.setattr(Path, "replace", deny_replace)
+        with pytest.raises(OSError):
+            await archive.delete(art.id)
+
+        # 文件没移走, 索引不能先删
+        assert (archive.root / art.path).exists()
+        assert await archive.find_by_sent_message("sent-locked") is not None
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
 async def test_hook_failure_does_not_lose_artifact(tmp_path: Path) -> None:
     db = SqliteDatabaseHelper("quote.db", quote_metadata, relative_path_base=tmp_path)
     await db.startup()

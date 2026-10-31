@@ -157,12 +157,47 @@ class QuoteArchive:
             return (await session.exec(stmt)).first()
 
     async def delete(self, artifact_id: uuid.UUID) -> bool:
-        """删除索引与文件, 不存在时返回 False"""
-        async with self._db.get_session() as session, session.begin():
+        """删除索引与文件, 不存在时返回 False.
+
+        顺序是先原子改名到同目录的临时名, 再删索引, 最后清理临时文件:
+        文件删不掉时索引还在; 索引删不掉时把文件改回去.
+        """
+        async with self._db.get_session() as session:
             artifact = await session.get(QuoteArtifact, artifact_id)
             if artifact is None:
                 return False
             path = self._root / artifact.path
-            await session.delete(artifact)
-        await asyncio.to_thread(path.unlink, missing_ok=True)
+
+        trash: Path | None = None
+        try:
+            trash = path.with_name(f"{path.name}.deleting-{uuid.uuid4().hex}")
+            await asyncio.to_thread(path.replace, trash)
+        except FileNotFoundError:
+            trash = None
+        except OSError:
+            raise
+
+        try:
+            async with self._db.get_session() as session, session.begin():
+                artifact = await session.get(QuoteArtifact, artifact_id)
+                if artifact is None:
+                    # 并发的另一次删除已经处理掉索引; 清理自己移走的文件
+                    if trash is not None:
+                        await asyncio.to_thread(trash.unlink, missing_ok=True)
+                    return False
+                await session.delete(artifact)
+        except Exception:
+            if trash is not None:
+                try:
+                    await asyncio.to_thread(trash.replace, path)
+                except OSError:
+                    logger.exception("恢复待删除的存档文件失败: %s", trash)
+            raise
+
+        if trash is not None:
+            try:
+                await asyncio.to_thread(trash.unlink, missing_ok=True)
+            except OSError:
+                # 索引已经删除, 残留的临时文件不影响查找; 留给人工清理
+                logger.warning("存档临时文件清理失败: %s", trash, exc_info=True)
         return True
