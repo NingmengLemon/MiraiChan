@@ -182,7 +182,6 @@ async def strip_command(event: GroupMessageEvent, adapter: Adapter) -> None:
         )
         await adapter.send_reply(TextSegment("处理失败了"))
         return
-    note = f"已保留 {result.kept}/{result.total} 条"
     logger.info(
         "转发裁剪完成: group=%s 保留 %s/%s 嵌套 %s",
         event.group_id,
@@ -190,4 +189,3 @@ async def strip_command(event: GroupMessageEvent, adapter: Adapter) -> None:
         result.total,
         result.nested,
     )
-    await adapter.send_reply(TextSegment(note))
