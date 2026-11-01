@@ -712,18 +712,24 @@ name = "lemony-checkers"
 version = "0.1.1"
 source = { editable = "packages/shared/lemony_checkers" }
 dependencies = [
+    { name = "json5" },
     { name = "lemony-settings" },
     { name = "lemony-utils" },
     { name = "melobot" },
     { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "tomli" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "json5", specifier = ">=0.13.0" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "melobot", specifier = ">=3.5.1" },
     { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "tomli", specifier = ">=2.0.1" },
 ]
 
 [[package]]
@@ -756,16 +762,20 @@ source = { editable = "packages/shared/lemony_llm_provider" }
 dependencies = [
     { name = "anthropic" },
     { name = "google-genai" },
+    { name = "httpx2" },
     { name = "lemony-settings" },
     { name = "openai" },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=1.15.0" },
     { name = "google-genai", specifier = ">=2.31.0" },
+    { name = "httpx2", specifier = ">=2.13.1" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "openai", specifier = ">=3.35.1" },
+    { name = "pydantic", specifier = ">=2.12.5" },
 ]
 
 [[package]]
@@ -987,8 +997,9 @@ version = "1.0.0"
 source = { editable = "packages/plugins/mbplugin_deeeer" }
 dependencies = [
     { name = "lemony-checkers" },
-    { name = "lemony-storage-helper" },
+    { name = "lemony-storage-helper", extra = ["sqlite"] },
     { name = "lemony-utils" },
+    { name = "melobot", extra = ["onebot"] },
     { name = "pillow" },
     { name = "uuid-utils" },
 ]
@@ -996,8 +1007,9 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
-    { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
+    { name = "lemony-storage-helper", extras = ["sqlite"], editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
     { name = "pillow", specifier = ">=13.0.0" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
 ]
@@ -1011,7 +1023,6 @@ dependencies = [
     { name = "json5" },
     { name = "lemony-checkers" },
     { name = "lemony-network" },
-    { name = "lemony-onebot-utils" },
     { name = "lemony-settings" },
     { name = "lemony-storage-helper", extra = ["sqlite"] },
     { name = "lemony-utils" },
@@ -1026,7 +1037,6 @@ requires-dist = [
     { name = "json5", specifier = ">=0.15.0" },
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
-    { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", extras = ["sqlite"], editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
@@ -1043,6 +1053,8 @@ dependencies = [
     { name = "lemony-checkers" },
     { name = "lemony-settings" },
     { name = "lemony-utils" },
+    { name = "melobot", extra = ["onebot"] },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
@@ -1050,6 +1062,8 @@ requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
+    { name = "pydantic", specifier = ">=2.12.5" },
 ]
 
 [[package]]
@@ -1078,6 +1092,8 @@ dependencies = [
     { name = "lemony-network" },
     { name = "lemony-settings" },
     { name = "lemony-utils" },
+    { name = "melobot", extra = ["onebot"] },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
@@ -1086,6 +1102,8 @@ requires-dist = [
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
+    { name = "pydantic", specifier = ">=2.12.5" },
 ]
 
 [[package]]
@@ -1096,6 +1114,7 @@ dependencies = [
     { name = "lemony-checkers" },
     { name = "lemony-settings" },
     { name = "lemony-utils" },
+    { name = "melobot", extra = ["onebot"] },
     { name = "pydantic" },
 ]
 
@@ -1104,6 +1123,7 @@ requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
     { name = "pydantic", specifier = ">=2.12.5" },
 ]
 
@@ -1120,6 +1140,7 @@ dependencies = [
     { name = "lemony-storage-helper", extra = ["files"] },
     { name = "lemony-utils" },
     { name = "melobot", extra = ["onebot"] },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
@@ -1132,6 +1153,7 @@ requires-dist = [
     { name = "lemony-storage-helper", extras = ["files"], editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
+    { name = "pydantic", specifier = ">=2.12.5" },
 ]
 
 [[package]]
@@ -1148,7 +1170,9 @@ dependencies = [
     { name = "lemony-settings" },
     { name = "lemony-storage-helper", extra = ["sqlite"] },
     { name = "lemony-utils" },
+    { name = "melobot", extra = ["onebot"] },
     { name = "pillow" },
+    { name = "pydantic" },
     { name = "uuid-utils" },
 ]
 
@@ -1163,7 +1187,9 @@ requires-dist = [
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", extras = ["sqlite"], editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
     { name = "pillow", specifier = ">=13.0.0" },
+    { name = "pydantic", specifier = ">=2.12.5" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
 ]
 
@@ -1194,20 +1220,24 @@ version = "1.0.0"
 source = { editable = "packages/plugins/mbplugin_recorder" }
 dependencies = [
     { name = "aiofiles" },
+    { name = "aiohttp" },
     { name = "lemony-checkers" },
     { name = "lemony-network" },
-    { name = "lemony-storage-helper", extra = ["files"] },
+    { name = "lemony-storage-helper", extra = ["sqlite"] },
     { name = "lemony-utils" },
+    { name = "melobot", extra = ["onebot"] },
     { name = "uuid-utils" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "aiofiles" },
+    { name = "aiohttp", specifier = ">=3.13.3" },
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
-    { name = "lemony-storage-helper", extras = ["files"], editable = "packages/shared/lemony_storage_helper" },
+    { name = "lemony-storage-helper", extras = ["sqlite"], editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
 ]
 
@@ -1295,8 +1325,11 @@ version = "0.1.0"
 source = { editable = "packages/miraichan" }
 dependencies = [
     { name = "json5" },
+    { name = "lemony-checkers" },
+    { name = "lemony-images" },
+    { name = "lemony-settings" },
+    { name = "lemony-storage-helper" },
     { name = "melobot", extra = ["onebot"] },
-    { name = "packaging" },
     { name = "pydantic" },
     { name = "typer" },
     { name = "uvloop", marker = "sys_platform != 'win32'" },
@@ -1318,8 +1351,11 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "json5", specifier = ">=0.13.0" },
+    { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
+    { name = "lemony-images", editable = "packages/shared/lemony_images" },
+    { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
+    { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
-    { name = "packaging", specifier = ">=26.2" },
     { name = "pydantic", specifier = ">=2.10.3" },
     { name = "typer", specifier = ">=0.24.1" },
     { name = "uvloop", marker = "sys_platform != 'win32'", specifier = ">=0.21.0" },
@@ -1351,7 +1387,7 @@ dependencies = [
     { name = "lemony-network" },
     { name = "lemony-onebot-utils" },
     { name = "lemony-settings" },
-    { name = "lemony-storage-helper", extra = ["all"] },
+    { name = "lemony-storage-helper", extra = ["files", "sqlite"] },
     { name = "lemony-utils" },
     { name = "mbplugin-checker-manager" },
     { name = "mbplugin-deeeer" },
@@ -1395,7 +1431,7 @@ requires-dist = [
     { name = "lemony-network", editable = "packages/shared/lemony_network" },
     { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
-    { name = "lemony-storage-helper", extras = ["all"], editable = "packages/shared/lemony_storage_helper" },
+    { name = "lemony-storage-helper", extras = ["sqlite", "files"], editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "mbplugin-checker-manager", editable = "packages/plugins/mbplugin_checker_manager" },
     { name = "mbplugin-deeeer", editable = "packages/plugins/mbplugin_deeeer" },

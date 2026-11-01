@@ -6,10 +6,12 @@ readme = "readme.md"
 requires-python = ">=3.12"
 dependencies = [
     "aiofiles",
+    "aiohttp>=3.13.3",
     "lemony_checkers",
-    "lemony_storage_helper[files]",
+    "lemony_storage_helper[sqlite]",
     "lemony_utils",
     "lemony_network",
+    "melobot[onebot]>=3.5.1",
     "uuid-utils>=0.14.1",
 ]
 

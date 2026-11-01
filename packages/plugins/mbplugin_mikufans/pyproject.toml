@@ -9,6 +9,8 @@ dependencies = [
     "lemony_network",
     "lemony_settings",
     "lemony_utils",
+    "melobot[onebot]>=3.5.1",
+    "pydantic>=2.12.5",
 ]
 
 [tool.setuptools]

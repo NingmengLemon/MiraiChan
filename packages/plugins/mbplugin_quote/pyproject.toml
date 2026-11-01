@@ -14,7 +14,9 @@ dependencies = [
     "lemony_onebot_utils",
     "lemony_settings",
     "lemony_storage_helper[sqlite]",
+    "melobot[onebot]>=3.5.1",
     "pillow>=13.0.0",
+    "pydantic>=2.12.5",
     "uuid-utils>=0.14.1",
 ]
 

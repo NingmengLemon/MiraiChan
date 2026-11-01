@@ -14,7 +14,7 @@ dependencies = [
     "lemony_settings",
     "lemony_checkers",
     "lemony_llm_provider",
-    "lemony_storage_helper[all]",
+    "lemony_storage_helper[sqlite,files]",
     "lemony_images",
     "lemony_network",
     "lemony_media",
