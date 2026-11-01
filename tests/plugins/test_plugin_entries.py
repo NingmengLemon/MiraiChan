@@ -10,12 +10,32 @@ unsupported``)。这个问题单元测试碰不到, 因为测试不会 import �
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ENTRY_FILES = sorted((REPO_ROOT / "packages" / "plugins").glob("*/__plugin__.py"))
+_ALL_ENTRY_FILES = sorted((REPO_ROOT / "packages" / "plugins").glob("*/__plugin__.py"))
+
+
+def _tracked_entries() -> list[Path]:
+    result = subprocess.run(
+        ["git", "ls-files", "-z", "--", "packages/plugins"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    tracked = set(result.stdout.split("\0"))
+    return [
+        path
+        for path in _ALL_ENTRY_FILES
+        if path.relative_to(REPO_ROOT).as_posix() in tracked
+    ]
+
+
+ENTRY_FILES = _tracked_entries()
 
 
 def test_entry_modules_exist() -> None:

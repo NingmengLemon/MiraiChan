@@ -106,6 +106,8 @@ testpaths = [
     "packages/shared/lemony_checkers/tests",
     "packages/shared/lemony_images/tests",
     "packages/shared/lemony_llm_provider/tests",
+    "packages/shared/lemony_mface/tests",
+    "packages/shared/lemony_network/tests",
     "packages/shared/lemony_onebot_utils/tests",
     "packages/shared/lemony_settings/tests",
     "packages/shared/lemony_storage_helper/tests",

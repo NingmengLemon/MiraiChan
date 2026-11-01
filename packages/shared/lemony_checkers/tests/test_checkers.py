@@ -107,8 +107,10 @@ class TestFailCallbackMixin:
     @pytest.mark.asyncio
     async def test_no_callback_is_fine(self):
         mixin = FailCallbackMixin()
+        assert mixin.fail_cb is None
         mixin._fire_fail_cb()
         await _drain(mixin)
+        assert not mixin._background_tasks
 
     @pytest.mark.asyncio
     async def test_callback_error_is_logged_and_does_not_escape(self, monkeypatch):
