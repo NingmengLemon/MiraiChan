@@ -15,6 +15,7 @@ import aiohttp
 from lemony_checkers import get_checker_factory, get_checker_factory_wrapper
 from lemony_network.qqntmedia_sslcontext import QQNTMEDIA_SSL_CONTEXT
 from lemony_network.request import HTTP_HEADERS
+from lemony_onebot_utils.botutils import reply_message_id
 from lemony_onebot_utils.onebot_ext import SetGroupReaction, try_extension
 from lemony_settings import BaseSettings, get_secret, require
 from lemony_utils.help import Command, register_help
@@ -23,7 +24,6 @@ from melobot.bot import get_bot
 from melobot.exceptions import PluginIpcError
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
-from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 from pydantic import Field
 
 from .client import ProvenanceError, ProvenanceResult, check_image
@@ -110,10 +110,8 @@ def _cooldown_remaining(user_id: int) -> float:
 
 
 def _reply_target(event: MessageEvent) -> str | None:
-    replies = event.get_segments(ReplySegment)
-    if not replies:
-        return None
-    return str(replies[0].data["id"])
+    message_id = reply_message_id(event)
+    return None if message_id is None else str(message_id)
 
 
 async def _get_msg(adapter: Adapter, message_id: str) -> Mapping[str, Any] | None:

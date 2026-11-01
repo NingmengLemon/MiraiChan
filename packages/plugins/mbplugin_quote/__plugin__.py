@@ -15,7 +15,7 @@ from lemony_checkers import get_checker_factory
 from lemony_checkers.core import check_command_permission
 from lemony_images import bytes_to_b64_url
 from lemony_mface import MFaceBlocklist
-from lemony_onebot_utils.botutils import cached_avatar_source
+from lemony_onebot_utils.botutils import cached_avatar_source, reply_message_id
 from lemony_onebot_utils.qq import qq_info_cache
 from lemony_settings import require
 from lemony_storage_helper.database import StorageStartupError
@@ -30,7 +30,7 @@ from melobot import PluginPlanner, get_bot
 from melobot.exceptions import PluginIpcError
 from melobot.handle import on_command
 from melobot.protocols.onebot.v11 import Adapter, GroupMessageEvent
-from melobot.protocols.onebot.v11.adapter.segment import ImageSegment, ReplySegment
+from melobot.protocols.onebot.v11.adapter.segment import ImageSegment
 from melobot.utils.parse import CmdArgs
 from PIL import Image, ImageFont
 
@@ -205,10 +205,8 @@ def _is_bot_admin(event: GroupMessageEvent) -> bool:
 
 
 def _reply_target(event: GroupMessageEvent) -> str | None:
-    replies = event.get_segments(ReplySegment)
-    if not replies:
-        return None
-    return str(replies[0].data["id"])
+    message_id = reply_message_id(event)
+    return None if message_id is None else str(message_id)
 
 
 async def _get_msg(adapter: Adapter, message_id: str) -> SourceMessage | None:

@@ -7,12 +7,12 @@ import logging
 from typing import Any
 
 from lemony_checkers import get_checker_factory_wrapper
+from lemony_onebot_utils.botutils import reply_message_id
 from lemony_onebot_utils.forward import ForwardBuilder, Sender
 from lemony_utils.help import Command, register_help
 from melobot import PluginInfo, PluginPlanner, get_bot
 from melobot.handle import on_command
 from melobot.protocols.onebot.v11 import Adapter, MessageEvent
-from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
 
 from .core import echo_segments, format_message_data
 
@@ -42,13 +42,7 @@ register_help(
 
 
 def _reply_id(event: MessageEvent) -> int | None:
-    segs = event.get_segments(ReplySegment)
-    if not segs:
-        return None
-    try:
-        return int(segs[0].data["id"])
-    except (KeyError, TypeError, ValueError):
-        return None
+    return reply_message_id(event)
 
 
 async def _get_msg_data(adapter: Adapter, message_id: int) -> dict[str, Any] | None:

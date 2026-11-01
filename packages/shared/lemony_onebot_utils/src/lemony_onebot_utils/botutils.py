@@ -37,10 +37,20 @@ async def text_to_image_segment(text: str, /, **kwargs):
     )
 
 
+def reply_message_id(event: MessageEvent) -> int | None:
+    """取被回复消息的 id; 没有回复段或 id 不是整数时返回 None."""
+    replies = event.get_segments(ReplySegment)
+    if not replies:
+        return None
+    try:
+        return int(replies[0].data["id"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 async def get_reply(adapter: Adapter, event: MessageEvent) -> GetMsgEcho | None:
-    if _ := event.get_segments(ReplySegment):
-        msg_id = _[0].data["id"]
-    else:
+    msg_id = reply_message_id(event)
+    if msg_id is None:
         return None
     msg = (await (await adapter.get_msg(msg_id)))[0]
     if msg is None:

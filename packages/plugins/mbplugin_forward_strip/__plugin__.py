@@ -10,12 +10,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from lemony_checkers import get_checker_factory
+from lemony_onebot_utils.botutils import reply_message_id
 from lemony_settings import BaseSettings, require
 from lemony_utils.help import Command, register_help
 from melobot import PluginPlanner, get_bot
 from melobot.handle import on_command
 from melobot.protocols.onebot.v11 import Adapter, GroupMessageEvent
-from melobot.protocols.onebot.v11.adapter.segment import ReplySegment, TextSegment
+from melobot.protocols.onebot.v11.adapter.segment import TextSegment
 from pydantic import Field
 
 from .nodes import forward_items
@@ -105,13 +106,7 @@ def _argument_of(event: GroupMessageEvent) -> str:
 
 
 def _reply_id(event: GroupMessageEvent) -> int | None:
-    replies = event.get_segments(ReplySegment)
-    if not replies:
-        return None
-    try:
-        return int(replies[0].data["id"])
-    except (KeyError, TypeError, ValueError):
-        return None
+    return reply_message_id(event)
 
 
 def _is_admin_or_owner(event: GroupMessageEvent) -> bool:
