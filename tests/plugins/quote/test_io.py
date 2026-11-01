@@ -15,6 +15,7 @@ from mbplugin_quote.request import ChatRequest
 from mbplugin_quote.resources import FetchLimits, ResourceResolver
 from mbplugin_quote.sources import fetch_messages, source_from_onebot
 from PIL import Image, ImageFont
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # ---------- sources ----------
 
@@ -219,6 +220,33 @@ async def test_delete_keeps_index_when_file_cannot_be_moved(
         # 文件没移走, 索引不能先删
         assert (archive.root / art.path).exists()
         assert await archive.find_by_sent_message("sent-locked") is not None
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_delete_restores_file_when_db_delete_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = SqliteDatabaseHelper("quote.db", quote_metadata, relative_path_base=tmp_path)
+    await db.startup()
+    try:
+        archive = QuoteArchive(db, tmp_path / "artifacts")
+        art = await archive.save(_record(), b"jpegdata", "jpg")
+        await archive.attach_sent_message(art.id, "sent-db-fail")
+        original_path = archive.root / art.path
+
+        async def fail_delete(self: AsyncSession, instance: object) -> None:
+            raise RuntimeError("db down")
+
+        monkeypatch.setattr(AsyncSession, "delete", fail_delete)
+        with pytest.raises(RuntimeError, match="db down"):
+            await archive.delete(art.id)
+
+        # 索引没删成, 文件必须从临时名恢复
+        assert original_path.exists()
+        assert await archive.find_by_sent_message("sent-db-fail") is not None
+        assert not list(original_path.parent.glob("*.deleting-*"))
     finally:
         await db.close()
 

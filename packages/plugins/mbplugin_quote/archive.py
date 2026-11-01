@@ -174,8 +174,6 @@ class QuoteArchive:
             await asyncio.to_thread(path.replace, trash)
         except FileNotFoundError:
             trash = None
-        except OSError:
-            raise
 
         try:
             async with self._db.get_session() as session, session.begin():
