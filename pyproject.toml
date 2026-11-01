@@ -7,8 +7,6 @@ authors = [
 ]
 dependencies = [
     "miraichan",
-    # protocol adapters
-    "melobot_telegram_protocol",
     # shared libs
     "lemony_utils",
     "lemony_settings",
@@ -61,8 +59,6 @@ members = [
 
 [tool.uv.sources]
 miraichan = { workspace = true }
-# protocol adapters
-melobot_telegram_protocol = { workspace = true }
 # shared libs
 lemony_utils = { workspace = true }
 lemony_settings = { workspace = true }

@@ -865,7 +865,6 @@ dependencies = [
     { name = "pyyaml" },
     { name = "tomli" },
     { name = "tomli-w" },
-    { name = "watchfiles" },
 ]
 
 [package.metadata]
@@ -876,7 +875,6 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "tomli", specifier = ">=2.4.0" },
     { name = "tomli-w", specifier = ">=1.2.0" },
-    { name = "watchfiles", specifier = ">=1.1.1" },
 ]
 
 [[package]]
@@ -1295,7 +1293,7 @@ onebot = [
 [[package]]
 name = "melobot-telegram-protocol"
 version = "0.1.0"
-source = { editable = "packages/shared/melobot_telegram_protocol" }
+source = { virtual = "packages/shared/melobot_telegram_protocol" }
 dependencies = [
     { name = "aiogram" },
     { name = "melobot" },
@@ -1402,7 +1400,6 @@ dependencies = [
     { name = "mbplugin-recorder" },
     { name = "mbplugin-toolbox" },
     { name = "melobot", extra = ["onebot"] },
-    { name = "melobot-telegram-protocol" },
     { name = "miraichan" },
 ]
 
@@ -1446,7 +1443,6 @@ requires-dist = [
     { name = "mbplugin-recorder", editable = "packages/plugins/mbplugin_recorder" },
     { name = "mbplugin-toolbox", editable = "packages/plugins/mbplugin_toolbox" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
-    { name = "melobot-telegram-protocol", editable = "packages/shared/melobot_telegram_protocol" },
     { name = "miraichan", editable = "packages/miraichan" },
 ]
 
