@@ -47,9 +47,8 @@ register_help(
 class _AdapterIo:
     """ForwardIo 的 melobot 实现"""
 
-    def __init__(self, adapter: Adapter, *, self_id: int) -> None:
+    def __init__(self, adapter: Adapter) -> None:
         self._adapter = adapter
-        self._self_id = self_id
 
     async def get_message_segments(self, message_id: int) -> list[Any]:
         group = await self._adapter.get_msg(message_id)
@@ -138,7 +137,7 @@ async def strip_command(event: GroupMessageEvent, adapter: Adapter) -> None:
     if reply_id is None:
         await adapter.send_reply(TextSegment("要先回复一条合并转发"))
         return
-    io = _AdapterIo(adapter, self_id=event.self_id)
+    io = _AdapterIo(adapter)
     try:
         result = await strip_forward(
             io,

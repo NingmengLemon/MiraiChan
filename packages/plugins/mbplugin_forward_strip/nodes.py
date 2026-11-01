@@ -33,10 +33,6 @@ __all__ = [
 
 SegmentDict = dict[str, Any]
 
-_SLICE_RE = re.compile(
-    r"^\s*\[?\s*([^]:]*)\s*(?::\s*([^]:]*)\s*)?(?::\s*([^]]*?)\s*)?\]?\s*$"
-)
-
 
 class SliceSpecError(ValueError):
     """切片写法看不懂, message 直接面向用户"""
