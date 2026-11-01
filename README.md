@@ -41,6 +41,9 @@ uv add "git+https://github.com/NingmengLemon/MiraiChan.git#subdirectory=packages
 
 这个写法是通用的, 理论上用 pip 也能行. 但是谁会拒绝 uv 呢 uwu
 
+注意: shared 包之间可能存在本地依赖 (例如 `lemony_settings` 依赖 `lemony_storage_helper`),
+单独安装时需要把这些依赖也按同样的 subdirectory 源声明进去; 这些包目前没有发布到 PyPI.
+
 或者在 `pyproject.toml` 中:
 
 ```toml

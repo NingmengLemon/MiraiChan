@@ -33,6 +33,8 @@ recorder 现在分为五层：
 `RecorderService` 当前提供：
 
 - `get_context_messages()`：围绕一条消息取前后上下文。
+- `query_message_window()`：按原始参数取消息窗口, 返回只读 `MessageView`, 供 quote 等插件使用。
+- `get_image_cache_paths()`：按图片段顺序返回已下载的本地缓存路径, 供 provenance 使用。
 - `count_messages_by_sender()`：按发送者统计会话内消息数。
 - `find_media_by_sha256()`：按内容 hash 查媒体对象。
 - `list_pending_media()`：查看等待或失败待重试的媒体来源。
