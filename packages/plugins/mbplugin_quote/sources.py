@@ -108,9 +108,7 @@ async def fetch_messages(
 ) -> FetchResult | None:
     """取引用所需的消息。取不到任何消息时返回 None"""
     if recorder is not None:
-        views = await recorder.query_message_window(
-            **make_query(req, base_message_id)
-        )
+        views = await recorder.query_message_window(**make_query(req, base_message_id))
         if views is not None:
             return FetchResult(tuple(_from_view(v) for v in views), from_recorder=True)
     one = await fetch_one(base_message_id)

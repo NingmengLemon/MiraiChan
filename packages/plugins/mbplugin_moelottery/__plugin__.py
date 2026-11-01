@@ -87,7 +87,9 @@ async def draw_attrs(event: GroupMessageEvent, adapter: Adapter, logger: Generic
         return
     moeattr = state.box.lot()
     logger.debug(f"{moeattr=}")
-    await adapter.send_reply(f"你今天的人设是{state.box.build_response_text(moeattr)}！")
+    await adapter.send_reply(
+        f"你今天的人设是{state.box.build_response_text(moeattr)}！"
+    )
     # 冷却记账放在抽签与发送都成功之后: 失败时不应该消耗当天的次数。
     # cd_table 只在内存里, 重启即失效 (相当于重启赦免一次), 这是当前的取舍。
     cd_table[(uid, gid)] = now_date
