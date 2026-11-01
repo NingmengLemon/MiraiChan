@@ -79,6 +79,25 @@ async def patch_event_private_empty_record_segment(
         ]
 
 
+def patch_forward_echo() -> None:
+    """让 get_forward_msg 的回应保留原始 data.
+
+    melobot 的 ``GetForwardMsgEcho`` 只认 ``data.message``, 而 SnowLuma 返回的是
+    ``data.messages``, 构造 echo 时直接 KeyError。这里换成不解析正文的通用 echo,
+    由需要正文的插件自己按两种形状读取。这是进程级补丁, 必须在任何 adapter 处理
+    ``get_forward_msg`` 之前调用一次。
+    """
+    from melobot.protocols.onebot.v11.adapter import echo as echo_module
+
+    if getattr(echo_module.GetForwardMsgEcho, "_forward_echo_raw", False):
+        return
+
+    class _RawForwardEcho(echo_module.Echo):  # type: ignore[misc]
+        _forward_echo_raw = True
+
+    echo_module.GetForwardMsgEcho = _RawForwardEcho  # ty: ignore[invalid-assignment]
+
+
 def patch_all(adapter: Adapter) -> Adapter:
     for type_, patches in _patches.items():
         for patch in patches:

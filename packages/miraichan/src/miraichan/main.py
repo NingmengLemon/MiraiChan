@@ -159,8 +159,9 @@ def _main(
     config_path: Path | None,
     credentials_path: Path | None = None,
 ):
-    from .validation_patches.ob11 import patch_all
+    from .validation_patches.ob11 import patch_all, patch_forward_echo
 
+    patch_forward_echo()
     config_path = Path(config_path or DEFAULT_CONFIG_PATH)
     set_credentials_path(resolve_credentials_path(credentials_path))
     set_global_logger(logger)
