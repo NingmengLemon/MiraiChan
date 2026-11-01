@@ -140,7 +140,7 @@ async def _() -> None:
     # melobot 会吞掉 hook 里的异常, 这里自己记下失败, 让 handler 放弃而不是挂起或 NameError
     global _init_failed
     try:
-        cfgloader.load()
+        await cfgloader.load_async()
         await asyncio.to_thread(post_init)
         await deerdbcore.startup(prepare=migrate)
     except Exception:
