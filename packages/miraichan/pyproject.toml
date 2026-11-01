@@ -11,7 +11,7 @@ dependencies = [
     "lemony_images",
     "lemony_settings",
     "lemony_storage_helper",
-    "melobot[onebot]>=3.5.1",
+    "melobot[onebot]>=3.5.1,<3.6",
     "pydantic>=2.10.3",
     "typer>=0.24.1",
     "uvloop>=0.21.0; sys_platform != 'win32'",

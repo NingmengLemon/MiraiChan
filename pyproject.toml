@@ -32,7 +32,7 @@ dependencies = [
     "mbplugin_forward_strip",
     "mbplugin_mikufans",
     # workspace members above
-    "melobot[onebot]>=3.5.1",
+    "melobot[onebot]>=3.5.1,<3.6",
 ]
 requires-python = "==3.12.*"
 readme = "README.md"

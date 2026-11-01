@@ -41,23 +41,6 @@ wheels = [
 ]
 
 [[package]]
-name = "aiogram"
-version = "3.31.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "aiofiles" },
-    { name = "aiohttp" },
-    { name = "certifi" },
-    { name = "magic-filter" },
-    { name = "pydantic" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ec/5f/b2ee094181bb578c0987eef92a51af1fc2caa2be3589da2e37543c0f2906/aiogram-3.31.0.tar.gz", hash = "sha256:f2c5064fe52d88898c86af62261c405440a014216e45dd99b2c6555a5602ce30", size = 2025095, upload-time = "2026-08-26T00:00:42.97Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/dd/c1ea24eb687e564b6b64db3939b858bbcbd3f6998496508a168ce54c5770/aiogram-3.31.0-py3-none-any.whl", hash = "sha256:d889493c5917a867fc9da81fd6e6b3ae438e98bfe1b004fcdafe7400461a6c1b", size = 859100, upload-time = "2026-08-26T00:00:41.178Z" },
-]
-
-[[package]]
 name = "aiohappyeyeballs"
 version = "2.7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -935,15 +918,6 @@ source = { editable = "packages/shared/lemony_utils" }
 dev = []
 
 [[package]]
-name = "magic-filter"
-version = "1.0.12"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e6/08/da7c2cc7398cc0376e8da599d6330a437c01d3eace2f2365f300e0f3f758/magic_filter-1.0.12.tar.gz", hash = "sha256:4751d0b579a5045d1dc250625c4c508c18c3def5ea6afaf3957cb4530d03f7f9", size = 11071, upload-time = "2023-10-01T12:33:19.006Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/cc/75/f620449f0056eff0ec7c1b1e088f71068eb4e47a46eb54f6c065c6ad7675/magic_filter-1.0.12-py3-none-any.whl", hash = "sha256:e5929e544f310c2b1f154318db8c5cdf544dd658efa998172acd2e4ba0f6c6a6", size = 11335, upload-time = "2023-10-01T12:33:17.711Z" },
-]
-
-[[package]]
 name = "markdown-it-py"
 version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1296,10 +1270,6 @@ onebot = [
 name = "melobot-telegram-protocol"
 version = "0.1.0"
 source = { editable = "packages/shared/melobot_telegram_protocol" }
-dependencies = [
-    { name = "aiogram" },
-    { name = "melobot" },
-]
 
 [package.dev-dependencies]
 dev = [
@@ -1308,10 +1278,6 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "aiogram", specifier = ">=3.26.0" },
-    { name = "melobot", specifier = ">=3.5.1" },
-]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1355,7 +1321,7 @@ requires-dist = [
     { name = "lemony-images", editable = "packages/shared/lemony_images" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", editable = "packages/shared/lemony_storage_helper" },
-    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1,<3.6" },
     { name = "pydantic", specifier = ">=2.10.3" },
     { name = "typer", specifier = ">=0.24.1" },
     { name = "uvloop", marker = "sys_platform != 'win32'", specifier = ">=0.21.0" },
@@ -1444,7 +1410,7 @@ requires-dist = [
     { name = "mbplugin-rebootable", editable = "packages/plugins/mbplugin_rebootable" },
     { name = "mbplugin-recorder", editable = "packages/plugins/mbplugin_recorder" },
     { name = "mbplugin-toolbox", editable = "packages/plugins/mbplugin_toolbox" },
-    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
+    { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1,<3.6" },
     { name = "miraichan", editable = "packages/miraichan" },
 ]
 
