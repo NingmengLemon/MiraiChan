@@ -14,7 +14,7 @@ from urllib.parse import quote
 
 from aiohttp import ClientSession, ClientTimeout
 from lemony_images.text import ColorFontEmoji
-from lemony_network import HTTP_HEADERS, download_bytes
+from lemony_network.request import HTTP_HEADERS, download_bytes
 from PIL import Image
 
 from .model import ImageRef

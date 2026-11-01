@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import aiofiles
 from aiohttp import ClientSession
-from lemony_network import HTTP_HEADERS
+from lemony_network.request import HTTP_HEADERS
 from lemony_storage_helper.files import (
     content_path,
     mime_from_content,

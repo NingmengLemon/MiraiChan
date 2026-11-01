@@ -9,12 +9,8 @@ from contextvars import ContextVar
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Literal
 
-from lemony_settings import (
-    LemonySettings,
-    get_global_settings,
-    require,
-    resolve_config_path,
-)
+from lemony_settings import LemonySettings, get_global_settings, require
+from lemony_settings.utils import resolve_config_path
 from melobot.adapter.model import Event
 from melobot.log import get_logger
 

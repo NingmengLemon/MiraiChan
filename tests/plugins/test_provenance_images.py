@@ -6,7 +6,7 @@ from typing import Any, cast
 
 import aiohttp
 import pytest
-from lemony_network import HTTP_HEADERS
+from lemony_network.request import HTTP_HEADERS
 from lemony_storage_helper.files import set_data_root
 from mbplugin_provenance.client import ProvenanceError
 from mbplugin_provenance.images import (
