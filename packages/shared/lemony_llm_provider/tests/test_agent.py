@@ -58,6 +58,22 @@ async def test_empty_length_answer_retries_with_a_larger_budget() -> None:
 
 
 @pytest.mark.asyncio
+async def test_retry_budget_does_not_shrink_above_the_cap() -> None:
+    requests: list[CompletionRequest] = []
+
+    async def complete(request: CompletionRequest, **_: Any) -> Completion:
+        requests.append(request)
+        if len(requests) == 1:
+            return _completion(finish_reason="length")
+        return _completion("ok")
+
+    agent = Agent(complete, _Toolbox(), max_tokens=10000)
+    await agent.ask("q")
+
+    assert [request.max_tokens for request in requests] == [10000, 10000]
+
+
+@pytest.mark.asyncio
 async def test_tool_exception_is_returned_to_the_model() -> None:
     requests: list[CompletionRequest] = []
 
@@ -75,4 +91,4 @@ async def test_tool_exception_is_returned_to_the_model() -> None:
     assert answer.text == "done"
     result = requests[1].messages[-1]
     assert result.is_error is True
-    assert result.text().startswith("工具执行失败: RuntimeError: boom")
+    assert result.text() == "工具执行失败: RuntimeError"

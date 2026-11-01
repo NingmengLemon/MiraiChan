@@ -100,7 +100,7 @@ class Agent:
                     retried = True
                     # 不超过 8192; 如果原预算已经到顶, 不降到更小的值
                     budget = max(self._max_tokens, min(self._max_tokens * 2, 8192))
-                    logger.debug("回答被截断且正文为空, 把预算提到 %s 重试", budget)
+                    logger.debug("回答被截断且正文为空, 重试预算为 %s", budget)
                     continue
                 return AgentAnswer(
                     text=result.text.strip(), rounds=round_index, tool_calls=used
@@ -139,4 +139,4 @@ class Agent:
             return await self._tools.call(name, parsed), False
         except Exception as exc:
             logger.exception(f"工具 {name} 执行失败")
-            return f"工具执行失败: {type(exc).__name__}: {exc}", True
+            return f"工具执行失败: {type(exc).__name__}", True
