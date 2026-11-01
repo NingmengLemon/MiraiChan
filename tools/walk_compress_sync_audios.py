@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import os
 import shutil
 import sys
@@ -29,8 +30,8 @@ IGNORE_KWLIST = ("SyncToy_",)
 def _within(root: str, path: str) -> bool:
     try:
         return os.path.commonpath(
-            [os.path.abspath(root), os.path.abspath(path)]
-        ) == os.path.abspath(root)
+            [os.path.realpath(root), os.path.realpath(path)]
+        ) == os.path.realpath(root)
     except ValueError:
         return False
 
@@ -103,7 +104,7 @@ def straight_sync(src: str, dst: str):
                 shutil.copyfile(sfile, dfile)
                 stat.copy += 1
                 continue
-            yield (sfile, dfile), {"quality": "128k"}
+            yield (sfile, dfile)
     return stat
 
 
@@ -140,8 +141,16 @@ def reversed_sync(src: str, dst: str):
     return stat
 
 
-def _convert(source: str, target: str, timeout: float) -> int:
-    return convert_audio(source, target, quality="128k", timeout=timeout)
+def _convert(source: str, target: str, timeout: float) -> tuple[int, str]:
+    part = target + ".part"
+    try:
+        code = convert_audio(source, part, quality="128k", timeout=timeout)
+        os.replace(part, target)
+        return code, target
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(part)
+        raise
 
 
 def main() -> int:
@@ -162,25 +171,28 @@ def main() -> int:
         ret = None
         while True:
             try:
-                conv_args, _kwargs = next(gen)
+                conv_args = next(gen)
             except StopIteration as exc:
                 ret = exc.value
                 break
-            except Exception:  # noqa: BLE001 - 扫描失败要转成非零退出码
-                print("扫描源目录失败", file=sys.stderr)
+            except Exception as exc:  # noqa: BLE001 - 扫描失败要转成非零退出码
+                print(
+                    f"扫描源目录失败: {type(exc).__name__}: {exc}",
+                    file=sys.stderr,
+                )
                 return 1
             futures.append(
                 executor.submit(_convert, conv_args[0], conv_args[1], args.timeout)
             )
         for future in as_completed(futures):
             try:
-                code = future.result()
+                code, target = future.result()
             except Exception as exc:  # noqa: BLE001 - 汇总转换失败
                 failed.append(exc)
                 print(f"转换失败: {exc}", file=sys.stderr)
                 continue
             counter += 1
-            print(counter, "code =", code)
+            print(counter, target, "code =", code, sep="\t")
         print(ret)
 
     if failed:
