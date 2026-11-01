@@ -13,7 +13,20 @@ dependencies = [
     "uuid-utils>=0.14.1",
 ]
 
+[tool.setuptools]
+packages = ["mbplugin_deeeer"]
+
+[tool.setuptools.package-dir]
+mbplugin_deeeer = "."
+
+[tool.setuptools.package-data]
+mbplugin_deeeer = ["py.typed", "resources/*"]
+
 [tool.uv.sources]
 lemony_checkers = { workspace = true }
 lemony_utils = { workspace = true }
 lemony_storage_helper = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"

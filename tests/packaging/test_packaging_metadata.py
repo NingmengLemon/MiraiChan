@@ -32,6 +32,18 @@ def test_declared_readme_exists(path: Path) -> None:
         assert (path.parent / readme).is_file(), f"{path}: missing {readme}"
 
 
+@pytest.mark.parametrize("path", PACKAGE_FILES, ids=lambda p: str(p.parent))
+def test_package_declares_expected_build_backend(path: Path) -> None:
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    build = data.get("build-system")
+    assert build is not None, f"{path}: missing [build-system]"
+    assert build.get("requires"), f"{path}: empty build-system requires"
+    expected = "setuptools.build_meta" if "plugins" in path.parts else "uv_build"
+    assert build.get("build-backend") == expected, (
+        f"{path}: expected {expected}, got {build.get('build-backend')!r}"
+    )
+
+
 @pytest.mark.parametrize("plugin_dir", PLUGIN_DIRS, ids=lambda p: p.name)
 def test_plugin_version_matches_planner(plugin_dir: Path) -> None:
     pyproject = _project(plugin_dir / "pyproject.toml")

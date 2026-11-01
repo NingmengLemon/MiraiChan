@@ -23,3 +23,7 @@ mbplugin_mikufans = "."
 lemony_network = { workspace = true }
 lemony_settings = { workspace = true }
 lemony_utils = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"

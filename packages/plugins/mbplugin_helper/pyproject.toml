@@ -19,3 +19,7 @@ mbplugin_helper = "."
 [tool.uv.sources]
 lemony_onebot_utils = { workspace = true }
 lemony_utils = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"

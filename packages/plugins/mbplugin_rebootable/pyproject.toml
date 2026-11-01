@@ -13,8 +13,18 @@ dependencies = [
 ]
 
 
+[tool.setuptools]
+packages = ["mbplugin_rebootable"]
+
+[tool.setuptools.package-dir]
+mbplugin_rebootable = "."
+
 [tool.uv.sources]
 lemony_utils = { workspace = true }
 lemony_checkers = { workspace = true }
 lemony_settings = { workspace = true }
 lemony_storage_helper = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"

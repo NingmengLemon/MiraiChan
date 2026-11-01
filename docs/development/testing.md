@@ -34,6 +34,12 @@ uv run pytest
 `lemony_storage_helper.files.set_data_root(tmp_path)` 重定向数据根目录 (数据库的相对路径也跟着它),
 测试结束时 `set_data_root(None)` 复原。
 
+## 构建检查
+
+`just build-check` 会运行 `uv build --all-packages`, 确认每个 workspace 成员都能产出
+sdist 与 wheel。它检查 packaging 元数据 (`[build-system]`、包发现、README 路径), 不需要
+启动 bot; 改动 pyproject 或包布局后跑一次。
+
 ## 端到端冒烟
 
 `tools/fake_onebot_server.py` 是一个最小的 OneBot v11 正向 ws 服务端: 按 JSON 场景推送事件、

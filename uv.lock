@@ -1293,7 +1293,7 @@ onebot = [
 [[package]]
 name = "melobot-telegram-protocol"
 version = "0.1.0"
-source = { virtual = "packages/shared/melobot_telegram_protocol" }
+source = { editable = "packages/shared/melobot_telegram_protocol" }
 dependencies = [
     { name = "aiogram" },
     { name = "melobot" },

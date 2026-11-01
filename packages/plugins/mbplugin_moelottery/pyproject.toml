@@ -12,7 +12,20 @@ dependencies = [
     "pydantic>=2.12.5",
 ]
 
+[tool.setuptools]
+packages = ["mbplugin_moelottery", "mbplugin_moelottery.resources"]
+
+[tool.setuptools.package-dir]
+mbplugin_moelottery = "."
+
+[tool.setuptools.package-data]
+"mbplugin_moelottery.resources" = ["*.json"]
+
 [tool.uv.sources]
 lemony_utils = { workspace = true }
 lemony_checkers = { workspace = true }
 lemony_settings = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"

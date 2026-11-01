@@ -22,3 +22,7 @@ mbplugin_forward_strip = "."
 lemony_checkers = { workspace = true }
 lemony_settings = { workspace = true }
 lemony_utils = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"

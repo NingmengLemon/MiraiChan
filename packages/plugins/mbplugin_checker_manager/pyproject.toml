@@ -6,6 +6,19 @@ readme = "readme.md"
 requires-python = ">=3.12"
 dependencies = ["lemony_checkers", "lemony_utils", "melobot[onebot]>=3.5.1"]
 
+[tool.setuptools]
+packages = ["mbplugin_checker_manager"]
+
+[tool.setuptools.package-dir]
+mbplugin_checker_manager = "."
+
+[tool.setuptools.package-data]
+mbplugin_checker_manager = ["py.typed"]
+
 [tool.uv.sources]
 lemony_utils = { workspace = true }
 lemony_checkers = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
