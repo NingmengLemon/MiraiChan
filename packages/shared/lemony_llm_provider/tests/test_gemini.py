@@ -83,6 +83,13 @@ def test_translation_shapes() -> None:
     assert result_part.function_response.response == {"result": "晴, 22 度"}
 
 
+def test_named_tool_choice_keeps_the_tool_name() -> None:
+    config = _build(tool_choice="get_weather").body["config"]
+    calling = config.tool_config.function_calling_config
+    assert calling.mode == "ANY"
+    assert calling.allowed_function_names == ["get_weather"]
+
+
 def test_tool_call_without_signature_is_rejected_before_sending() -> None:
     request = CompletionRequest(
         messages=(

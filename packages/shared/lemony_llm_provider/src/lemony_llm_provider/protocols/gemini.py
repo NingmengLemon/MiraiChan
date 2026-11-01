@@ -35,7 +35,7 @@ from ..models import (
     Usage,
 )
 from ..quirks import Quirks
-from .base import Translation, check_capabilities, tool_choice_value
+from .base import Translation, check_capabilities
 
 __all__ = ["build", "parse"]
 
@@ -166,21 +166,20 @@ def _build_contents(request: CompletionRequest) -> list[types.Content]:
     return contents
 
 
-def _tool_config(choice: Any) -> types.ToolConfig | None:
-    mode = tool_choice_value(choice, style="chat")
-    if mode is None or mode == "auto":
+def _tool_config(choice: str | None) -> types.ToolConfig | None:
+    if choice is None or choice == "auto":
         return None
-    if mode == "none":
+    if choice == "none":
         return types.ToolConfig(
             function_calling_config=types.FunctionCallingConfig(mode="NONE")
         )
-    if mode == "required":
+    if choice == "required":
         return types.ToolConfig(
             function_calling_config=types.FunctionCallingConfig(mode="ANY")
         )
     return types.ToolConfig(
         function_calling_config=types.FunctionCallingConfig(
-            mode="ANY", allowed_function_names=[str(mode)]
+            mode="ANY", allowed_function_names=[choice]
         )
     )
 
