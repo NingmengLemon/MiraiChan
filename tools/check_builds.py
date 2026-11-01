@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import tempfile
@@ -19,11 +20,7 @@ def _members() -> list[Path]:
     dirs = [ROOT / "packages" / "miraichan"]
     dirs += sorted((ROOT / "packages" / "shared").glob("*"))
     dirs += sorted((ROOT / "packages" / "plugins").glob("mbplugin_*"))
-    return [
-        path
-        for path in dirs
-        if (path / "pyproject.toml").is_file() and "_to_be_migrated" not in path.parts
-    ]
+    return [path for path in dirs if (path / "pyproject.toml").is_file()]
 
 
 def main() -> int:
@@ -58,6 +55,12 @@ def main() -> int:
                 (member / "pyproject.toml").read_text(encoding="utf-8")
             )
             names.add(data["project"]["name"])
+        normalized = {re.sub(r"[-_.]+", "_", name).lower() for name in names}
+        wheel_names = {wheel.name.split("-")[0].lower() for wheel in wheels}
+        missing = normalized - wheel_names
+        if missing:
+            print(f"缺少 wheel: {', '.join(sorted(missing))}", file=sys.stderr)
+            return 1
         print(
             f"构建通过: {len(members)} 个包, {len(wheels)} wheels, {len(sdists)} sdists"
         )
