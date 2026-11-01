@@ -24,6 +24,10 @@ uv run pytest
 
 一个插件有多个测试文件时放进子目录 (如 `tests/plugins/quote/`), 用该目录的 `conftest.py` 统一设置 `sys.path`。
 
+仓库根 `tests/` 下不要直接放测试文件: pytest 的 prepend 导入模式会把 `tests/` 插进 `sys.path`, 与
+`tests/miraichan/` 这类同名目录叠加时, melobot 的 import hook 可能把测试目录当成 `miraichan` 包,
+导致只在特定收集顺序下出现的导入错误。按主题放进子目录 (如 `tests/packaging/`)。
+
 ## 数据
 
 测试不得读写 `data/` 下的真实数据。用 `tmp_path` 并通过

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_FILES = sorted(
     path
     for path in (REPO_ROOT / "packages").glob("**/pyproject.toml")
