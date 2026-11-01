@@ -1,4 +1,6 @@
+import re
 from collections.abc import Callable
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Literal
 
 from melobot.protocols.onebot.v11 import Adapter
@@ -6,6 +8,9 @@ from melobot.typ import SyncOrAsyncCallable
 
 type _RawData = dict[str, Any]
 type _PatchType = SyncOrAsyncCallable[[_RawData, Exception], None]
+
+#: 这个补丁依赖 melobot 3.5 的 Echo.resolve 实现 (按模块全局查找 echo 类)
+_SUPPORTED_MELOBOT = (3, 5)
 
 _patches: dict[Literal["echo", "event"], list[_PatchType]] = {
     "echo": [],
@@ -79,6 +84,22 @@ async def patch_event_private_empty_record_segment(
         ]
 
 
+def _check_melobot_version() -> None:
+    try:
+        raw = version("melobot")
+    except PackageNotFoundError as exc:
+        raise RuntimeError(
+            "找不到 melobot 的安装版本, 无法确认 forward echo 补丁可用"
+        ) from exc
+    match = re.match(r"(\d+)\.(\d+)", raw)
+    if match is None or (int(match[1]), int(match[2])) != _SUPPORTED_MELOBOT:
+        supported = ".".join(map(str, _SUPPORTED_MELOBOT))
+        raise RuntimeError(
+            f"forward echo 补丁只支持 melobot {supported}.x, 当前是 {raw}; "
+            "升级 melobot 后需要重新确认 GetForwardMsgEcho 的解析方式"
+        )
+
+
 def patch_forward_echo() -> None:
     """让 get_forward_msg 的回应保留原始 data.
 
@@ -89,10 +110,11 @@ def patch_forward_echo() -> None:
     """
     from melobot.protocols.onebot.v11.adapter import echo as echo_module
 
+    _check_melobot_version()
     if getattr(echo_module.GetForwardMsgEcho, "_forward_echo_raw", False):
         return
 
-    class _RawForwardEcho(echo_module.Echo):  # type: ignore[misc]
+    class _RawForwardEcho(echo_module.Echo):
         _forward_echo_raw = True
 
     echo_module.GetForwardMsgEcho = _RawForwardEcho  # ty: ignore[invalid-assignment]
