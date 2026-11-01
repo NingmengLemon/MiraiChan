@@ -8,6 +8,7 @@ authors = [
 dependencies = [
     "filelock>=3.25.2",
     "json5>=0.13.0",
+    "lemony_storage_helper",
     "pydantic>=2.12.5",
     "pyyaml>=6.0.3",
     "tomli>=2.4.0",
@@ -17,6 +18,9 @@ dependencies = [
 requires-python = ">=3.12,<3.14"
 readme = "README.md"
 license = { text = "AGPL3" }
+
+[tool.uv.sources]
+lemony_storage_helper = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]

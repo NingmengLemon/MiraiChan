@@ -24,6 +24,7 @@
 import contextlib
 import logging
 import os
+import shutil
 import tempfile
 import time
 from pathlib import Path, PurePath
@@ -267,7 +268,11 @@ def resource_path(
 
 
 def atomic_write_bytes(
-    path: str | PurePath, data: bytes, *, fsync: bool = True
+    path: str | PurePath,
+    data: bytes,
+    *,
+    fsync: bool = True,
+    preserve_mode: bool = False,
 ) -> Path:
     """原子写入字节: 同目录临时文件写完之后 replace, 失败时临时文件不留下。
 
@@ -279,7 +284,7 @@ def atomic_write_bytes(
     fsync=True 只保证把文件内容刷下去, 目录项本身的持久化没保证 (真断电时可能丢
     掉这次 replace); fsync=False 连内容都不刷, 缓存类文件不需要, 断电可能得到空文件。
     POSIX 上新文件的权限是 0600 (``tempfile.mkstemp`` 的语义), 需要别人也能读时
-    调用方自己 chmod。
+    调用方自己 chmod; preserve_mode=True 会沿用已存在目标的权限位。
     """
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -293,6 +298,8 @@ def atomic_write_bytes(
             if fsync:
                 fp.flush()
                 os.fsync(fp.fileno())
+        if preserve_mode and target.exists():
+            shutil.copymode(target, tmp)
         _replace_with_retry(tmp, target)
     except BaseException:
         with contextlib.suppress(OSError):
@@ -307,6 +314,9 @@ def atomic_write_text(
     *,
     encoding: str = "utf-8",
     fsync: bool = True,
+    preserve_mode: bool = False,
 ) -> Path:
     """原子写入文本, 其余同 ``atomic_write_bytes``"""
-    return atomic_write_bytes(path, text.encode(encoding), fsync=fsync)
+    return atomic_write_bytes(
+        path, text.encode(encoding), fsync=fsync, preserve_mode=preserve_mode
+    )

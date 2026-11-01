@@ -15,6 +15,15 @@ def test_writes_new_file_and_returns_path(tmp_path: Path) -> None:
     assert target.read_bytes() == b"hello"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX 权限位")
+def test_preserve_mode_keeps_existing_permissions(tmp_path: Path) -> None:
+    target = tmp_path / "a.bin"
+    target.write_bytes(b"old")
+    target.chmod(0o640)
+    atomic_write_bytes(target, b"new", preserve_mode=True)
+    assert target.stat().st_mode & 0o777 == 0o640
+
+
 def test_creates_missing_parent_dirs(tmp_path: Path) -> None:
     target = tmp_path / "a" / "b" / "c" / "x.bin"
     atomic_write_bytes(target, b"x")
