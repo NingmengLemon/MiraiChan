@@ -14,8 +14,7 @@ from urllib.parse import quote
 
 from aiohttp import ClientSession, ClientTimeout
 from lemony_images.text import ColorFontEmoji
-from lemony_network.qqntmedia_sslcontext import QQNTMEDIA_SSL_CONTEXT
-from lemony_network.request import HTTP_HEADERS
+from lemony_network.request import HTTP_HEADERS, download_bytes
 from PIL import Image
 
 from .model import ImageRef
@@ -105,18 +104,12 @@ class ResourceResolver:
 
     async def _download(self, url: str) -> bytes:
         async with self._sem:
-            # QQ NT 图床要特定的 TLS 设置; 其余地址用 aiohttp 默认校验 (ssl=True)
-            ssl = QQNTMEDIA_SSL_CONTEXT if "multimedia.nt.qq.com.cn" in url else True
-            async with self._http().get(url, ssl=ssl) as resp:
-                resp.raise_for_status()
-                if (resp.content_length or 0) > self._limits.max_bytes:
-                    raise ValueError(f"too large: {resp.content_length}")
-                buf = bytearray()
-                async for chunk in resp.content.iter_chunked(64 * 1024):
-                    buf.extend(chunk)
-                    if len(buf) > self._limits.max_bytes:
-                        raise ValueError("too large")
-                return bytes(buf)
+            return await download_bytes(
+                self._http(),
+                url,
+                max_bytes=self._limits.max_bytes,
+                total_timeout=self._limits.timeout,
+            )
 
     def _local_path(self, rel: str) -> Path | None:
         p = Path(rel)

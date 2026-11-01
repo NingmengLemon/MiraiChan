@@ -107,7 +107,7 @@ class _FailingSession:
     def __init__(self, exc: BaseException) -> None:
         self._exc = exc
 
-    def get(self, *_args: object, **_kwargs: object) -> object:
+    def request(self, *_args: object, **_kwargs: object) -> object:
         raise self._exc
 
 

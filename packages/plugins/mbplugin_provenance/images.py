@@ -9,8 +9,7 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 import aiohttp
-from lemony_network.qqntmedia_sslcontext import QQNTMEDIA_SSL_CONTEXT
-from lemony_network.request import HTTP_HEADERS
+from lemony_network.request import ResponseTooLargeError, download_bytes
 from lemony_storage_helper.files import (
     get_data_root,
     is_data_root_set,
@@ -131,20 +130,14 @@ async def download_image(
     max_bytes: int,
 ) -> bytes:
     """下载一张图片; 超时、网络错误与超限都转成 ``ProvenanceError``."""
-    ssl = QQNTMEDIA_SSL_CONTEXT if "multimedia.nt.qq.com.cn" in url else True
-    client_timeout = aiohttp.ClientTimeout(total=total_timeout)
     try:
-        async with session.get(
-            url, ssl=ssl, headers=dict(HTTP_HEADERS), timeout=client_timeout
-        ) as response:
-            response.raise_for_status()
-            if (response.content_length or 0) > max_bytes:
-                raise ProvenanceError("图片太大了")
-            buffer = bytearray()
-            async for chunk in response.content.iter_chunked(64 * 1024):
-                buffer.extend(chunk)
-                if len(buffer) > max_bytes:
-                    raise ProvenanceError("图片太大了")
-            return bytes(buffer)
+        return await download_bytes(
+            session,
+            url,
+            max_bytes=max_bytes,
+            total_timeout=total_timeout,
+        )
+    except ResponseTooLargeError as exc:
+        raise ProvenanceError("图片太大了") from exc
     except (TimeoutError, aiohttp.ClientError) as exc:
         raise ProvenanceError("图片下载超时或失败") from exc

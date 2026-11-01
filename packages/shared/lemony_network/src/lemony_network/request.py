@@ -1,4 +1,4 @@
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
 from types import MappingProxyType
 from typing import (
@@ -11,9 +11,12 @@ from typing import (
 from aiohttp import (
     ClientResponse,
     ClientSession,
+    ClientTimeout,
 )
 from aiohttp.client import _RequestOptions
 from yarl import URL
+
+from .qqntmedia_sslcontext import QQNTMEDIA_SSL_CONTEXT
 
 UrlStr = URL | str
 _HTTP_HEADERS = {
@@ -62,3 +65,35 @@ async def fetch_json(
 ) -> Any:
     async with async_http(session=session, method=method, url=url, **kwargs) as resp:
         return await resp.json()
+
+
+class ResponseTooLargeError(ValueError):
+    """响应体超过调用方给出的上限"""
+
+
+async def download_bytes(
+    session: ClientSession,
+    url: UrlStr,
+    *,
+    max_bytes: int,
+    total_timeout: float | None = None,
+    headers: Mapping[str, str] | None = None,
+) -> bytes:
+    """下载完整响应体并限制大小; QQ NT 图床自动使用专用 TLS 配置."""
+    ssl = QQNTMEDIA_SSL_CONTEXT if "multimedia.nt.qq.com.cn" in str(url) else True
+    kwargs: dict[str, Any] = {"ssl": ssl}
+    if total_timeout is not None:
+        kwargs["timeout"] = ClientTimeout(total=total_timeout)
+    if headers is not None:
+        kwargs["headers"] = dict(headers)
+    async with async_http(session=session, method="get", url=url, **kwargs) as response:
+        if (response.content_length or 0) > max_bytes:
+            raise ResponseTooLargeError(
+                f"response exceeds max size: {response.content_length} > {max_bytes}"
+            )
+        buffer = bytearray()
+        async for chunk in response.content.iter_chunked(64 * 1024):
+            buffer.extend(chunk)
+            if len(buffer) > max_bytes:
+                raise ResponseTooLargeError(f"response exceeds max size: > {max_bytes}")
+        return bytes(buffer)
