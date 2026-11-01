@@ -23,6 +23,13 @@ class _Toolbox:
         raise RuntimeError("boom")
 
 
+class _ValidationToolbox:
+    specs: Sequence[ToolSpec] = ()
+
+    async def call(self, name: str, arguments: dict[str, object]) -> str:
+        raise ValueError("city is required")
+
+
 def _completion(
     text: str = "",
     *,
@@ -92,3 +99,22 @@ async def test_tool_exception_is_returned_to_the_model() -> None:
     result = requests[1].messages[-1]
     assert result.is_error is True
     assert result.text() == "工具执行失败: RuntimeError"
+
+
+@pytest.mark.asyncio
+async def test_tool_validation_error_keeps_its_message() -> None:
+    requests: list[CompletionRequest] = []
+
+    async def complete(request: CompletionRequest, **_: Any) -> Completion:
+        requests.append(request)
+        if len(requests) == 1:
+            return _completion(
+                tool_calls=(ToolCall("c1", "boom", "{}"),), finish_reason="tool_calls"
+            )
+        return _completion("done")
+
+    await Agent(complete, _ValidationToolbox()).ask("q")
+
+    result = requests[1].messages[-1]
+    assert result.is_error is True
+    assert result.text() == "工具执行失败: ValueError: city is required"

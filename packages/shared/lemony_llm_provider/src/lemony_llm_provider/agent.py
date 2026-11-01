@@ -139,4 +139,8 @@ class Agent:
             return await self._tools.call(name, parsed), False
         except Exception as exc:
             logger.exception(f"工具 {name} 执行失败")
-            return f"工具执行失败: {type(exc).__name__}", True
+            detail = ""
+            if isinstance(exc, (TypeError, ValueError, KeyError)):
+                detail = str(exc).strip()[:200]
+            suffix = f": {detail}" if detail else ""
+            return f"工具执行失败: {type(exc).__name__}{suffix}", True
