@@ -6,8 +6,9 @@
 
 import asyncio
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from logging import getLogger
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -19,6 +20,7 @@ from lemony_settings import BaseSettings, get_secret, require
 from lemony_utils.help import Command, register_help
 from melobot import PluginInfo, PluginPlanner, on_command
 from melobot.bot import get_bot
+from melobot.exceptions import PluginIpcError
 from melobot.protocols.onebot.v11.adapter import Adapter
 from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, MessageEvent
 from melobot.protocols.onebot.v11.adapter.segment import ReplySegment
@@ -127,6 +129,51 @@ async def _get_msg(adapter: Adapter, message_id: str) -> Mapping[str, Any] | Non
     return echo.data
 
 
+def _conversation_of(event: MessageEvent) -> tuple[str, str]:
+    if isinstance(event, GroupMessageEvent):
+        return "group", str(event.group_id)
+    if event.is_group_temp():
+        return "private_temp", str(event.raw.get("temp_source") or event.user_id)
+    return "private", str(event.user_id)
+
+
+def _recorder_service() -> object | None:
+    try:
+        share = bot.get_share("mbplugin_recorder", "recorder_service")
+    except PluginIpcError:
+        return None
+    return share.get()
+
+
+async def _recorder_image_paths(
+    event: MessageEvent, base_id: str
+) -> tuple[tuple[Path, ...], ...]:
+    """从 recorder 的本地媒体缓存取图片; recorder 未加载或没记录时返回空."""
+    service = _recorder_service()
+    getter = getattr(service, "get_image_cache_paths", None)
+    if getter is None:
+        return ()
+    conversation_type, conversation_id = _conversation_of(event)
+    try:
+        groups = await getter(
+            account_protocol=str(event.protocol),
+            account_self_id=str(event.self_id),
+            conversation_type=conversation_type,
+            conversation_external_id=conversation_id,
+            external_message_id=base_id,
+        )
+    except Exception:
+        logger.debug("读取 recorder 图片缓存失败", exc_info=True)
+        return ()
+    result: list[tuple[Path, ...]] = []
+    for relatives in groups:
+        paths: list[Path] = []
+        for relative in relatives:
+            paths.extend(local_candidates({"file": relative}))
+        result.append(tuple(paths))
+    return tuple(result)
+
+
 async def _download(session: aiohttp.ClientSession, url: str) -> bytes:
     # QQ NT 图床要特定的 TLS 设置; 其余地址用 aiohttp 默认校验
     ssl = QQNTMEDIA_SSL_CONTEXT if "multimedia.nt.qq.com.cn" in url else True
@@ -147,11 +194,21 @@ async def _download(session: aiohttp.ClientSession, url: str) -> bytes:
 
 
 async def _image_bytes(
-    seg_data: Mapping[str, Any], session: aiohttp.ClientSession
+    seg_data: Mapping[str, Any],
+    session: aiohttp.ClientSession,
+    *,
+    cached_paths: Sequence[Path] = (),
 ) -> tuple[bytes, str]:
-    """取一张图片的字节与 media type, 优先本地文件, 其次 url"""
+    """取一张图片的字节与 media type, 优先 recorder 缓存, 其次本地文件, 最后 url"""
     max_bytes = cfgloader.value.max_image_bytes
-    for path in local_candidates(seg_data, cfgloader.value.image_dirs):
+    seen: set[Path] = set()
+    for path in (
+        *cached_paths,
+        *local_candidates(seg_data, cfgloader.value.image_dirs),
+    ):
+        if path in seen:
+            continue
+        seen.add(path)
         try:
             data = await asyncio.to_thread(path.read_bytes)
         except OSError:
@@ -185,6 +242,7 @@ async def check_command(event: MessageEvent, adapter: Adapter) -> None:
         return
     await _run_check(
         adapter,
+        event=event,
         base_id=base_id,
         user_id=user_id,
         message_id=event.message_id,
@@ -218,6 +276,7 @@ async def _ack(
 async def _run_check(
     adapter: Adapter,
     *,
+    event: MessageEvent,
     base_id: str,
     user_id: int,
     message_id: int,
@@ -241,6 +300,7 @@ async def _run_check(
     total = len(images)
     images = images[: cfgloader.value.max_images]
     note = f"只核验前 {len(images)} 张图片" if total > len(images) else ""
+    recorder_paths = await _recorder_image_paths(event, base_id)
 
     # 下载与请求都要几秒; 用表情回应表示"已收到, 正在处理", 贴不上才发文字
     await _ack(
@@ -255,8 +315,13 @@ async def _run_check(
     reports: list[str] = []
     async with _gate, aiohttp.ClientSession() as session:
         for index, seg_data in enumerate(images, start=1):
+            cached_paths = (
+                recorder_paths[index - 1] if index <= len(recorder_paths) else ()
+            )
             try:
-                data, mime = await _image_bytes(seg_data, session)
+                data, mime = await _image_bytes(
+                    seg_data, session, cached_paths=cached_paths
+                )
             except ProvenanceError as exc:
                 reports.append(f"图片 {index}/{len(images)}: {exc}")
                 continue

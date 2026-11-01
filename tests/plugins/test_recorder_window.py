@@ -251,5 +251,25 @@ async def test_downloaded_media_paths_are_exposed(tmp_path: Path) -> None:
             ("record/media/image/done.png",),
             (),
         ]
+
+        service = RecorderService(db)
+        paths = await service.get_image_cache_paths(
+            account_protocol=PROTOCOL,
+            account_self_id=SELF_ID,
+            conversation_type="group",
+            conversation_external_id=GROUP,
+            external_message_id="img",
+        )
+        assert paths == (("record/media/image/done.png",), ())
+        assert (
+            await service.get_image_cache_paths(
+                account_protocol=PROTOCOL,
+                account_self_id=SELF_ID,
+                conversation_type="group",
+                conversation_external_id=GROUP,
+                external_message_id="missing",
+            )
+            == ()
+        )
     finally:
         await db.close()

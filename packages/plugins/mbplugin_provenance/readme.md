@@ -33,6 +33,10 @@ owner 豁免, 缓存与并发上限 (`_gate`, 同时 2 个请求) 也对所有�
 
 ## 本地图片路径
 
+图片按以下顺序取: recorder 插件已下载的媒体缓存 (bot 侧), data root / `image_dirs` 内的本地文件,
+最后是图片的 `url`。实现端与 bot 不在同一台机器时, recorder 的缓存通常是最可靠的来源;
+recorder 未加载、没记录这条消息或还没下载完时, 会继续走本地文件与 URL。
+
 默认只读取 data root 内的本地文件。实现端把图片放在别的绝对目录时, 在
 `configs/mbplugin_provenance/default.json` 的 `image_dirs` 里列出允许的目录
 (绝对路径, 或相对 data root 的路径), 例如:

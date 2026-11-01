@@ -291,6 +291,92 @@ class RecorderService:
             for offset, m in selected
         ]
 
+    async def get_image_cache_paths(
+        self,
+        *,
+        account_protocol: str,
+        account_self_id: str,
+        conversation_type: str,
+        conversation_external_id: str,
+        external_message_id: str,
+    ) -> tuple[tuple[str, ...], ...]:
+        """按消息内 image 段顺序返回每段已下载的缓存路径.
+
+        路径是相对 data root 的字符串; 没有下载完成的图片段对应空元组.
+        消息不在记录里时返回空元组, 调用方据此回退到 URL 或其他来源.
+        """
+        async with self.get_session() as session:
+            conversation = await self._get_conversation(
+                session,
+                protocol=account_protocol,
+                self_id=account_self_id,
+                conversation_type=conversation_type,
+                external_id=conversation_external_id,
+            )
+            if conversation is None:
+                return ()
+            base = await self._get_base_message(
+                session,
+                conversation_id=conversation.id,
+                external_message_id=external_message_id,
+                sender_external_id=None,
+            )
+            if base is None:
+                return ()
+
+            image_segments = (
+                (
+                    await session.execute(
+                        select(MessageSegment)
+                        .where(
+                            queryable(MessageSegment.message_id) == base.id,
+                            queryable(MessageSegment.type) == "image",
+                        )
+                        .order_by(col(MessageSegment.order))
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if not image_segments:
+                return ()
+
+            media_rows = (
+                await session.execute(
+                    select(
+                        queryable(MediaAttachment.segment_id),
+                        queryable(MediaObject.cache_path),
+                    )
+                    .join(
+                        MediaSource,
+                        queryable(MediaAttachment.media_source_id)
+                        == queryable(MediaSource.id),
+                    )
+                    .join(
+                        MediaObject,
+                        queryable(MediaSource.media_object_id)
+                        == queryable(MediaObject.id),
+                    )
+                    .where(
+                        queryable(MediaAttachment.segment_id).in_(
+                            [segment.id for segment in image_segments]
+                        ),
+                        queryable(MediaSource.download_status)
+                        == MediaDownloadStatus.DOWNLOADED,
+                        queryable(MediaObject.cache_path).is_not(None),
+                    )
+                    .order_by(col(MediaAttachment.id))
+                )
+            ).all()
+            paths: dict[UUID, list[str]] = defaultdict(list)
+            for segment_id, cache_path in media_rows:
+                if segment_id is not None and cache_path is not None:
+                    paths[segment_id].append(cache_path)
+            return tuple(
+                tuple(dict.fromkeys(paths.get(segment.id, ())))
+                for segment in image_segments
+            )
+
     async def count_messages_by_sender(
         self,
         *,
