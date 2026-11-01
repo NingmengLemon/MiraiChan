@@ -48,6 +48,12 @@ def _as_utc(dt: datetime) -> datetime:
     return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
 
 
+def _is_unique_violation(exc: IntegrityError) -> bool:
+    """只把唯一约束冲突当成重复报文, 其余约束错误继续上报."""
+    message = str(getattr(exc, "orig", exc)).lower()
+    return "unique constraint failed" in message or "duplicate key value" in message
+
+
 def _target_type(value: str) -> TargetType:
     if value == "group":
         return "group"
@@ -153,8 +159,16 @@ class AlertArchive:
         try:
             async with self._db.session_scope() as session:
                 session.add(report)
-        except IntegrityError:
-            return None
+        except IntegrityError as exc:
+            if _is_unique_violation(exc):
+                logger.debug(
+                    f"重复报文, 跳过留档: {quake.source} {quake.event_id}#{quake.seq}"
+                )
+                return None
+            logger.exception(
+                f"留档约束错误: {quake.source} {quake.event_id}#{quake.seq}"
+            )
+            raise
         return report.id
 
     async def record_deliveries(

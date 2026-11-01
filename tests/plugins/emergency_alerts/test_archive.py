@@ -11,12 +11,14 @@ from lemony_storage_helper.database.sqlite import SqliteDatabaseHelper
 from mbplugin_emergency_alerts.archive import (
     AlertArchive,
     DeliveryResult,
+    _is_unique_violation,
     alerts_metadata,
 )
 from mbplugin_emergency_alerts.dispatch import Dispatcher
 from mbplugin_emergency_alerts.quake import CST, Quake
 from mbplugin_emergency_alerts.sources.wolfx import parse_message
 from mbplugin_emergency_alerts.subscription import Subscription
+from sqlalchemy.exc import IntegrityError
 from wolfx_samples import cenc_eew, jma_eew
 
 NOW = datetime(2026, 10, 16, 12, 0, 30, tzinfo=CST)
@@ -69,6 +71,17 @@ async def test_duplicate_report_is_not_stored_twice(archive):
     assert await archive.record_report(q(cenc_eew()), "{}") is not None
     assert await archive.record_report(q(cenc_eew()), "{}") is None
     assert len(await archive.reports_of_event("cenc_eew", cenc_eew()["EventID"])) == 1
+
+
+def test_only_unique_violations_are_treated_as_duplicates() -> None:
+    unique = IntegrityError(
+        "insert", {}, Exception("UNIQUE constraint failed: alert_report.source")
+    )
+    not_null = IntegrityError(
+        "insert", {}, Exception("NOT NULL constraint failed: alert_report.raw")
+    )
+    assert _is_unique_violation(unique)
+    assert not _is_unique_violation(not_null)
 
 
 @pytest.mark.asyncio
