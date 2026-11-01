@@ -9,7 +9,7 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 import aiohttp
-from lemony_network import ResponseTooLargeError, download_bytes
+from lemony_network import HTTP_HEADERS, ResponseTooLargeError, download_bytes
 from lemony_storage_helper.files import (
     get_data_root,
     is_data_root_set,
@@ -136,6 +136,7 @@ async def download_image(
             url,
             max_bytes=max_bytes,
             total_timeout=total_timeout,
+            headers=HTTP_HEADERS,
         )
     except ResponseTooLargeError as exc:
         raise ProvenanceError("图片太大了") from exc

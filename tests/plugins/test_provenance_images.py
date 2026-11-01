@@ -6,6 +6,7 @@ from typing import Any, cast
 
 import aiohttp
 import pytest
+from lemony_network import HTTP_HEADERS
 from lemony_storage_helper.files import set_data_root
 from mbplugin_provenance.client import ProvenanceError
 from mbplugin_provenance.images import (
@@ -122,3 +123,24 @@ async def test_download_errors_are_reported_per_image(exc: BaseException) -> Non
             total_timeout=1,
             max_bytes=10,
         )
+
+
+@pytest.mark.asyncio
+async def test_download_uses_the_browser_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    async def fake_download(_session: object, _url: str, **kwargs: object) -> bytes:
+        seen.update(kwargs)
+        return b"x"
+
+    monkeypatch.setattr("mbplugin_provenance.images.download_bytes", fake_download)
+    data = await download_image(
+        cast(Any, object()),
+        "https://example.invalid/x",
+        total_timeout=1,
+        max_bytes=10,
+    )
+    assert data == b"x"
+    assert seen["headers"] is HTTP_HEADERS
