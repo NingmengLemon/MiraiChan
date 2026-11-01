@@ -976,7 +976,7 @@ wheels = [
 
 [[package]]
 name = "mbplugin-checker-manager"
-version = "1.0.1"
+version = "1.0.2"
 source = { editable = "packages/plugins/mbplugin_checker_manager" }
 dependencies = [
     { name = "lemony-checkers" },
@@ -993,7 +993,7 @@ requires-dist = [
 
 [[package]]
 name = "mbplugin-deeeer"
-version = "1.0.0"
+version = "0.1.4"
 source = { editable = "packages/plugins/mbplugin_deeeer" }
 dependencies = [
     { name = "lemony-checkers" },
@@ -1195,7 +1195,7 @@ requires-dist = [
 
 [[package]]
 name = "mbplugin-rebootable"
-version = "1.0.0"
+version = "0.1.0"
 source = { editable = "packages/plugins/mbplugin_rebootable" }
 dependencies = [
     { name = "lemony-checkers" },
@@ -1216,7 +1216,7 @@ requires-dist = [
 
 [[package]]
 name = "mbplugin-recorder"
-version = "1.0.0"
+version = "0.1.0a0"
 source = { editable = "packages/plugins/mbplugin_recorder" }
 dependencies = [
     { name = "aiofiles" },

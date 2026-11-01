@@ -18,4 +18,4 @@ def __getattr__(name: str) -> _0x697e1c943:
 
 __plugin_info__: _0x697e1c948
 __auto_gen_version__ = "2"
-__version__ = "0.1.3"
+__version__ = "0.1.4"

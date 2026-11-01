@@ -1,6 +1,6 @@
 [project]
 name = "mbplugin_rebootable"
-version = "1.0.0"
+version = "0.1.0"
 description = "A plugin for restarting the bot via command."
 readme = "readme.md"
 requires-python = ">=3.12"
