@@ -11,6 +11,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
+_REF = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(\S+)")
 _INLINE_CODE = re.compile(r"`[^`]*`")
 
 
@@ -26,21 +27,25 @@ def _tracked_markdown() -> list[Path]:
 
 
 def _targets(text: str) -> list[tuple[int, str]]:
+    """提取 inline 与 reference-style 的本地目标; 不校验锚点是否存在."""
     found: list[tuple[int, str]] = []
     in_fence = False
     for lineno, line in enumerate(text.splitlines(), start=1):
-        if line.startswith(("```", "~~~")):
+        if line.lstrip().startswith(("```", "~~~")):
             in_fence = not in_fence
             continue
         if in_fence:
             continue
-        for match in _LINK.finditer(_INLINE_CODE.sub("", line)):
+        clean = _INLINE_CODE.sub("", line)
+        for match in _LINK.finditer(clean):
             raw = match.group(1).strip()
             if raw.startswith("<") and raw.endswith(">"):
                 raw = raw[1:-1]
             else:
                 raw = raw.split(maxsplit=1)[0]
             found.append((lineno, raw))
+        if match := _REF.match(clean):
+            found.append((lineno, match.group(1)))
     return found
 
 

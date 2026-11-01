@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import re
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
@@ -125,9 +126,13 @@ def test_quote_does_not_import_recorder_internals() -> None:
         Path(__file__).resolve().parents[3] / "packages" / "plugins" / "mbplugin_quote"
     )
     offenders = [
-        path.name
-        for path in quote_dir.glob("*.py")
-        if "from mbplugin_recorder" in path.read_text(encoding="utf-8")
+        path.relative_to(quote_dir).as_posix()
+        for path in quote_dir.rglob("*.py")
+        if re.search(
+            r"^\s*(?:from|import)\s+mbplugin_recorder\b",
+            path.read_text(encoding="utf-8"),
+            re.M,
+        )
     ]
     assert not offenders, (
         "quote 只能通过 recorder_service share 的公开方法取窗口, 不能 import recorder 的 DB 视图: "

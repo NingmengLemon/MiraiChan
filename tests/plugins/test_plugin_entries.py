@@ -10,13 +10,24 @@ unsupported``)。这个问题单元测试碰不到, 因为测试不会 import �
 
 from __future__ import annotations
 
+import ast
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _ALL_ENTRY_FILES = sorted((REPO_ROOT / "packages" / "plugins").glob("*/__plugin__.py"))
+
+
+def _workspace_plugin_names() -> set[str]:
+    data = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    return {
+        dependency.split("[", 1)[0].split(">", 1)[0].split("=", 1)[0].strip()
+        for dependency in data["project"]["dependencies"]
+        if dependency.startswith("mbplugin_")
+    }
 
 
 def _tracked_entries() -> list[Path]:
@@ -39,7 +50,7 @@ ENTRY_FILES = _tracked_entries()
 
 
 def test_entry_modules_exist() -> None:
-    assert len(ENTRY_FILES) >= 10
+    assert {path.parent.name for path in ENTRY_FILES} == _workspace_plugin_names()
 
 
 @pytest.mark.parametrize("path", ENTRY_FILES, ids=[p.parent.name for p in ENTRY_FILES])
@@ -56,8 +67,17 @@ def test_entry_module_does_not_postpone_annotations(path: Path) -> None:
 
 @pytest.mark.parametrize("path", ENTRY_FILES, ids=[p.parent.name for p in ENTRY_FILES])
 def test_entry_module_does_not_load_settings_synchronously(path: Path) -> None:
-    text = path.read_text(encoding="utf-8")
-    assert "cfgloader.load()" not in text, (
-        f"{path.parent.name}/__plugin__.py 不能在事件循环里同步 load 配置; "
-        "延迟初始化用 await cfgloader.load_async()"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    offenders = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "load"
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "cfgloader"
+    ]
+    assert not offenders, (
+        f"{path.parent.name}/__plugin__.py 不能在事件循环里同步 load 配置 "
+        f"(line {offenders[0].lineno}); 延迟初始化用 await cfgloader.load_async()"
     )
