@@ -50,7 +50,6 @@ cfgloader = require(
     model=RebootablePluginConfig,
     identifier=PLUGIN_IDENTIFIER,
 )
-cfgloader.load()
 
 _who = "owner 与 bot 管理员" if cfgloader.value.allow_admins else "owner"
 register_help(

@@ -66,7 +66,6 @@ plugin = PluginPlanner(
 )
 
 cfgloader = require(model=ProvenanceSettings, identifier=PLUGIN_IDENTIFIER)
-cfgloader.load()
 
 _access = access_level(cfgloader.value.allow_all, cfgloader.value.allow_admins)
 _WHO = {"all": "所有群成员", "admins": "owner 与 bot 管理员", "owner": "owner"}

@@ -29,3 +29,45 @@ beartype.roar.BeartypeDoorNonpepException: Type hint 'MessageEvent' currently un
 
 单元测试发现不了, 因为测试不会 import 入口模块 (那需要 bot 实例)。`tests/plugins/test_plugin_entries.py`
 会静态检查所有入口模块, 不要在入口模块里加这一行; 其它模块用不用无所谓。
+
+## 初始化与配置加载
+
+默认用延迟初始化: `require(..., auto_load=False)`, 在 `on_ready` 里 `await cfgloader.load_async()`
+建好运行期对象, handler 先看 `state.ready`:
+
+```python
+cfgloader = require(model=Settings, identifier=PLUGIN_IDENTIFIER, auto_load=False)
+
+
+class _State:
+    ready = False
+    settings: Settings
+    # 其它需要初始化的对象
+
+
+state = _State()
+
+
+@plugin.on_ready
+async def _() -> None:
+    try:
+        await cfgloader.load_async()
+        state.settings = cfgloader.value
+        # 初始化数据库、线程池、资源等
+        state.ready = True
+    except Exception:
+        logger.exception(f"{PLUGIN_IDENTIFIER} 初始化失败, 插件将不响应")
+
+
+@plugin.use
+@on_command(...)
+async def handler(...) -> None:
+    if not state.ready:
+        return
+    ...
+```
+
+例外: 命令名、别名或帮助文本必须由配置决定时, 只能在 import 时让 `require()` 自动加载
+(provenance / rebootable / deeeer 属于这一类)。此时不要再手动调 `cfgloader.load()` 或
+`load_async()`; 配置损坏会让插件在加载阶段失败, 这是该模式的已知代价。
+`tests/plugins/test_plugin_entries.py` 会静态禁止入口模块里的同步 `cfgloader.load()`。

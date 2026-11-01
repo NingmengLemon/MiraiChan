@@ -32,3 +32,12 @@ def test_entry_module_does_not_postpone_annotations(path: Path) -> None:
         f"{path.parent.name}/__plugin__.py 不能使用 postponed annotations: "
         "handler 注解会变成字符串, melobot 的 beartype 无法解析, 插件加载即失败"
     )
+
+
+@pytest.mark.parametrize("path", ENTRY_FILES, ids=[p.parent.name for p in ENTRY_FILES])
+def test_entry_module_does_not_load_settings_synchronously(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    assert "cfgloader.load()" not in text, (
+        f"{path.parent.name}/__plugin__.py 不能在事件循环里同步 load 配置; "
+        "延迟初始化用 await cfgloader.load_async()"
+    )

@@ -1,3 +1,4 @@
+import asyncio
 import time
 
 from lemony_checkers import get_checker_factory, require_permission
@@ -32,12 +33,33 @@ class MoeLotConfig(BaseSettings):
 cfgloader = require(
     model=MoeLotConfig,
     identifier=PLUGIN_IDENTIFIER,
+    auto_load=False,
 )
+
+
+class _State:
+    ready = False
+    settings: MoeLotConfig
+    box: LotteryBox
+
+
+state = _State()
 logger = get_logger()
-moelot = LotteryBox(cfgloader.value.moedata_file)
 cd_table: dict[
     tuple[int, int], str
 ] = {}  # (user_id, group_id) -> date_str (精度为天), 用于冷却
+
+
+@MoeLottery.on_ready
+async def _() -> None:
+    # melobot 会吞掉 hook 里的异常, 失败时只记日志, 让 handler 放弃
+    try:
+        await cfgloader.load_async()
+        state.settings = cfgloader.value
+        state.box = await asyncio.to_thread(LotteryBox, state.settings.moedata_file)
+        state.ready = True
+    except Exception:
+        logger.exception("moelottery 初始化失败, 插件将不响应")
 
 
 @MoeLottery.use
@@ -48,11 +70,13 @@ cd_table: dict[
 )
 @require_permission(PLUGIN_IDENTIFIER, "draw_attrs")
 async def draw_attrs(event: GroupMessageEvent, adapter: Adapter, logger: GenericLogger):
+    if not state.ready:
+        return
     if not event.sender.user_id:
         # sender_id 为 None 是旧 QQ 的匿名用户, 现代 QQ 已经没有了
         # 但是我们亲爱的 OneBot11 协议仍然保留了这个特性, 以至于我们不得不在这里处理一下
         return  # 直接静默拒绝
-    gid = event.group_id if cfgloader.value.group_isolation else 0
+    gid = event.group_id if state.settings.group_isolation else 0
     uid = event.sender.user_id
     factory = get_checker_factory()
     user = factory.extract_user(event)
@@ -61,9 +85,9 @@ async def draw_attrs(event: GroupMessageEvent, adapter: Adapter, logger: Generic
     if cd_table.get((uid, gid)) == now_date and not is_owner:
         await adapter.send_reply("今天已经抽过了噢")
         return
-    moeattr = moelot.lot()
+    moeattr = state.box.lot()
     logger.debug(f"{moeattr=}")
-    await adapter.send_reply(f"你今天的人设是{moelot.build_response_text(moeattr)}！")
+    await adapter.send_reply(f"你今天的人设是{state.box.build_response_text(moeattr)}！")
     # 冷却记账放在抽签与发送都成功之后: 失败时不应该消耗当天的次数。
     # cd_table 只在内存里, 重启即失效 (相当于重启赦免一次), 这是当前的取舍。
     cd_table[(uid, gid)] = now_date
