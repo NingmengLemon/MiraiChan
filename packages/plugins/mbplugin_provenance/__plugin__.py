@@ -306,12 +306,6 @@ async def _run_check(
             except ProvenanceError as exc:
                 reports.append(f"图片 {index}/{len(images)}: {exc}")
                 continue
-            except aiohttp.ClientError as exc:
-                logger.debug("图片下载失败", exc_info=True)
-                reports.append(
-                    f"图片 {index}/{len(images)}: 下载失败 ({type(exc).__name__})"
-                )
-                continue
 
             # 按内容摘要去重: 刚查过直接复用, 正在查的跳过, 避免重复花钱
             digest = hashlib.sha256(data).hexdigest()
