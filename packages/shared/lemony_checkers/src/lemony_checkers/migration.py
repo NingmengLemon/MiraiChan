@@ -10,8 +10,7 @@ from typing import Any, Literal
 import json5
 import tomli
 import yaml
-from lemony_settings.readwriter import get_readwriter
-from lemony_settings.utils import ensure_config_path
+from lemony_settings import ensure_config_path, get_readwriter
 from melobot.protocols.onebot.v11.const import (
     PROTOCOL_IDENTIFIER as OB11_PROTOCOL_IDENTIFIER,
 )

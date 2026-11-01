@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from lemony_settings.models import BaseSettings
+from lemony_settings import BaseSettings, get_secret
 from pydantic import Field
 
 from .errors import LLMConfigError
@@ -66,8 +66,6 @@ class EndpointSpec:
 
 
 def _lemony_secret(key: str) -> str | None:
-    from lemony_settings.credentials import get_secret
-
     return get_secret(key)
 
 

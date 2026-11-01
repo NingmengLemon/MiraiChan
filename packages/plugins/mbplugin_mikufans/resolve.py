@@ -12,7 +12,7 @@ import logging
 import re
 from collections.abc import Awaitable, Callable
 
-from lemony_network.request import HTTP_HEADERS
+from lemony_network import HTTP_HEADERS
 
 from .links import is_mikufans_url, strip_tracking
 

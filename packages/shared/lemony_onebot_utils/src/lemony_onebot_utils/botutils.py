@@ -8,7 +8,7 @@ from pathlib import Path
 import aiofiles
 from aiohttp import ClientSession, ClientTimeout
 from lemony_images import bytes_to_b64_url, text_to_image
-from lemony_network.request import HTTP_HEADERS, async_http
+from lemony_network import HTTP_HEADERS, async_http
 from lemony_storage_helper.files import atomic_write_bytes, data_path
 from lemony_utils.misc import to_ordinal
 from melobot import get_bot

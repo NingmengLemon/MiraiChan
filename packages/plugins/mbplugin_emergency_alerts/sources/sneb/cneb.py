@@ -2,7 +2,7 @@ from datetime import date
 from typing import Literal, TypedDict
 
 from aiohttp import ClientSession
-from lemony_network.request import HTTP_HEADERS
+from lemony_network import HTTP_HEADERS
 from pydantic import TypeAdapter
 
 CNEB_API = "https://gdapi.cnr.cn/yjwnews"

@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from typing import Any, cast
 
 import pytest
-from lemony_network.request import ResponseTooLargeError, download_bytes
+from lemony_network import ResponseTooLargeError, download_bytes
 
 
 class _Content:

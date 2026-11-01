@@ -11,12 +11,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from lemony_settings import get_readwriter
 from lemony_settings.readwriter import (
     ConfigReadWriterABC,
     JsonReadWriter,
     TomlReadWriter,
     YamlReadWriter,
-    get_readwriter,
 )
 from pydantic import BaseModel
 

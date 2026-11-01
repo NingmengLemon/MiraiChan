@@ -4,7 +4,7 @@ from typing import Any, NotRequired, TypedDict
 
 import json5
 from aiohttp import ClientSession
-from lemony_network.request import HTTP_HEADERS
+from lemony_network import HTTP_HEADERS
 from pydantic import TypeAdapter
 
 LOCATION_DATA_URL = "https://www.cneb.gov.cn/2021csy/js/addressDPage.js"
