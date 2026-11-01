@@ -1,4 +1,5 @@
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
@@ -126,6 +127,34 @@ class RecorderService:
                 )
 
             return [*earlier_messages[::-1], base_message, *later_messages]
+
+    async def query_message_window(
+        self,
+        *,
+        account_protocol: str,
+        account_self_id: str,
+        conversation_type: str,
+        conversation_external_id: str,
+        base_external_message_id: str,
+        start: int = 0,
+        end: int = 0,
+        sender_only: bool = False,
+        exclude_sender_external_ids: Sequence[str] = (),
+    ) -> list[MessageView] | None:
+        """按原始参数取消息窗口, 供不 import recorder 内部视图的插件使用."""
+        return await self.get_message_window(
+            MessageWindowQuery(
+                account_protocol=account_protocol,
+                account_self_id=account_self_id,
+                conversation_type=conversation_type,
+                conversation_external_id=conversation_external_id,
+                base_external_message_id=base_external_message_id,
+                start=start,
+                end=end,
+                sender_only=sender_only,
+                exclude_sender_external_ids=tuple(exclude_sender_external_ids),
+            )
+        )
 
     async def get_message_window(
         self, query: MessageWindowQuery

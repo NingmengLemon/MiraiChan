@@ -138,6 +138,27 @@ async def test_window_offsets(
 
 
 @pytest.mark.asyncio
+async def test_public_window_query_accepts_plain_arguments(
+    service: RecorderService,
+) -> None:
+    views = await service.query_message_window(
+        account_protocol=PROTOCOL,
+        account_self_id=SELF_ID,
+        conversation_type="group",
+        conversation_external_id=GROUP,
+        base_external_message_id=BASE,
+        start=-2,
+        end=0,
+    )
+    assert views is not None
+    assert [(v.offset, v.external_message_id) for v in views] == [
+        (-2, "m2"),
+        (-1, "m3"),
+        (0, "m4"),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_sender_only_counts_offsets_among_same_sender(
     service: RecorderService,
 ) -> None:

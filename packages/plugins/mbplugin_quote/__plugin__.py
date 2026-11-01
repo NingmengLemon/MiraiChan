@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from lemony_checkers import get_checker_factory
 from lemony_checkers.core import check_command_permission
@@ -264,23 +265,21 @@ def _recorder():
 
 
 def _window_query(event: GroupMessageEvent):
-    def make(req: ChatRequest, base_id: str):
-        from mbplugin_recorder.db.views import MessageWindowQuery
-
-        return MessageWindowQuery(
-            account_protocol=str(event.protocol),
-            account_self_id=str(event.self_id),
-            conversation_type="group",
-            conversation_external_id=str(event.group_id),
-            base_external_message_id=base_id,
-            start=req.start,
-            end=req.end,
-            sender_only=req.sender_only,
+    def make(req: ChatRequest, base_id: str) -> dict[str, Any]:
+        return {
+            "account_protocol": str(event.protocol),
+            "account_self_id": str(event.self_id),
+            "conversation_type": "group",
+            "conversation_external_id": str(event.group_id),
+            "base_external_message_id": base_id,
+            "start": req.start,
+            "end": req.end,
+            "sender_only": req.sender_only,
             # 默认不引用 bot 自己: bot 的消息不进窗口, 偏移也不数它们
-            exclude_sender_external_ids=(
+            "exclude_sender_external_ids": (
                 () if state.settings.allow_quote_self else (str(event.self_id),)
             ),
-        )
+        }
 
     return make
 

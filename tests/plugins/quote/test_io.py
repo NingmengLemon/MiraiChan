@@ -38,9 +38,9 @@ class View:
 class FakeRecorder:
     def __init__(self, views):
         self.views = views
-        self.queries: list = []
+        self.queries: list[dict] = []
 
-    async def get_message_window(self, query):
+    async def query_message_window(self, **query):
         self.queries.append(query)
         return self.views
 
@@ -53,7 +53,12 @@ async def fetch_one(mid: str):
 
 
 def make_query(req, mid):
-    return (req.start, req.end, req.sender_only, mid)
+    return {
+        "start": req.start,
+        "end": req.end,
+        "sender_only": req.sender_only,
+        "base_external_message_id": mid,
+    }
 
 
 @pytest.mark.asyncio
@@ -73,7 +78,14 @@ async def test_recorder_hit() -> None:
         "card",
         ("p",),
     )
-    assert rec.queries == [(-1, 0, False, "b")]
+    assert rec.queries == [
+        {
+            "start": -1,
+            "end": 0,
+            "sender_only": False,
+            "base_external_message_id": "b",
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -105,6 +117,21 @@ async def test_nothing_found() -> None:
         ChatRequest(), "zz", recorder=None, make_query=make_query, fetch_one=fetch_one
     )
     assert r is None
+
+
+def test_quote_does_not_import_recorder_internals() -> None:
+    quote_dir = (
+        Path(__file__).resolve().parents[3] / "packages" / "plugins" / "mbplugin_quote"
+    )
+    offenders = [
+        path.name
+        for path in quote_dir.glob("*.py")
+        if "from mbplugin_recorder" in path.read_text(encoding="utf-8")
+    ]
+    assert not offenders, (
+        "quote 只能通过 recorder_service share 的公开方法取窗口, 不能 import recorder 的 DB 视图: "
+        f"{offenders}"
+    )
 
 
 def test_source_from_onebot_drops_card_equal_to_nickname() -> None:

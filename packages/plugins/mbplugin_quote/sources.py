@@ -44,14 +44,14 @@ class _MessageViewLike(Protocol):
 class RecorderLike(Protocol):
     """mbplugin_recorder.service.RecorderService 的最小接口"""
 
-    async def get_message_window(self, query: Any) -> Sequence[Any] | None: ...
+    async def query_message_window(self, **query: Any) -> Sequence[Any] | None: ...
 
 
 MessageFetcher = Callable[[str], Awaitable[SourceMessage | None]]
 """按消息 id 现取一条消息 (get_msg), 取不到返回 None"""
 
-QueryFactory = Callable[[ChatRequest, str], Any]
-"""(请求, 基准消息 id) -> recorder 的 MessageWindowQuery"""
+QueryFactory = Callable[[ChatRequest, str], dict[str, Any]]
+"""(请求, 基准消息 id) -> query_message_window 的关键字参数"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,7 +108,9 @@ async def fetch_messages(
 ) -> FetchResult | None:
     """取引用所需的消息。取不到任何消息时返回 None"""
     if recorder is not None:
-        views = await recorder.get_message_window(make_query(req, base_message_id))
+        views = await recorder.query_message_window(
+            **make_query(req, base_message_id)
+        )
         if views is not None:
             return FetchResult(tuple(_from_view(v) for v in views), from_recorder=True)
     one = await fetch_one(base_message_id)
