@@ -8,7 +8,7 @@ dependencies = [
     "aiofiles",
     "aiohttp>=3.13.3",
     "lemony_checkers",
-    "lemony_storage_helper[sqlite]",
+    "lemony_storage_helper[sqlite,files]",
     "lemony_utils",
     "lemony_network",
     "melobot[onebot]>=3.5.1",
