@@ -1,4 +1,5 @@
 import json
+import os
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -76,6 +77,7 @@ class YamlReadWriter(ConfigReadWriterABC):
             file,
             yaml.safe_dump(data.model_dump(), allow_unicode=True),
             preserve_mode=True,
+            newline=os.linesep,
         )
 
 
@@ -92,6 +94,7 @@ class JsonReadWriter(ConfigReadWriterABC):
             file,
             json.dumps(data.model_dump(), indent=4, ensure_ascii=False),
             preserve_mode=True,
+            newline=os.linesep,
         )
 
 

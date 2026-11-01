@@ -56,6 +56,14 @@ def test_text_roundtrip_and_encoding(tmp_path: Path) -> None:
     assert (tmp_path / "b.txt").read_bytes() == "gbk 内容".encode("gbk")
 
 
+def test_text_newline_conversion_is_opt_in(tmp_path: Path) -> None:
+    target = tmp_path / "a.txt"
+    atomic_write_text(target, "a\nb", newline="\r\n")
+    assert target.read_bytes() == b"a\r\nb"
+    atomic_write_text(target, "a\nb")
+    assert target.read_bytes() == b"a\nb"
+
+
 def test_failed_replace_keeps_old_file_and_cleans_tmp(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

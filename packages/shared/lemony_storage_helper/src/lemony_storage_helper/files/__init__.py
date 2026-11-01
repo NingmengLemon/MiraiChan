@@ -315,8 +315,14 @@ def atomic_write_text(
     encoding: str = "utf-8",
     fsync: bool = True,
     preserve_mode: bool = False,
+    newline: str | None = None,
 ) -> Path:
-    """原子写入文本, 其余同 ``atomic_write_bytes``"""
+    """原子写入文本, 其余同 ``atomic_write_bytes``.
+
+    ``newline`` 用于复现文本模式的换行转换; 默认保持传入文本的字节不变.
+    """
+    if newline is not None:
+        text = text.replace("\r\n", "\n").replace("\n", newline)
     return atomic_write_bytes(
         path, text.encode(encoding), fsync=fsync, preserve_mode=preserve_mode
     )
