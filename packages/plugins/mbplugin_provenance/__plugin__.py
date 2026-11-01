@@ -13,8 +13,6 @@ from typing import Any
 
 import aiohttp
 from lemony_checkers import get_checker_factory, get_checker_factory_wrapper
-from lemony_network.qqntmedia_sslcontext import QQNTMEDIA_SSL_CONTEXT
-from lemony_network.request import HTTP_HEADERS
 from lemony_onebot_utils.botutils import reply_message_id
 from lemony_onebot_utils.onebot_ext import SetGroupReaction, try_extension
 from lemony_settings import BaseSettings, get_secret, require
@@ -27,7 +25,7 @@ from melobot.protocols.onebot.v11.adapter.event import GroupMessageEvent, Messag
 from pydantic import Field
 
 from .client import ProvenanceError, ProvenanceResult, check_image
-from .images import image_payloads, local_candidates, mime_of
+from .images import download_image, image_payloads, local_candidates, mime_of
 from .report import format_report
 from .runtime import CheckRegistry, Cooldown, access_level, reaction_code
 
@@ -171,25 +169,6 @@ async def _recorder_image_paths(
     return tuple(result)
 
 
-async def _download(session: aiohttp.ClientSession, url: str) -> bytes:
-    # QQ NT 图床要特定的 TLS 设置; 其余地址用 aiohttp 默认校验
-    ssl = QQNTMEDIA_SSL_CONTEXT if "multimedia.nt.qq.com.cn" in url else True
-    timeout = aiohttp.ClientTimeout(total=cfgloader.value.timeout)
-    async with session.get(
-        url, ssl=ssl, headers=dict(HTTP_HEADERS), timeout=timeout
-    ) as response:
-        response.raise_for_status()
-        max_bytes = cfgloader.value.max_image_bytes
-        if (response.content_length or 0) > max_bytes:
-            raise ProvenanceError("图片太大了")
-        buffer = bytearray()
-        async for chunk in response.content.iter_chunked(64 * 1024):
-            buffer.extend(chunk)
-            if len(buffer) > max_bytes:
-                raise ProvenanceError("图片太大了")
-        return bytes(buffer)
-
-
 async def _image_bytes(
     seg_data: Mapping[str, Any],
     session: aiohttp.ClientSession,
@@ -215,7 +194,12 @@ async def _image_bytes(
         return data, mime_of(data, seg_data, None)
     url = seg_data.get("url")
     if isinstance(url, str) and url:
-        data = await _download(session, url)
+        data = await download_image(
+            session,
+            url,
+            total_timeout=cfgloader.value.timeout,
+            max_bytes=max_bytes,
+        )
         return data, mime_of(data, seg_data, url)
     raise ProvenanceError("取不到这张图片 (既没有本地文件也没有下载地址)")
 

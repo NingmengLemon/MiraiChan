@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
+import aiohttp
+from lemony_network.qqntmedia_sslcontext import QQNTMEDIA_SSL_CONTEXT
+from lemony_network.request import HTTP_HEADERS
 from lemony_storage_helper.files import (
     get_data_root,
     is_data_root_set,
@@ -15,7 +18,15 @@ from lemony_storage_helper.files import (
     safe_suffix,
 )
 
-__all__ = ["image_payloads", "local_candidates", "mime_of", "segment_dict"]
+from .client import ProvenanceError
+
+__all__ = [
+    "download_image",
+    "image_payloads",
+    "local_candidates",
+    "mime_of",
+    "segment_dict",
+]
 
 _SUFFIX_MIME = {
     ".png": "image/png",
@@ -110,3 +121,30 @@ def mime_of(data: bytes, seg_data: Mapping[str, Any], url: str | None) -> str:
         return mime
     suffix = safe_suffix(url) or safe_suffix(seg_data.get("file"))
     return _SUFFIX_MIME.get(suffix, "application/octet-stream")
+
+
+async def download_image(
+    session: aiohttp.ClientSession,
+    url: str,
+    *,
+    total_timeout: float,
+    max_bytes: int,
+) -> bytes:
+    """下载一张图片; 超时、网络错误与超限都转成 ``ProvenanceError``."""
+    ssl = QQNTMEDIA_SSL_CONTEXT if "multimedia.nt.qq.com.cn" in url else True
+    client_timeout = aiohttp.ClientTimeout(total=total_timeout)
+    try:
+        async with session.get(
+            url, ssl=ssl, headers=dict(HTTP_HEADERS), timeout=client_timeout
+        ) as response:
+            response.raise_for_status()
+            if (response.content_length or 0) > max_bytes:
+                raise ProvenanceError("图片太大了")
+            buffer = bytearray()
+            async for chunk in response.content.iter_chunked(64 * 1024):
+                buffer.extend(chunk)
+                if len(buffer) > max_bytes:
+                    raise ProvenanceError("图片太大了")
+            return bytes(buffer)
+    except (TimeoutError, aiohttp.ClientError) as exc:
+        raise ProvenanceError("图片下载超时或失败") from exc

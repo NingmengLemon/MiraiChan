@@ -2,10 +2,14 @@
 
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
+import aiohttp
 import pytest
 from lemony_storage_helper.files import set_data_root
+from mbplugin_provenance.client import ProvenanceError
 from mbplugin_provenance.images import (
+    download_image,
     image_payloads,
     local_candidates,
     mime_of,
@@ -97,3 +101,24 @@ def test_unknown_segment_objects_are_ignored() -> None:
 @pytest.mark.parametrize("value", [None, 1, ["x"]])
 def test_non_mapping_data_is_ignored(value: object) -> None:
     assert image_payloads(_payload({"type": "image", "data": value})) == []
+
+
+class _FailingSession:
+    def __init__(self, exc: BaseException) -> None:
+        self._exc = exc
+
+    def get(self, *_args: object, **_kwargs: object) -> object:
+        raise self._exc
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("exc", [TimeoutError(), aiohttp.ClientConnectionError("down")])
+async def test_download_errors_are_reported_per_image(exc: BaseException) -> None:
+    session = cast(Any, _FailingSession(exc))
+    with pytest.raises(ProvenanceError, match="下载超时或失败"):
+        await download_image(
+            session,
+            "https://example.invalid/x",
+            total_timeout=1,
+            max_bytes=10,
+        )
