@@ -1,11 +1,28 @@
+"""ffmpeg 的轻量封装: 错误带 stderr, 调用方可设超时."""
+
+import logging
 import subprocess
 
+logger = logging.getLogger(__name__)
 
-def call_ffmpeg(*args: str, check=True):
-    cmd = ["ffmpeg", "-loglevel", "quiet", "-nostdin", "-hide_banner"]
+
+def call_ffmpeg(
+    *args: str,
+    check: bool = True,
+    timeout: float | None = None,
+) -> int:
+    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-nostdin", "-hide_banner"]
     cmd.extend(args)
-    p = subprocess.run(cmd, capture_output=True, text=True, check=check)
-    return p.returncode
+    process = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    if process.returncode != 0:
+        logger.error(
+            "ffmpeg 失败 (exit=%s): %s", process.returncode, process.stderr[-4000:]
+        )
+        if check:
+            raise subprocess.CalledProcessError(
+                process.returncode, cmd, process.stdout, process.stderr
+            )
+    return process.returncode
 
 
 def merge_avfile(
@@ -15,6 +32,7 @@ def merge_avfile(
     cover_image: str | None = None,
     metadata: dict[str, str] | None = None,
     check: bool = True,
+    timeout: float | None = None,
 ) -> int:
     """调用ffmpeg进行合流，并能添加元数据"""
     args = ["-i", vi_file]
@@ -37,7 +55,7 @@ def merge_avfile(
             args.extend(["-metadata", f"{key}={value}"])
 
     args.append(output_file)
-    return call_ffmpeg(*args, check=check)
+    return call_ffmpeg(*args, check=check, timeout=timeout)
 
 
 def convert_audio(
@@ -47,6 +65,7 @@ def convert_audio(
     metadata: dict[str, str] | None = None,
     cover_image: str | None = None,
     check: bool = True,
+    timeout: float | None = None,
 ) -> int:
     """
     转换音频文件格式，且能添加元数据和封面图片
@@ -79,4 +98,4 @@ def convert_audio(
             args.extend(["-metadata", f"{key}={value}"])
 
     args.append(output_file)
-    return call_ffmpeg(*args, check=check)
+    return call_ffmpeg(*args, check=check, timeout=timeout)

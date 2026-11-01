@@ -1,5 +1,7 @@
+import argparse
 import os
 import shutil
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
@@ -22,6 +24,21 @@ TO_EXT = ".mp3"
 COPY_EXTS = (".lrc",)
 
 IGNORE_KWLIST = ("SyncToy_",)
+
+
+def _within(root: str, path: str) -> bool:
+    try:
+        return os.path.commonpath(
+            [os.path.abspath(root), os.path.abspath(path)]
+        ) == os.path.abspath(root)
+    except ValueError:
+        return False
+
+
+def _safe_remove(root: str, path: str) -> None:
+    if not _within(root, path):
+        raise RuntimeError(f"拒绝删除目录外的路径: {path}")
+    os.remove(path)
 
 
 @dataclass
@@ -71,18 +88,18 @@ def straight_sync(src: str, dst: str):
                     ) <= os.path.getmtime(dfile):
                         stat.skip += 1
                         continue
-                    os.remove(dfile)
+                    # 交给 ffmpeg -y 覆盖; 失败时至少不会先把旧文件删掉
                     stat.override += 1
                 else:
                     stat.create += 1
             else:
-                if os.path.exists(dfile):
-                    if os.path.getsize(dfile) > 0 and os.path.getmtime(
-                        sfile
-                    ) <= os.path.getmtime(dfile):
-                        stat.skip += 1
-                        continue
-                    os.remove(dfile)
+                if (
+                    os.path.exists(dfile)
+                    and os.path.getsize(dfile) > 0
+                    and os.path.getmtime(sfile) <= os.path.getmtime(dfile)
+                ):
+                    stat.skip += 1
+                    continue
                 shutil.copyfile(sfile, dfile)
                 stat.copy += 1
                 continue
@@ -98,6 +115,8 @@ def reversed_sync(src: str, dst: str):
     for droot, _, dfilenames in os.walk(dst):
         sroot = droot.replace(dst, src)
         if os.path.exists(droot) and not os.path.exists(sroot):
+            if not _within(dst, droot):
+                raise RuntimeError(f"拒绝删除目录外的路径: {droot}")
             shutil.rmtree(droot)
             stat.dfolder += 1
             continue
@@ -116,37 +135,60 @@ def reversed_sync(src: str, dst: str):
                     flag = 1
                     break
             if flag == 0:
-                os.remove(dfile)
+                _safe_remove(dst, dfile)
                 stat.dfile += 1
     return stat
 
 
-if __name__ == "__main__":
-    srcdir = input("src:")
-    dstdir = input("dst:")
+def _convert(source: str, target: str, timeout: float) -> int:
+    return convert_audio(source, target, quality="128k", timeout=timeout)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="批量同步并压缩音乐库")
+    parser.add_argument("src", nargs="?")
+    parser.add_argument("dst", nargs="?")
+    parser.add_argument("--timeout", type=float, default=600.0)
+    parser.add_argument("--workers", type=int, default=16)
+    args = parser.parse_args()
+    srcdir = args.src or input("src:")
+    dstdir = args.dst or input("dst:")
+
     counter = 0
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    failed: list[BaseException] = []
+    with ThreadPoolExecutor(max_workers=max(1, args.workers)) as executor:
         futures = []
         gen = straight_sync(srcdir, dstdir)
         ret = None
         while True:
             try:
-                args, kwargs = next(gen)
-                futures.append(
-                    executor.submit(
-                        lambda *args_, **kwargs_: (
-                            convert_audio(*args_, **kwargs_),
-                            *args_,
-                        ),
-                        *args,
-                        **kwargs,
-                        check=False,
-                    )
-                )
-            except StopIteration as e:
-                ret = e.value
+                conv_args, _kwargs = next(gen)
+            except StopIteration as exc:
+                ret = exc.value
                 break
+            except Exception:  # noqa: BLE001 - 扫描失败要转成非零退出码
+                print("扫描源目录失败", file=sys.stderr)
+                return 1
+            futures.append(
+                executor.submit(_convert, conv_args[0], conv_args[1], args.timeout)
+            )
         for future in as_completed(futures):
-            print(counter := counter + 1, ", code =", *future.result(), sep="\t")
+            try:
+                code = future.result()
+            except Exception as exc:  # noqa: BLE001 - 汇总转换失败
+                failed.append(exc)
+                print(f"转换失败: {exc}", file=sys.stderr)
+                continue
+            counter += 1
+            print(counter, "code =", code)
         print(ret)
+
+    if failed:
+        print(f"{len(failed)} 个文件转换失败, 未执行反向清理", file=sys.stderr)
+        return 1
     print(reversed_sync(srcdir, dstdir))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
