@@ -41,6 +41,15 @@ class _Session:
         return self._response
 
 
+class _CaptureSession:
+    def __init__(self) -> None:
+        self.kwargs: dict[str, Any] = {}
+
+    def request(self, *_args: Any, **kwargs: Any) -> _Response:
+        self.kwargs = kwargs
+        return _Response([b"x"])
+
+
 @pytest.mark.asyncio
 async def test_download_bytes_returns_all_chunks() -> None:
     session = _Session(_Response([b"abc", b"def"], content_length=6))
@@ -68,3 +77,20 @@ async def test_download_bytes_rejects_streamed_size() -> None:
         await download_bytes(
             cast(Any, session), "https://example.invalid/x", max_bytes=10
         )
+
+
+@pytest.mark.asyncio
+async def test_qqnt_tls_only_for_the_exact_hostname() -> None:
+    exact = _CaptureSession()
+    await download_bytes(
+        cast(Any, exact), "https://multimedia.nt.qq.com.cn/x", max_bytes=10
+    )
+    assert exact.kwargs["ssl"] is not True
+
+    spoofed = _CaptureSession()
+    await download_bytes(
+        cast(Any, spoofed),
+        "https://evil.example/multimedia.nt.qq.com.cn/x",
+        max_bytes=10,
+    )
+    assert spoofed.kwargs["ssl"] is True

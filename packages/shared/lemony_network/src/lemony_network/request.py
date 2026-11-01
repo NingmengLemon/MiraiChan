@@ -7,6 +7,7 @@ from typing import (
     Literal,
     Unpack,
 )
+from urllib.parse import urlparse
 
 from aiohttp import (
     ClientResponse,
@@ -16,7 +17,7 @@ from aiohttp import (
 from aiohttp.client import _RequestOptions
 from yarl import URL
 
-from .qqntmedia_sslcontext import QQNTMEDIA_SSL_CONTEXT
+from .qqntmedia_sslcontext import qqntmedia_ssl_context
 
 UrlStr = URL | str
 _HTTP_HEADERS = {
@@ -80,7 +81,8 @@ async def download_bytes(
     headers: Mapping[str, str] | None = None,
 ) -> bytes:
     """下载完整响应体并限制大小; QQ NT 图床自动使用专用 TLS 配置."""
-    ssl = QQNTMEDIA_SSL_CONTEXT if "multimedia.nt.qq.com.cn" in str(url) else True
+    hostname = urlparse(str(url)).hostname
+    ssl = qqntmedia_ssl_context() if hostname == "multimedia.nt.qq.com.cn" else True
     kwargs: dict[str, Any] = {"ssl": ssl}
     if total_timeout is not None:
         kwargs["timeout"] = ClientTimeout(total=total_timeout)
