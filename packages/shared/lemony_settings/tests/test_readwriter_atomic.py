@@ -87,6 +87,22 @@ def test_each_write_uses_its_own_temp_file(
     assert writer.read(path, _Model) == _Model(mode="blacklist")
 
 
+@pytest.mark.parametrize("writer_cls", [JsonReadWriter, YamlReadWriter])
+def test_text_writers_use_platform_newline(
+    writer_cls: type[ConfigReadWriterABC],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """JSON/YAML 要复现旧文本模式的 os.linesep 行为."""
+    monkeypatch.setattr(os, "linesep", "\r\n")
+    path = tmp_path / "cfg.out"
+    writer_cls().write(path, _Model(mode="whitelist"))
+
+    data = path.read_bytes()
+    assert b"\r\n" in data
+    assert b"\n" not in data.replace(b"\r\n", b"")
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX 权限位")
 def test_existing_file_mode_is_preserved(tmp_path: Path) -> None:
     path = tmp_path / "cfg.json"
