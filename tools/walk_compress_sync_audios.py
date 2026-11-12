@@ -29,9 +29,10 @@ IGNORE_KWLIST = ("SyncToy_",)
 
 def _within(root: str, path: str) -> bool:
     try:
-        return os.path.commonpath(
-            [os.path.realpath(root), os.path.realpath(path)]
-        ) == os.path.realpath(root)
+        root_real = os.path.realpath(root)
+        return os.path.normcase(
+            os.path.commonpath([root_real, os.path.realpath(path)])
+        ) == os.path.normcase(root_real)
     except ValueError:
         return False
 
@@ -39,7 +40,49 @@ def _within(root: str, path: str) -> bool:
 def _safe_remove(root: str, path: str) -> None:
     if not _within(root, path):
         raise RuntimeError(f"拒绝删除目录外的路径: {path}")
+    if os.path.normcase(os.path.realpath(path)) == os.path.normcase(
+        os.path.realpath(root)
+    ):
+        raise RuntimeError(f"拒绝删除同步根目录本身: {path}")
     os.remove(path)
+
+
+def _relative_to(root: str, path: str) -> str:
+    """root 下的相对路径; 跨盘符时 relpath 会拒绝, 退回前缀切片。"""
+    try:
+        return os.path.relpath(path, root)
+    except ValueError:
+        root_abs = os.path.abspath(root)
+        path_abs = os.path.abspath(path)
+        root_key = os.path.normcase(root_abs)
+        path_key = os.path.normcase(path_abs)
+        if path_key == root_key:
+            return "."
+        prefix = root_key + os.sep
+        if not path_key.startswith(prefix):
+            raise
+        return path_abs[len(root_abs) :].lstrip("\\/")
+
+
+def _prepare_roots(src: str, dst: str) -> tuple[str, str]:
+    """规范化并校验同步两端, 避免把目标根目录当成待清理的旧目录。"""
+    src = os.path.normpath(os.path.abspath(src))
+    dst = os.path.normpath(os.path.abspath(dst))
+    if not os.path.isdir(src):
+        raise ValueError(f"源目录不存在或不是目录: {src}")
+    src_real = os.path.realpath(src)
+    dst_real = os.path.realpath(dst)
+    src_key = os.path.normcase(src_real)
+    dst_key = os.path.normcase(dst_real)
+    if src_key == dst_key:
+        raise ValueError("源目录和目标目录不能相同")
+    try:
+        common = os.path.normcase(os.path.commonpath([src_real, dst_real]))
+    except ValueError:
+        common = None
+    if common in (src_key, dst_key):
+        raise ValueError("源目录和目标目录不能互相包含")
+    return src, dst
 
 
 @dataclass
@@ -59,13 +102,13 @@ class RevStat:
 
 
 def straight_sync(src: str, dst: str):
-    src = os.path.normpath(os.path.abspath(src))
-    dst = os.path.normpath(os.path.abspath(dst))
+    src, dst = _prepare_roots(src, dst)
     os.makedirs(dst, exist_ok=True)
     stat = StraiStat()
 
     for sroot, _, sfilenames in os.walk(src):
-        droot = sroot.replace(src, dst)
+        rel = _relative_to(src, sroot)
+        droot = os.path.normpath(os.path.join(dst, rel))
         for sfilename in sfilenames:
             ext = os.path.splitext(sfilename)[1].lower()
             if ext not in EXPECTED_EXTS and ext not in COPY_EXTS:
@@ -109,13 +152,17 @@ def straight_sync(src: str, dst: str):
 
 
 def reversed_sync(src: str, dst: str):
-    src = os.path.normpath(os.path.abspath(src))
-    dst = os.path.normpath(os.path.abspath(dst))
+    src, dst = _prepare_roots(src, dst)
     stat = RevStat()
 
     for droot, _, dfilenames in os.walk(dst):
-        sroot = droot.replace(dst, src)
+        rel = _relative_to(dst, droot)
+        sroot = os.path.normpath(os.path.join(src, rel))
         if os.path.exists(droot) and not os.path.exists(sroot):
+            if os.path.normcase(os.path.realpath(droot)) == os.path.normcase(
+                os.path.realpath(dst)
+            ):
+                continue
             if not _within(dst, droot):
                 raise RuntimeError(f"拒绝删除目录外的路径: {droot}")
             shutil.rmtree(droot)
@@ -142,7 +189,8 @@ def reversed_sync(src: str, dst: str):
 
 
 def _convert(source: str, target: str, timeout: float) -> tuple[int, str]:
-    part = target + ".part"
+    stem, suffix = os.path.splitext(target)
+    part = f"{stem}.part{suffix}"
     try:
         code = convert_audio(source, part, quality="128k", timeout=timeout)
         os.replace(part, target)
