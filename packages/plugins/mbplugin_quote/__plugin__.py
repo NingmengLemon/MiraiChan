@@ -57,6 +57,7 @@ from .request import (
     parse_chat_args,
 )
 from .resources import FetchLimits, ResourceResolver
+from .send import echo_message_id
 from .settings import QuoteSettings
 from .sources import fetch_messages, source_from_onebot
 
@@ -308,6 +309,13 @@ async def _gate(
     return True
 
 
+async def _notify_send_failure(adapter: Adapter) -> None:
+    try:
+        await adapter.send_reply("图片发送失败了, 实现端上传超时或网络异常, 请稍后再试")
+    except Exception:
+        logger.exception("发送引用图失败提示也失败")
+
+
 async def _deliver(
     event: GroupMessageEvent,
     adapter: Adapter,
@@ -318,7 +326,18 @@ async def _deliver(
     data, ext = await asyncio.get_running_loop().run_in_executor(
         state.executor, encode, rendered.image, cfg.format, cfg.quality
     )
-    handles = await adapter.send_reply(ImageSegment(file=bytes_to_b64_url(data)))
+    try:
+        handles = await adapter.send_reply(ImageSegment(file=bytes_to_b64_url(data)))
+        echoes = await handles
+    except Exception:
+        logger.exception("引用图发送失败")
+        await _notify_send_failure(adapter)
+        return
+    echo = echoes[0] if echoes else None
+    if echo is None or not echo.is_ok():
+        logger.warning("引用图发送失败, echo=%r", echo)
+        await _notify_send_failure(adapter)
+        return
     if state.settings.show_timing:
         t = rendered.timings
         await adapter.send_reply(
@@ -331,14 +350,16 @@ async def _deliver(
     except Exception:
         logger.exception("引用图存档失败")
         return
+    message_id = echo_message_id(echo)
+    if message_id is None:
+        # 图已经发出去了, 但拿不到 id, 这张之后无法用指令撤回
+        logger.warning(
+            "引用图已发送但拿不到消息 id, artifact=%s 将无法撤回", artifact.id
+        )
+        return
     try:
-        echo = (await handles)[0]
-        if echo is not None and echo.data is not None:
-            await state.archive.attach_sent_message(
-                artifact.id, str(echo.data["message_id"])
-            )
+        await state.archive.attach_sent_message(artifact.id, message_id)
     except Exception:
-        # 记不上 message_id 时这张图之后无法用指令撤回, 留一条可查的 warning
         logger.warning(
             f"记录已发送消息 id 失败, artifact={artifact.id} 将无法撤回", exc_info=True
         )
