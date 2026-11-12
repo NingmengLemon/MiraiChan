@@ -971,6 +971,9 @@ version = "0.1.4"
 source = { editable = "packages/plugins/mbplugin_deeeer" }
 dependencies = [
     { name = "lemony-checkers" },
+    { name = "lemony-images" },
+    { name = "lemony-onebot-utils" },
+    { name = "lemony-settings" },
     { name = "lemony-storage-helper", extra = ["sqlite"] },
     { name = "lemony-utils" },
     { name = "melobot", extra = ["onebot"] },
@@ -981,6 +984,9 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
+    { name = "lemony-images", editable = "packages/shared/lemony_images" },
+    { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
+    { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-storage-helper", extras = ["sqlite"], editable = "packages/shared/lemony_storage_helper" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },
@@ -1025,6 +1031,7 @@ version = "0.1.0"
 source = { editable = "packages/plugins/mbplugin_forward_strip" }
 dependencies = [
     { name = "lemony-checkers" },
+    { name = "lemony-onebot-utils" },
     { name = "lemony-settings" },
     { name = "lemony-utils" },
     { name = "melobot", extra = ["onebot"] },
@@ -1034,6 +1041,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "lemony-checkers", editable = "packages/shared/lemony_checkers" },
+    { name = "lemony-onebot-utils", editable = "packages/shared/lemony_onebot_utils" },
     { name = "lemony-settings", editable = "packages/shared/lemony_settings" },
     { name = "lemony-utils", editable = "packages/shared/lemony_utils" },
     { name = "melobot", extras = ["onebot"], specifier = ">=3.5.1" },

@@ -6,6 +6,9 @@ readme = "readme.md"
 requires-python = ">=3.12"
 dependencies = [
     "lemony_checkers",
+    "lemony_images",
+    "lemony_onebot_utils",
+    "lemony_settings",
     "lemony_utils",
     "lemony_storage_helper[sqlite]",
     "melobot[onebot]>=3.5.1",
@@ -24,6 +27,9 @@ mbplugin_deeeer = ["py.typed", "resources/*"]
 
 [tool.uv.sources]
 lemony_checkers = { workspace = true }
+lemony_images = { workspace = true }
+lemony_onebot_utils = { workspace = true }
+lemony_settings = { workspace = true }
 lemony_utils = { workspace = true }
 lemony_storage_helper = { workspace = true }
 

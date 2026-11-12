@@ -6,6 +6,7 @@ readme = "readme.md"
 requires-python = ">=3.12"
 dependencies = [
     "lemony_checkers",
+    "lemony_onebot_utils",
     "lemony_settings",
     "lemony_utils",
     "melobot[onebot]>=3.5.1",
@@ -20,6 +21,7 @@ mbplugin_forward_strip = "."
 
 [tool.uv.sources]
 lemony_checkers = { workspace = true }
+lemony_onebot_utils = { workspace = true }
 lemony_settings = { workspace = true }
 lemony_utils = { workspace = true }
 
