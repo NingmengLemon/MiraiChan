@@ -186,6 +186,12 @@ async def _image_bytes(
             continue
         seen.add(path)
         try:
+            size = (await asyncio.to_thread(path.stat)).st_size
+        except OSError:
+            continue
+        if size > max_bytes:
+            raise ProvenanceError("图片太大了")
+        try:
             data = await asyncio.to_thread(path.read_bytes)
         except OSError:
             continue

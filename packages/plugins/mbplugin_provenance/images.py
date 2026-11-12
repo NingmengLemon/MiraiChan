@@ -3,6 +3,7 @@
 这些都不依赖 melobot 的 bot 实例, 单测可以直接调。
 """
 
+import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,8 @@ __all__ = [
     "mime_of",
     "segment_dict",
 ]
+
+logger = logging.getLogger(__name__)
 
 _SUFFIX_MIME = {
     ".png": "image/png",
@@ -111,6 +114,7 @@ def local_candidates(
             path = data_root / path
     try:
         if not path.is_file() or not _under_roots(path, roots):
+            logger.debug("拒绝读取 data root 外的本地图片: %s", raw)
             return []
     except OSError:
         return []
